@@ -1,6 +1,15 @@
 # 影策 · AI 文档索引
 
-面向 AI 的短索引。详细文档维护规则见 [AGENTS.md](../AGENTS.md) 第 10 节「文档同步」。
+面向 AI 的短索引。详细文档维护规则见 [AGENTS.md](../AGENTS.md) 的「文档与交付」约定。
+
+## 快速入口
+
+- [前后端技术栈与架构总览](content/docs/overview/architecture.mdx)：从浏览器入口、后端调用链到任务、Agent、插件和部署边界的统一导航。
+- [功能清单](content/docs/overview/features.mdx)：按产品能力查找功能现状和相关专题。
+- [代码功能地图](content/docs/backend/code-map.mdx)：从功能入口定位页面、API、handler、app 和协作模块。
+- [本地开发](content/docs/backend/local-development.mdx)：本地启动、数据目录和相关开发约束。
+- [HTTP API](content/docs/backend/http-api.mdx)：响应信封、任务、SSE、模型和 Agent 协议边界。
+- [研究草稿入口](drafts/README.md)：查看尚未稳定或尚未真实验收的调研结论。
 
 ## 设计沉淀
 
@@ -49,19 +58,19 @@
 
 ## 本地协作文档（不随仓库分发）
 
-- [beautifului 创作设计](beautifului-creation-design.md)：本地设计参考，未纳入版本控制。
+- beautifului 创作设计：本地设计参考，未纳入版本控制。
 
 ## 按约定维护的文档（`docs/content/docs/`）
 
-功能、代码地图、待办、待测试分别维护在以下页面；尚未建立的专题会在对应任务中补齐：
+架构、功能、代码地图和待测试分别维护在以下页面；尚未建立的专题会在对应任务中补齐：
 
 - [AI 审美批改画布插件](content/docs/plugins/ai-art-critique.mdx)
+- [前后端技术栈与架构总览](content/docs/overview/architecture.mdx)
 - [功能](content/docs/overview/features.mdx)
 - [本地开发](content/docs/backend/local-development.mdx)
 - [HTTP API 合同](content/docs/backend/http-api.mdx)
 - [后端数据库](content/docs/backend/backend-database.mdx)
 - [代码地图](content/docs/backend/code-map.mdx)
-- [待办](content/docs/progress/todo.mdx)
 - [待测试](content/docs/progress/pending-test.mdx)
 
 ## 研究草稿（低冲突区）

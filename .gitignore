@@ -32,6 +32,8 @@ docs/content/docs/backend/*
 # Keep the creative Agent design versioned without unignoring generated docs.
 !docs/content/docs/overview/
 docs/content/docs/overview/*
+!docs/content/docs/overview/architecture.mdx
+!docs/content/docs/overview/meta.json
 !docs/content/docs/overview/creative-agent-design.mdx
 .env*
 !.env.example

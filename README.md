@@ -9,7 +9,7 @@
 <p align="center">
   <a href="https://github.com/ddcat-ai/open-ai-canvas">GitHub</a> ·
   <a href="docs/content/docs/overview/features.mdx">功能</a> ·
-  <a href="docs/content/docs/overview/quick-start.mdx">文档</a> ·
+  <a href="docs/content/docs/overview/architecture.mdx">架构文档</a> ·
   <a href="SECURITY.md">安全策略</a>
 </p>
 
@@ -198,14 +198,15 @@ curl -fsSL https://raw.githubusercontent.com/ddcat-ai/open-ai-canvas/main/script
 
 ### 文档导航
 
-- [快速开始](docs/content/docs/overview/quick-start.mdx)
+- [架构总览](docs/content/docs/overview/architecture.mdx)
 - [功能清单](docs/content/docs/overview/features.mdx)
 - [代码功能地图](docs/content/docs/backend/code-map.mdx)
 - [本地开发](docs/content/docs/backend/local-development.mdx)
+- [HTTP API](docs/content/docs/backend/http-api.mdx)
 - [数据库结构](docs/content/docs/backend/backend-database.mdx)
-- [画布操作手册](docs/content/docs/canvas/canvas-node-manual.mdx)
 - [插件系统](docs/content/docs/plugins/plugin-system.mdx)
-- [待办与待测试](docs/content/docs/progress/todo.mdx) · [待测试清单](docs/content/docs/progress/pending-test.mdx)
+- [待测试清单](docs/content/docs/progress/pending-test.mdx)
+- [文档索引](docs/index.md) · [研究草稿](docs/drafts/README.md)
 - [更新日志](CHANGELOG.md) · [贡献指南](CONTRIBUTING.md)
 
 ### 验证命令

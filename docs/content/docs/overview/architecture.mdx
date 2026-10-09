@@ -1,0 +1,249 @@
+---
+title: 前后端技术栈与架构总览
+description: 从浏览器入口、后端调用链到任务、Agent、插件和部署边界的统一导航
+---
+
+# 前后端技术栈与架构总览
+
+> 这是一篇面向新开发者和 AI Agent 的稳定入口。它只保留跨模块的架构结论，具体 API、数据库字段、插件协议和验收状态继续以对应专题为准。
+
+## 先看结论
+
+影策（`ddcat-ai/open-ai-canvas`）是面向 AI 影视、短剧和视觉预演的创作工作台。用户可以从剧本、角色、场景和分镜出发，经过自由画布或结构化项目，提交文本、图片、视频和音频任务，并在素材库、时间线和 Agent 中继续组织结果。
+
+当前项目的核心不是某个单独的画布页面，而是以下闭环：
+
+```text
+浏览器工作区
+  -> 业务 API / 资源流 / SSE
+  -> Go HTTP 边界
+  -> 服务门面与 app 组合根
+  -> 业务域、任务准入、Agent 控制面
+  -> repository / model / database / storage
+  -> provider / protocol / generation / outbound
+  -> 外部模型、对象存储、支付或独立 Agent runtime
+```
+
+最适合的阅读顺序是：先读本文，再按功能进入[代码功能地图](/docs/backend/code-map)，需要协议细节时读[HTTP API](/docs/backend/http-api)，需要本地启动时读[本地开发](/docs/backend/local-development)。未稳定或尚未真实验收的调查结果仍保留在 `docs/drafts/`，不会与本文竞争事实源。
+
+## 技术栈与仓库边界
+
+| 单元 | 技术栈 | 主要入口 | 主要责任 |
+| --- | --- | --- | --- |
+| `web/` | Vite、React、TypeScript、React Router、Ant Design、Tailwind、Zustand、TanStack Query | `web/src/application.tsx`、`web/src/router.tsx` | 工作区 UI、画布交互、本地状态、API 调用和模型协议适配 |
+| `backend/` | Go 1.25、Gin、GORM、SQLite/PostgreSQL、Redis 协调 | `backend/cmd/server/main.go` | 登录、权限、业务 API、任务、资源、模型中转、计费和后台管理 |
+| `yingce-agent/` | Node.js Agent runtime 服务 | `yingce-agent/server.mjs` | 可选的独立 Agent 执行进程；不直接连接数据库或写画布 |
+| `plugin-packages/` | 插件包与 Manifest | `backend/internal/protocol/`、各插件包目录 | 模型、工作流、协议和外部能力的可发现适配 |
+| `docs/` | Markdown、MDX、设计记录和研究草稿 | `docs/index.md`、`docs/content/docs/` | 面向用户、开发者和 Agent 的事实、设计和验证记录 |
+
+根目录的 `Dockerfile` 构建前端静态镜像，`nginx.conf` 托管 SPA 并代理后端。`docker-compose.dev.yml` 用于源码热更新，`docker-compose.local.yml` 用于本地构建运行，`docker-compose.deploy.yml` 用于 PostgreSQL + Redis 的部署拓扑。
+
+## 前端架构
+
+### 启动与路由
+
+- `web/src/application.tsx` 创建 React 根节点，加载全局样式、内置插件和 `AppProviders`。
+- `web/src/router.tsx` 使用 React Router 组织登录、创作页、自由画布、短剧项目、任务、素材、灵感和管理员路由。
+- 页面主要位于 `web/src/pages/`，跨页面 UI 和交互能力位于 `web/src/components/`；画布相关组件集中在 `web/src/components/canvas/`。
+- `web/src/layouts/` 负责工作区壳、导航和全局浮层；页面不应重复实现全局布局或 body 状态。
+
+主要用户路径如下：
+
+| 路径 | 责任 |
+| --- | --- |
+| `/create` | 创作首页、灵感、文本和生成入口 |
+| `/canvas`、`/canvas/:id` | 自由画布、节点、连线、生成和 Agent 面板 |
+| `/projects/...` | 结构化短剧项目、章节、工作流、角色、场景和分镜 |
+| `/tasks`、`/assets`、`/inspirations` | 异步任务、素材和灵感管理 |
+| `/admin/...` | 模型渠道、逻辑模型、插件、支付、存储、用户和运行策略 |
+
+### 状态、API 与存储
+
+前端业务 JSON 的唯一调用入口是 `web/src/services/api/request.ts` 导出的 `http`。它负责：
+
+- 解包后端 `{ code, data, msg, reason }` 信封；
+- 将非零业务 `code` 转为 `ApiError`，由上层按 `reason` 或错误码处理；
+- 复用登录 Cookie、请求取消和重试语义；
+- 保留 `http.raw` 给 CSV、诊断包和其他非信封响应。
+
+业务模块位于 `web/src/services/api/`，不依赖 JSX、路由或 Ant Design 提示。模型渠道的 URL、Header、请求体和响应状态机分别留在对应的 transport、协议和 provider 模块中；不要把供应商特例塞进通用 `request.ts`。
+
+状态分为三类：
+
+1. 页面临时状态留在页面或页面私有 hook。
+2. 跨页面状态进入 `web/src/stores/`；画布进一步拆到 `web/src/stores/canvas/`。
+3. 画布、素材、时间线和大 JSON 使用带用户作用域的 `localforage`，小型配置和 UI 偏好才使用 `localStorage`。
+
+本地缓存是后端不可用时的降级能力，不等于服务端已经持久化。用户切换时必须同时隔离 React Query、localforage 和资源缓存，避免账号之间串数据。
+
+### 画布复杂度中心
+
+画布由页面协调器、节点渲染、连接策略、生成执行器、资源引用、同步与版本历史、任务状态和 Agent 面板共同组成。排查画布问题时，优先沿以下路径阅读：
+
+```text
+web/src/pages/canvas/
+  -> web/src/components/canvas/
+  -> web/src/stores/canvas/
+  -> web/src/lib/canvas/
+  -> web/src/services/api/
+```
+
+不要把画布大对象、媒体字节或跨页面副作用直接塞进页面组件；新增能力应先确定它属于 UI、store、纯算法、API 适配还是资源/任务副作用。
+
+## 后端架构
+
+### 启动流程与组合根
+
+后端入口是 `backend/cmd/server/main.go`。当前启动顺序可以概括为：
+
+1. 读取环境变量、日志和数据目录。
+2. 打开 SQLite 或 PostgreSQL，并配置连接池。
+3. 按 `CANVAS_AUTO_MIGRATE` 执行迁移或校验 schema 版本。
+4. 初始化系统模型、提示词、项目工作流、技能和工具。
+5. 创建 service、注册 `/api` 路由和系统状态路由。
+6. 启动任务 Worker、资源处理和恢复逻辑，随后监听 HTTP。
+
+API 注册集中在 `backend/internal/handler/api.go`。handler 负责 HTTP 入参、鉴权上下文、调用 service 和统一响应；它不应承载业务判断或直接查询数据库。
+
+### 分层与依赖方向
+
+稳定的主调用链是：
+
+```text
+HTTP
+  -> handler
+  -> service（稳定导入门面）
+  -> app（组合根和业务编排）
+  -> 业务域包
+  -> repository / model
+  -> database / storage / provider
+```
+
+目录职责如下：
+
+- `backend/internal/service/`：主要提供稳定导入面，向 handler 和 cmd 暴露 `internal/app` 的类型、常量和包级函数。
+- `backend/internal/app/`：HTTP 组合根和仍在演进的业务实现，包含任务、Agent、模型、资源、计费和运行策略编排。
+- `backend/internal/repository/`：GORM 查询和持久化，不承载业务策略。
+- `backend/internal/model/`：结构、枚举和简单模型方法，不调用外部服务。
+- `backend/internal/provider/`：供应商能力发现和抽象接口。
+- `backend/internal/protocol/`：OpenAI、Claude、Gemini、MiniMax、即梦、RunningHub 等协议和 Manifest 适配。
+- `backend/internal/generation/`：生成引擎、注册表和任务执行抽象。
+- `backend/internal/outbound/`：出站 URL 校验和 SSRF 安全边界。
+- `backend/internal/database/`、`backend/internal/storage/`：数据库迁移、连接池、资源对象和分发。
+
+域包不得为了方便反向依赖 `internal/service` 或 `internal/app`。跨层调用只有在明确承担组合、协议或安全边界时才成立，并应配套测试。
+
+## 任务与模型生成链路
+
+普通生成请求不是浏览器直接调用供应商，而是先经过后端任务系统：
+
+```text
+页面/画布
+  -> web/src/services/api/ 任务接口
+  -> handler
+  -> app.CreateTask
+  -> 模型目录与逻辑模型路由
+  -> 能力、权限、额度、并发、容量和资源引用校验
+  -> 任务与计费快照持久化
+  -> Worker 租约
+  -> task_execution.go
+  -> generation / provider / protocol
+  -> 资源落盘、任务事件和前端展示
+```
+
+`backend/internal/app/task_creation.go` 的 `CreateTask` 是常规任务的 admission 入口，负责输入标准化、模型路由、能力检查、功能开关、资源检查、容量、并发和计费准入。任务落库后，`backend/internal/app/task_execution.go` 负责类型分派；媒体执行再进入 `provider_*.go`、`generation` 和具体协议。
+
+这种分离保证三件事尽量来自同一份服务端事实：
+
+- 前端展示的模型；
+- 实际执行的渠道和模型；
+- 最终计费的逻辑模型、价格或任务快照。
+
+任务执行还必须处理租约、取消、轮询、流式响应、失败恢复、资源保存和幂等。涉及账务、权限、容量或资源引用的写路径不能使用空 ID、默认用户或默认额度兜底。
+
+更细的错误信封、SSE、任务事件和模型报价约束见[HTTP API](/docs/backend/http-api)；任务恢复与稳定性见[任务运行时稳定性](/docs/backend/task-runtime-stability)；数据库字段以[后端数据库](/docs/backend/backend-database)为准。
+
+## Agent、技能和插件
+
+### Agent 控制面与运行时
+
+云端 Agent 是后端控制面加 Node runtime 的组合，不是单纯的聊天框：
+
+```text
+浏览器 Agent 面板
+  -> /api/agent 与事件流
+  -> Go handler / app/cloud_agent_*
+  -> 权限、上下文、工具 schema、审批、记忆、计费和恢复
+  -> 内嵌 Pi runtime 或独立 yingce-agent
+  -> bridge token 回到 Go 后端
+  -> 画布变更、任务创建和事件持久化
+```
+
+本地不设置 `YINGCE_AGENT_URL` 时，后端可以在本进程内启动 Node。生产 Compose 设置该变量后，后端调用独立的 `yingce-agent` 容器；独立服务不连接数据库、不执行计费、审批或画布写入，只通过一次性 bridge token 与 Go 后端交互。远程调用失败时不自动回退到内嵌进程，避免同一步执行两次。
+
+Agent 的权限、审批、上下文检查点、记忆和收费媒体任务由 Go 控制面负责；生成媒体仍复用任务 admission 和 Worker。前端入口和事件适配主要位于 `web/src/services/api/agent.ts`、`web/src/components/canvas/canvas-cloud-agent-panel.tsx`，后端入口主要位于 `backend/internal/handler/agent.go`、`backend/internal/app/cloud_agent.go` 及相邻 `cloud_agent_*` 文件。
+
+### 插件边界
+
+插件扩展面包括模型渠道、协议、工作流、外部素材连接器、提示词/技能和支付能力。插件通常通过 `.yingce-plugin` 包和 Manifest 被发现，协议适配和校验集中在 `backend/internal/protocol/`，具体边界见[插件系统](/docs/plugins/plugin-system)。
+
+插件可以扩展能力，但不能替代服务端的权限、计费、资源归属和任务准入。新的画布节点仍需要真实的前端实现和服务端能力描述符；新的生成模式仍需要任务适配器，不能只靠技能说明文件或用户偏好获得执行权限。
+
+## 数据、资源与部署
+
+### 数据与资源
+
+- 本地开发默认使用 SQLite；生产 Compose 使用 PostgreSQL 和 Redis。
+- 数据库连接、迁移和 schema 版本由 `backend/internal/database/` 管理。
+- 素材可以落在后端数据目录或 OSS、COS、七牛、S3 兼容对象存储；资源分发和签名由 `backend/internal/storage/` 及资源服务负责。
+- 删除素材前要检查项目、画布、任务和其他业务引用；有引用则保留并返回来源，无引用才清理物理对象。
+- 媒体生成的大对象和任务结果不会通过浏览器 URL 传递密钥；敏感输入在服务端持久化和日志链路中需要按当前实现脱敏或保护。
+
+### 本地与生产拓扑
+
+本地开发的主要边界是：前端 Vite、Go backend、SQLite 和内嵌 Agent runtime。生产 Compose 的主要拓扑是：
+
+```text
+公网
+  -> web / Nginx :3000
+       -> backend :8080（Compose 内网）
+            -> PostgreSQL
+            -> Redis
+            -> yingce-agent :8081
+            -> 外部模型渠道 / 对象存储 / 支付
+```
+
+`docker-compose.deploy.yml` 使用独立 `migrate` 服务完成数据库升级，backend 关闭自动迁移并等待迁移成功；公网只暴露 web 入口。文本任务和 Agent 事件流使用专门的 SSE 代理路径，不应为了某个流式问题对所有 `/api/` 请求关闭缓存、压缩或缓冲。
+
+### 必须保持的安全边界
+
+- 默认拒绝本机、私网和链路本地模型地址；开发放行必须使用 `CANVAS_ALLOWED_PRIVATE_UPSTREAM_HOSTS` 精确列举可信主机。
+- 生产设置明确的 `CANVAS_CORS_ORIGINS`，保持 HTTPS，并让后端 `8080` 留在 Compose 网络内。
+- 用户 API Key 不放入浏览器 URL、日志、错误上报或长期服务端明文；只在可信部署和 HTTPS 链路中使用真实密钥。
+- 所有对象读取、更新、删除都由服务端校验用户归属；管理员能力不依赖前端隐藏按钮。
+- 数据库、备份、上传目录、`.env` 和 `.settings-key` 必须限制权限，默认关闭公网注册。
+
+## 新功能的推荐追踪路径
+
+遇到一个新功能或线上问题时，按下面顺序查找，通常不需要重新遍历整个仓库：
+
+| 问题 | 先看哪里 | 再看哪里 |
+| --- | --- | --- |
+| 页面从哪里进入 | `web/src/router.tsx`、`web/src/pages/` | `docs/content/docs/backend/code-map.mdx` |
+| API 如何调用 | `web/src/services/api/`、`request.ts` | `backend/internal/handler/`、`http-api.mdx` |
+| 请求如何落库或执行业务 | `backend/internal/app/` | `repository/`、`model/`、`database/` |
+| 模型如何路由和生成 | `task_creation.go`、`task_execution.go` | `generation/`、`provider/`、`protocol/` |
+| Agent 如何恢复和审批 | `web/src/services/api/agent.ts` | `handler/agent.go`、`app/cloud_agent_*`、`yingce-agent/README.md` |
+| 资源为何不能删除 | `backend/internal/assets/`、`storage/` | `backend-database.mdx`、资源专题 |
+| 改动如何验收 | 相关测试和 `AGENTS.md` 验证纪律 | `docs/content/docs/progress/pending-test.mdx` |
+
+## 文档边界与验证状态
+
+本文描述的是当前 checkout 中通过源码、配置和现有文档确认的架构事实，不代表所有真实环境链路已经验收。尤其需要区分：
+
+- **已实现**：代码和配置已经存在，并能从入口追到实现。
+- **设计/约定**：`AGENTS.md`、设计记录或专题文档要求未来保持的边界。
+- **待验证**：依赖真实登录态、真实模型、对象存储、支付、SSE 断线或独立 Agent 容器的运行行为。
+
+当前仓库的 `docs/` 主要是内容源、设计记录和研究草稿；若 checkout 中没有 `docs/package.json`、`docs/source.config.ts` 或文档站应用入口，就不能把 `cd docs && bun run build` 视为已存在的可执行验证。构建系统归属和失效链接审计保留在 `docs/drafts/project-understanding-and-docs-system-audit.md`，后续应在确认发布工程归属后再修复或删除不可执行命令。
+
