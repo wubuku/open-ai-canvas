@@ -1,0 +1,262 @@
+---
+title: 画布开发导航
+description: 面向开发者和 AI Agent 的画布数据模型、状态、持久化、生成、Agent、插件与验证入口
+---
+
+# 画布开发导航
+
+> 本文不是用户操作手册，而是画布代码的入口地图。目标是让开发者先找到正确的事实源、调用链和测试位置，再进入具体实现。
+
+## 先按问题找入口
+
+| 你要做什么 | 第一入口 | 继续阅读 |
+| --- | --- | --- |
+| 了解画布整体生命周期 | `web/src/pages/canvas/project.tsx` | `use-canvas-project-lifecycle.ts`、`use-canvas-store.ts`、`web/src/services/api/user-data.ts` |
+| 新增或修改节点类型 | `web/src/types/canvas.ts` | `canvas-node-operations.ts`、`canvas-node-content.tsx`、`canvas-node-*.tsx`、服务端 `backend/internal/canvas/capability/` |
+| 修改连线、输入或引用解析 | `canvas-connection-policy.ts` | `canvas-resource-references.ts`、`canvas-connection-controller.ts`、`canvas-batch-connection.ts` |
+| 修改图片/视频/音频生成 | `use-canvas-generation.ts` | `use-canvas-generation-executor.ts`、`canvas-generation-submission.ts`、`canvas-generation-task-sync.ts` |
+| 处理异步结果回写 | `web/src/services/canvas-generation-consumer.ts` | `canvas-generation-result.ts`、`canvas-node-task-state.ts`、任务 API |
+| 修改本地保存、跨标签页或冲突合并 | `web/src/stores/canvas/use-canvas-store.ts` | `canvas-storage-revision.ts`、`user-data-sync.ts`、后端 `user_data.go` |
+| 修改画布历史和恢复 | `web/src/pages/canvas/use-canvas-history.ts` | `backend/internal/canvas/canvas_history.go`、`user-data.ts` |
+| 修改 Agent 读写画布 | `canvas-cloud-agent-panel.tsx` | `agent-canvas-actions.ts`、`agent-canvas-patch.ts`、`backend/internal/canvas/capability/`、`cloud_agent_canvas_*` |
+| 增加插件节点或画布表面 | `docs/content/docs/plugins/plugin-system.mdx` | `plugin-surfaces.mdx`、`web/src/lib/plugins/`、`backend/internal/protocol/` |
+| 排查画布性能或节点消失 | `canvas-spatial-index.ts`、`canvas-node-visibility.ts` | `canvas-live-viewport.ts`、`canvas-generation-consumer.ts`、[一致性治理设计记录](../../../design/canvas-consistency-repair.mdx) |
+| 修改 3D 预演、分镜或时间线 | `use-canvas-previs.ts`、`use-canvas-storyboard.ts` | `use-canvas-timeline-asset-insert.ts`、`canvas-storyboard-*.ts`、`use-previs-workbench-store.ts` |
+
+如果只是想建立项目整体心智模型，先读[前后端技术栈与架构总览](/docs/overview/architecture)；如果要从产品功能反查代码，再读[代码功能地图](/docs/backend/code-map)。
+
+## 画布的运行时心智模型
+
+画布不是一个单独的 React 组件，而是页面编排、浏览器状态、纯函数算法、任务系统、资源存储和可选 Agent 的组合：
+
+```text
+/canvas/:id
+  -> web/src/pages/canvas/project.tsx
+      -> 页面级 hooks：生命周期、选择、视口、连接、上传、生成、预演
+      -> CanvasWorkspacePanel / canvas-* components
+      -> refs + React snapshot
+      -> Zustand CanvasStore
+          -> localforage（用户作用域、本地降级和跨标签页协调）
+          -> user-data API（远端画布、revision、ETag、历史）
+      -> task API / resource API / Agent API
+          -> Go handler -> service facade -> app/canvas domain
+          -> repository / model / database / storage / provider
+```
+
+画布的关键原则是：**UI 的即时显示、浏览器本地持久化、服务端画布快照、生成任务结果和素材资源不是同一个状态**。修改其中一层时，必须明确其他层如何被更新、确认或恢复。
+
+## 一、持久化数据模型
+
+### `CanvasProject` 是顶层文档
+
+顶层类型在 `web/src/stores/canvas/use-canvas-store.ts`，主要字段包括：
+
+```text
+CanvasProject
+  id / projectId / title / createdAt / updatedAt
+  revision / remoteContentHash
+  nodes[]
+  connections[]
+  chatSessions[] / activeChatId
+  viewport / appearance / backgroundMode
+  previsScenes[] / timeline?
+```
+
+`revision` 是服务端和本地合并的重要身份，不是 UI 版本号。`viewport`、主题和本地工作区状态可以随项目保存，但不能把“浏览器已经显示”当作“远端已经持久化”。
+
+### `CanvasNodeData` 是节点合同
+
+类型在 `web/src/types/canvas.ts`：
+
+```text
+CanvasNodeData
+  id / type / title
+  position / width / height / parentId
+  metadata?
+```
+
+`type` 可以是内置 `CanvasNodeType`，也可以是插件贡献的运行时节点类型。节点的生成配置、任务状态、提示词、媒体定位、资产绑定、批次关系、工作流和插件数据都在 `metadata` 下，但不同字段有不同所有者：
+
+- `content`、`prompt`、`composerContent`：编辑态或生成输入，不要混淆用户原始输入和提交给模型的有效提示词。
+- `storageKey`、`assetId`、`mimeType`、尺寸和时长：媒体资源身份和展示元数据。预览暂时没有恢复时，存在 `storageKey` 仍表示节点可能持有可恢复资源。
+- `taskId`、`status`、错误和恢复字段：生成任务绑定和 UI 状态，必须和任务身份一起校验。
+- `generationSpec`：无凭据的声明式生成合同；渠道密钥、真实路由和计费信息不应写入节点。
+- `pluginId`、`pluginNodeId`、`pluginData`：插件命名空间数据，不能让插件直接写宿主 React 状态。
+- `isBatchRoot`、`batchRootId`、`batchChildIds`：批量生成父图和子图关系。父节点是结果投影，不应重新携带已经失效的独立任务身份。
+
+### `CanvasConnection` 表达关系，不只是几何连线
+
+`CanvasConnection` 在 `web/src/types/canvas.ts`，包含起止节点、handle、锚点和可选的 `relation`。当前关系可能表达普通连接、分镜输出、分镜素材引用、批次输入或批次输出。
+
+因此修改连线逻辑时要区分：
+
+1. 线是否可视以及如何绘制；
+2. 线是否允许建立；
+3. 线是否参与提示词或素材引用解析；
+4. 线是否只是批次分组关系，不应被误当作媒体输入。
+
+输入解析优先看 `canvas-resource-references.ts` 和 `canvas-connection-policy.ts`，不要在节点组件中自行按所有连线推断参考素材。
+
+## 二、前端职责分层
+
+### 路由和页面编排
+
+- `web/src/router.tsx` 注册 `/canvas`、`/canvas/:id` 和公开分享路由。
+- `web/src/pages/canvas/index.tsx` 负责画布列表入口。
+- `web/src/pages/canvas/project.tsx` 负责单个画布的页面级协调：加载项目、建立 refs、挂接任务消费、组装工作区、处理路由参数和页面生命周期。
+- `web/src/pages/canvas/use-canvas-*.ts` 是流程 hook 集合，按生命周期、选择、连接、上传、生成、历史、预演和时间线分工。
+
+页面可以协调流程，但不应把供应商 payload、持久化合并算法或大段节点渲染逻辑塞进 `project.tsx`。
+
+### 组件和工作区
+
+`web/src/components/canvas/` 负责节点渲染、工具栏、面板、弹窗、上传、任务和 Agent UI。`canvas-workspace-panel.tsx` 是节点、资产、任务和历史等工作区面板的入口；`canvas-node-content.tsx`、`canvas-node-media-content.tsx`、`canvas-node-generation.ts` 及各类 `canvas-node-*.tsx` 负责节点级显示和动作。
+
+页面私有的流程留在 `pages/canvas/`，真正跨页面复用的交互才进入 `components/canvas/`。组件不应直接创建平行 API client，也不应绕过 service 层写远端状态。
+
+### Store、纯函数和副作用
+
+| 层 | 主要目录 | 应该放什么 |
+| --- | --- | --- |
+| 跨页面状态 | `web/src/stores/canvas/` | 项目、UI、历史、主题和预演工作台状态 |
+| 纯模型/算法 | `web/src/lib/canvas/` | 文档模型、布局、连接、引用、提示词、可见性、批次和合并算法 |
+| 浏览器副作用 | `web/src/services/` | 任务消费、上传、资源同步、Agent 事件和 API 调用 |
+| 页面协调 | `web/src/pages/canvas/` | 生命周期、hook 组合和页面级流程 |
+| 视觉交互 | `web/src/components/canvas/` | 节点、面板、工具栏、弹窗和画布输入 |
+
+`canvas-editor-state.ts` 的 `createCanvasStateWriter` 体现了一个重要合同：编辑命令先更新 ref，再发布 React 快照；不要让 React 重新执行带副作用、可能重复的 updater。异步任务结果也不能借用“全量替换文档”的加载权限。
+
+## 三、本地状态与远端同步
+
+### 本地保存
+
+`use-canvas-store.ts` 使用带用户 scope 的 `localForageStorageForScope`，默认存储键为 `yingce:canvas_store`。`localStorage` 只承担小型配置、锁和恢复日志等辅助职责；画布主体和大对象不应改回单一 `localStorage` JSON。
+
+`canvas-storage-revision.ts` 定义了本地文档合同：
+
+- `version`：存储格式版本；
+- `storageRevision`：本地文档修改序号；
+- `tombstones`：项目、节点、连线、会话和消息的删除标记；
+- `journalTokens`、保存时间和 journal：失败写入后的恢复依据。
+
+多标签页写入通过 `withCanvasStorePersistenceLock` 串行化；本地 merge 使用 base/local/durable 三份状态进行 rebase，并按实体 ID 合并节点、连线、会话和消息。发生冲突时要保留用户编辑并报告冲突，不能静默用旧快照覆盖新编辑。
+
+### 远端画布 API
+
+前端 API 集中在 `web/src/services/api/user-data.ts`，后端 HTTP 边界在 `backend/internal/handler/user_data.go`，业务桥接在 `backend/internal/app/canvas_bridge.go`，域逻辑在 `backend/internal/canvas/`。
+
+常用入口：
+
+| 目的 | 方法和路径 | 前端函数 |
+| --- | --- | --- |
+| 列出画布 | `GET /api/canvas-projects` | `listRemoteCanvasProjects*` |
+| 读取画布 | `GET /api/canvas-projects/:id` | `getRemoteCanvasProject` |
+| 写入画布 | `PUT /api/canvas-projects/:id` | `upsertRemoteCanvasProject` |
+| 删除画布 | `DELETE /api/canvas-projects/:id` | `deleteRemoteCanvasProject` |
+| 查看历史 | `GET /api/canvas-projects/:id/history` | `listCanvasHistory` |
+| 读取历史快照 | `GET /api/canvas-projects/:id/history/:snapshotId` | `getCanvasHistorySnapshot` |
+| 恢复历史 | `POST /api/canvas-projects/:id/history/:snapshotId/restore` | `restoreCanvasHistory` |
+
+读取单个远端画布时可以使用 `ETag: "canvas-<revision>"`，服务端返回 `304` 时保留已知内容。写入需要遵守当前 revision 和资源归属校验；不要为解决冲突而无条件覆盖远端文档。
+
+本地“已保存”和远端“已同步”必须分别展示。排查同步问题时同时看画布同步状态组件、浏览器存储、`PUT /canvas-projects/:id` 响应、revision/ETag 和后端历史记录。
+
+## 四、生成任务与结果回写
+
+画布生成链路不是“点击按钮后直接替换节点”：
+
+```text
+节点提示词/引用
+  -> use-canvas-generation.ts
+  -> use-canvas-generation-executor.ts
+  -> canvas-generation-submission.ts
+  -> 任务 API / 后端 CreateTask admission
+  -> 任务 Worker 与 provider/protocol
+  -> 任务状态和物化资源
+  -> canvas-generation-consumer.ts
+  -> canvas-generation-task-sync.ts
+  -> canvas-generation-result.ts
+  -> 当前节点的最小增量合并
+```
+
+### 提交阶段
+
+- `canvas-generation-submission.ts` 生成请求指纹，区分编辑态 `composerContent` 与提交给模型的 `prompt`，并通过 node ID 防止同一节点重复提交。
+- `use-canvas-generation-executor.ts` 负责选择生成模式、读取节点上下文、组装任务输入、绑定 task ID 和更新 loading/error 状态。
+- 供应商选择、能力、额度、并发、资源引用和账务 admission 由后端 `backend/internal/app/task_creation.go` 再次校验；浏览器节点 metadata 不是计费或权限事实源。
+
+### 结果阶段
+
+- `canvas-generation-task-sync.ts` 从任务输出物化资源和节点更新，检查目标节点、任务身份和输出类型。
+- `canvas-generation-result.ts` 只把自己的结果合并到当前节点，保留其他节点、移动、尺寸、改名和并发编辑。
+- `canvas-generation-consumer.ts` 处理 live project、持久化锁、幂等 effect key、任务恢复和 durable acknowledgement。
+- 任务成功不等于资源已经可复用：要同时确认任务状态、`storageKey`/资源访问和节点回写；媒体资源还需要 `assetId` 或资源同步完成。
+
+修改生成回写时必须避免：
+
+1. 用旧的完整节点数组覆盖用户在等待期间的新编辑；
+2. 只按 `content` 判断媒体是否存在，忽略 `storageKey`；
+3. 只按任务列表缺失就把绑定任务伪造成失败；
+4. 把批次父节点的汇总状态当作单个子任务的状态；
+5. 把分组连线当成图片/视频参考输入。
+
+批量生成的一致性根因和当前修复边界见[画布批量生成一致性治理](../../../design/canvas-consistency-repair.mdx)；任务执行稳定性见[任务运行时稳定性](/docs/backend/task-runtime-stability)。
+
+## 五、Agent 与插件如何触碰画布
+
+### Agent
+
+画布 Agent 的前端入口是 `canvas-cloud-agent-panel.tsx`，状态和请求适配位于 `web/src/services/api/agent.ts`、`agent-canvas-actions.ts`、`agent-canvas-patch.ts`。后端由 `handler/agent.go`、`app/cloud_agent_canvas_state.go`、`cloud_agent_mutation.go`、`cloud_agent_pi_canvas_tools_*` 和 `backend/internal/canvas/capability/` 共同组成。
+
+服务端 capability registry 是节点能力的权威来源：它描述节点用途、输入类型、可更新字段、允许的 patch、摘要字段和投影字段。Agent 工具 schema、画布状态投影和写入校验都应使用这一份描述，不要在提示词、Skill 或前端另建一套可写节点白名单。
+
+Agent 写入画布要经过结构化操作、权限/审批和事实后置检查。`canvas-operation-contract.ts` 中的操作应能说明影响的节点、连线和生成任务；执行后还要核对目标节点、连线数量、布局重叠和生成资源状态。只返回“工具调用成功”不能证明画布已经达到预期。
+
+### 插件
+
+插件节点的 persisted `type` 使用运行时插件 ID，数据由 `pluginId`、`pluginNodeId` 和 `pluginData` 命名空间隔离。插件通过宿主 API 读写画布和资源，写操作应进入结构化指令，不直接修改宿主 React 状态或拼接资源 URL。
+
+新增画布插件时按此顺序阅读：
+
+1. [插件系统](/docs/plugins/plugin-system)：Manifest、权限、生命周期和能力合同；
+2. [插件显示形态](/docs/plugins/plugin-surfaces)：节点、全屏和混合 surface；
+3. `web/src/lib/plugins/`：宿主注册和 surface；
+4. `backend/internal/protocol/`：协议/插件发现和服务端约束；
+5. `backend/internal/canvas/capability/`：如果 Agent 需要发现、读取或修改该节点，补齐服务端描述符。
+
+插件可以扩展节点和动作，但不能绕过用户归属、任务 admission、计费、资源引用保护或 SSRF 边界。
+
+## 六、预演台、分镜和时间线
+
+这些能力仍以画布文档为载体，但有自己的状态和领域模块：
+
+- 3D 预演：`use-canvas-previs.ts`、`use-previs-workbench-store.ts`、`canvas-angle-scene.tsx` 和 `web/src/lib/canvas/previs/`。
+- 结构化分镜：`use-canvas-storyboard.ts`、`canvas-storyboard-*.ts`、`web/src/types/canvas.ts` 中的 `StoryboardData`、`StoryboardRow` 和资产绑定类型。
+- 时间线交接：`use-canvas-timeline-asset-insert.ts`、`web/src/types/timeline.ts` 和相关编辑器插件。
+
+不要把分镜行、预演场景或时间线片段当作普通媒体节点的 metadata 复制一份；先沿各自的 materializer、operation 和 store 入口确认唯一事实源，再设计交接。
+
+## 七、排查问题的最短路径
+
+| 症状 | 先检查 | 关键判断 |
+| --- | --- | --- |
+| 刷新后节点或编辑消失 | `use-canvas-store.ts`、`canvas-storage-revision.ts`、`user-data-sync.ts` | 是本地写失败、远端 revision 冲突，还是异步结果覆盖了新快照 |
+| 任务成功但节点没有媒体 | `use-canvas-generation.ts`、`canvas-generation-task-sync.ts` | task 是否成功、输出是否物化、`storageKey` 是否存在、资源是否可访问 |
+| 生成结果覆盖了别的编辑 | `canvas-generation-consumer.ts`、`canvas-generation-result.ts` | 回写是否按节点/task 身份做最小合并，是否复用了旧数组 |
+| 参考图数量或顺序错误 | `canvas-resource-references.ts`、`canvas-connection-policy.ts` | 输入关系是否与分组关系混淆，去重和 slot 顺序是否稳定 |
+| Agent 创建了不可用节点 | `backend/internal/canvas/capability/`、`canvas-operation-contract.ts` | descriptor、操作 postcondition 和真实组件是否一致 |
+| 画布缩放后节点不见 | `canvas-node-visibility.ts`、`canvas-spatial-index.ts`、`canvas-live-viewport.ts` | 是绘制过滤还是错误修改了持久化节点数组 |
+| 多标签页互相覆盖 | `withCanvasStorePersistenceLock`、`canvas-storage-revision.ts` | 是否启用了用户 scope、journal、tombstone 和冲突保留 |
+
+已有的专项一致性记录会解释根因和已实施边界，但不替代当前实现阅读。遇到新现象时，先记录任务 ID、节点 ID、资源 ID、用户 scope、revision 和保存请求，再判断是 UI、任务、资源还是持久化问题。
+
+## 八、改动画布前的检查清单
+
+1. 先确定修改的是节点合同、连接语义、显示、任务提交、结果回写、本地保存、远端同步、Agent 还是插件边界。
+2. 先读对应的类型、纯函数和现有测试，再改页面或组件；不要只在可见 UI 层修复数据问题。
+3. 异步流程必须保留节点/task/resource identity，并用最小增量合并，不做无条件全量覆盖。
+4. 任何写路径都要区分本地已写、远端已确认、任务已完成、资源已物化和资产已同步。
+5. 修改节点类型或字段时同步 `web/src/types/canvas.ts`、渲染/操作代码、序列化边界、Agent capability 和插件合同。
+6. 修改后按范围运行最小验证：前端画布专项测试用 `bun test ...`，后端画布/handler 测试用 `go test ./internal/canvas/... ./internal/handler/...` 或更窄的测试；真实登录、上游模型、SSE、对象存储和独立 Agent 仍需按待测试清单验收。
+
+本文描述的是当前 checkout 中的代码和文档事实。未通过真实环境验证的行为不应仅凭本文宣称已验收；架构和文档站构建边界仍以[项目架构总览](/docs/overview/architecture)及 `docs/drafts/` 中的审计记录为准。

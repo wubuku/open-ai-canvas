@@ -5,6 +5,7 @@
 ## 快速入口
 
 - [前后端技术栈与架构总览](content/docs/overview/architecture.mdx)：从浏览器入口、后端调用链到任务、Agent、插件和部署边界的统一导航。
+- [画布开发导航](content/docs/canvas/canvas-development.mdx)：从节点模型、状态与同步到生成回写、Agent、插件和排障入口。
 - [功能清单](content/docs/overview/features.mdx)：按产品能力查找功能现状和相关专题。
 - [代码功能地图](content/docs/backend/code-map.mdx)：从功能入口定位页面、API、handler、app 和协作模块。
 - [本地开发](content/docs/backend/local-development.mdx)：本地启动、数据目录和相关开发约束。
@@ -66,6 +67,7 @@
 
 - [AI 审美批改画布插件](content/docs/plugins/ai-art-critique.mdx)
 - [前后端技术栈与架构总览](content/docs/overview/architecture.mdx)
+- [画布开发导航](content/docs/canvas/canvas-development.mdx)
 - [功能](content/docs/overview/features.mdx)
 - [本地开发](content/docs/backend/local-development.mdx)
 - [HTTP API 合同](content/docs/backend/http-api.mdx)

@@ -199,6 +199,7 @@ curl -fsSL https://raw.githubusercontent.com/ddcat-ai/open-ai-canvas/main/script
 ### 文档导航
 
 - [架构总览](docs/content/docs/overview/architecture.mdx)
+- [画布开发导航](docs/content/docs/canvas/canvas-development.mdx)
 - [功能清单](docs/content/docs/overview/features.mdx)
 - [代码功能地图](docs/content/docs/backend/code-map.mdx)
 - [本地开发](docs/content/docs/backend/local-development.mdx)

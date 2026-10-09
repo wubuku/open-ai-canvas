@@ -24,7 +24,7 @@ description: 从浏览器入口、后端调用链到任务、Agent、插件和�
   -> 外部模型、对象存储、支付或独立 Agent runtime
 ```
 
-最适合的阅读顺序是：先读本文，再按功能进入[代码功能地图](/docs/backend/code-map)，需要协议细节时读[HTTP API](/docs/backend/http-api)，需要本地启动时读[本地开发](/docs/backend/local-development)。未稳定或尚未真实验收的调查结果仍保留在 `docs/drafts/`，不会与本文竞争事实源。
+最适合的阅读顺序是：先读本文，再按功能进入[代码功能地图](/docs/backend/code-map)；画布开发直接进入[画布开发导航](/docs/canvas/canvas-development)；需要协议细节时读[HTTP API](/docs/backend/http-api)，需要本地启动时读[本地开发](/docs/backend/local-development)。未稳定或尚未真实验收的调查结果仍保留在 `docs/drafts/`，不会与本文竞争事实源。
 
 ## 技术栈与仓库边界
 
@@ -246,4 +246,3 @@ Agent 的权限、审批、上下文检查点、记忆和收费媒体任务由 G
 - **待验证**：依赖真实登录态、真实模型、对象存储、支付、SSE 断线或独立 Agent 容器的运行行为。
 
 当前仓库的 `docs/` 主要是内容源、设计记录和研究草稿；若 checkout 中没有 `docs/package.json`、`docs/source.config.ts` 或文档站应用入口，就不能把 `cd docs && bun run build` 视为已存在的可执行验证。构建系统归属和失效链接审计保留在 `docs/drafts/project-understanding-and-docs-system-audit.md`，后续应在确认发布工程归属后再修复或删除不可执行命令。
-

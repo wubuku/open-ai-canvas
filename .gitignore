@@ -35,6 +35,11 @@ docs/content/docs/overview/*
 !docs/content/docs/overview/architecture.mdx
 !docs/content/docs/overview/meta.json
 !docs/content/docs/overview/creative-agent-design.mdx
+# Keep the canvas developer navigation versioned without unignoring generated docs.
+!docs/content/docs/canvas/
+docs/content/docs/canvas/*
+!docs/content/docs/canvas/canvas-development.mdx
+!docs/content/docs/canvas/meta.json
 .env*
 !.env.example
 data/
