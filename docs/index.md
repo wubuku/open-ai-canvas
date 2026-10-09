@@ -63,3 +63,7 @@
 - [代码地图](content/docs/backend/code-map.mdx)
 - [待办](content/docs/progress/todo.mdx)
 - [待测试](content/docs/progress/pending-test.mdx)
+
+## 研究草稿（低冲突区）
+
+- [草稿区入口](drafts/README.md)：架构梳理、文档审计和待确认调研；稳定内容评审后再推广到正式文档。
