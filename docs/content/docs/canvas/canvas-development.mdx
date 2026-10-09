@@ -7,6 +7,37 @@ description: 面向开发者和 AI Agent 的画布数据模型、状态、持久
 
 > 本文不是用户操作手册，而是画布代码的入口地图。目标是让开发者先找到正确的事实源、调用链和测试位置，再进入具体实现。
 
+## 给开发者 / Agent 的导读提示词
+
+下面这段提示词可以作为处理画布开发任务时的启动上下文。它的作用是先建立正确的阅读顺序，避免只改可见 UI 或重复扫描整个仓库：
+
+```text
+你正在维护影策的画布系统。开始修改前，先阅读：
+
+1. docs/content/docs/canvas/canvas-development.mdx
+2. docs/content/docs/backend/code-map.mdx
+3. 与本任务对应的源码入口：
+   - 页面与流程：web/src/pages/canvas/
+   - 节点与工作区：web/src/components/canvas/
+   - 状态与持久化：web/src/stores/canvas/、web/src/lib/canvas/canvas-storage-revision.ts
+   - 纯模型与算法：web/src/lib/canvas/
+   - API 与副作用：web/src/services/api/、web/src/services/canvas-generation-consumer.ts
+   - 后端画布域：backend/internal/canvas/、backend/internal/handler/user_data.go、backend/internal/app/canvas_bridge.go
+
+先判断任务属于哪一类：节点合同、连线/引用、页面交互、生成提交、异步结果回写、本地保存、远端同步、Agent capability、插件、预演/分镜或性能。
+
+沿“类型/合同 -> 纯函数或域逻辑 -> 页面/组件 -> API/副作用 -> 测试”追踪完整调用链。不要只在 UI 层修复数据问题，也不要让异步生成结果用旧的完整节点数组覆盖用户的新编辑。
+
+修改前确认：
+- CanvasProject、CanvasNodeData、CanvasConnection 的数据归属是否保持一致；
+- 本地已写、远端已确认、任务已完成、资源已物化、资产已同步是否被区分；
+- 节点/task/resource identity、用户 scope、revision、ETag 和幂等 effect key 是否保留；
+- Agent 和插件是否仍通过服务端 capability、结构化操作、权限/审批和 postcondition 工作；
+- 相关测试、设计记录和 docs/drafts/ 中的待验证事项是否需要同步。
+
+完成后报告：改动的调用链、保留的并发/权限/资源边界、运行过的最小验证命令、尚未验证的真实环境行为。不要把静态阅读、git diff 或健康检查描述成完整运行验收。
+```
+
 ## 先按问题找入口
 
 | 你要做什么 | 第一入口 | 继续阅读 |
