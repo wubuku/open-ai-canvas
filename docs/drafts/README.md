@@ -23,6 +23,9 @@
 
 - [文档体系建设计划](DOCUMENTATION_PLAN.md)：当前文档状态、缺口、优先级和推广条件。
 - [项目整体认知与文档系统审计](project-understanding-and-docs-system-audit.md)：项目架构、关键调用链、部署边界和文档构建/发现性审计。
+- [模型与渠道配置的存储方式研究](model-channel-configuration-storage-research.md)：生图/视频/LLM 模型的配置分层——代码内置协议、数据库配渠道/模型/价格/路由、`.env` 仅保留运行时开关。
+- [本地前后端构建与快速启动指引](local-dev-quickstart.md)：本地起前后端 dev 环境的最小步骤，含 3000 端口冲突与本机 HTTP 代理干扰两个坑，及用「不常用端口」联动启动方法。
+- [云端 Agent 深度调研报告](cloud-agent-deep-research.md)：Agent 能力矩阵、前端面板、Go 控制面、Pi bridge、Skill 生命周期、画布读写、媒体审批、持久化恢复、排障和开发者导读。
 
 ## 草稿质量要求
 
