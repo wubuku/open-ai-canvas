@@ -2,12 +2,13 @@
 
 ## Open AI Canvas Adaptation
 
-- [ ] New research is under `docs/drafts/` unless explicitly approved for publication.
-- [ ] Existing `AGENTS.md`, `README.md`, `docs/index.md`, and published MDX were preserved unless a minimal link fix was required.
+- [ ] Uncertain or actively changing research is under `docs/drafts/`.
+- [ ] Confirmed findings use focused, low-conflict edits in the appropriate formal document.
+- [ ] Existing `AGENTS.md`, `README.md`, `docs/index.md`, and published MDX were changed only for a clear navigation, correctness, or maintenance reason.
 - [ ] The document distinguishes implemented behavior, documented intent, and pending validation.
 - [ ] Claims cite current repository paths, commands, tests, or configuration.
 - [ ] The docs build surface was checked before documenting a build command.
-- [ ] Upstream merge-conflict risk is called out for changes outside `docs/drafts/`.
+- [ ] Upstream merge-conflict risk is called out for changes outside `docs/drafts/`, with additive edits preferred over rewrites.
 
 ## Pre-Creation Checklist
 

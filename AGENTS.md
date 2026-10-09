@@ -160,6 +160,7 @@ cd web && bun run dev
 - 根 `README.md` 只保留项目定位、能力概览、快速开始、部署、安全和文档入口；详细专题写入 `docs/content/docs/`。
 - 功能、代码地图、待办、待测试分别维护在 `docs/content/docs/overview/features.mdx`、`docs/content/docs/backend/code-map.mdx`、`docs/content/docs/progress/todo.mdx`、`docs/content/docs/progress/pending-test.mdx`。已实现但未由用户确认的变化先写入 `pending-test.mdx`。
 - API、数据表、SSE、资源存储、部署或安全边界变化时同步对应专题文档；不要只改代码和根 README。
+- Agent 文档入口：先读 `docs/index.md`，再读 `docs/drafts/README.md` 和 `docs/drafts/DOCUMENTATION_PLAN.md`；研究草稿用于承载未稳定结论，已确认且低冲突的结论应增量补入对应正式文档、导航或元数据。
 - 文档默认中文，不写过期日期，不公开密码、Token、Cookie、真实账号或机器敏感路径。命令、端口、环境变量必须以当前脚本和 Compose 为准。
 - Git 提交说明使用 `<type>(<scope>): <业务模块> - <变更摘要>`，`type` 为 `feat|fix|refactor|perf|docs|test|build|ci|chore|revert`。
 

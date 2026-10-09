@@ -41,7 +41,9 @@ design records under `docs/design/`, decisions under `docs/adr/`, plans under
 `docs/plans/`, and research/specification material under `docs/superpowers/`.
 New investigation, architecture review, and uncertain findings belong in
 `docs/drafts/` by default. Treat `docs/drafts/` as the low-conflict staging area
-before promoting stable material into `docs/content/docs/`.
+for work that still needs synthesis or review. Confirmed, useful, low-conflict
+content should be added incrementally to the appropriate published document or
+new page; drafts are not a ban on changing the formal documentation tree.
 
 Do not assume that a complete Next.js/Fumadocs application is present. First
 inspect `docs/package.json`, `docs/source.config.ts`, the docs app directory,
@@ -51,19 +53,36 @@ explicitly asks for it.
 
 When this skill conflicts with repository-specific instructions, the repository
 `AGENTS.md` and the user's current request win. Preserve existing files and
-avoid large root README, AGENTS, or published-document changes during research.
+avoid broad rewrites, mass moves, or unrelated formatting changes. Small,
+evidence-backed additions to README, `docs/index.md`, published MDX, navigation
+metadata, or CI are allowed when they improve discoverability or correctness.
 
 ### Research-First Rules
 
 1. Start with `git status --short --branch`, relevant `AGENTS.md` files, and the
    existing documentation index.
 2. Read source files, configuration, tests, logs, and docs before making claims.
-3. Put new research in `docs/drafts/` with a descriptive filename and a clear
-   evidence/verification section.
-4. Prefer additive links or indexes over moving or rewriting existing documents.
-5. Do not claim a build, test, browser flow, or upstream integration was verified
+3. Put uncertain or actively changing research in `docs/drafts/` with a
+   descriptive filename and a clear evidence/verification section.
+4. Promote confirmed, stable findings through small additive edits to the
+   correct formal document; do not wait for a large documentation rewrite.
+5. Prefer additive pages, links, metadata, and sections over moving or rewriting
+   existing documents.
+6. Do not claim a build, test, browser flow, or upstream integration was verified
    unless the command or flow actually ran.
-6. Separate implemented behavior, documented intent, and pending validation.
+7. Separate implemented behavior, documented intent, and pending validation.
+
+### Incremental Publication Rules
+
+- Add a new formal page when a topic has a stable audience and a clear home.
+- Update an existing formal page when the fact is already within that page's
+  scope and the change can be made as a focused section or link.
+- Update `meta.json`, `docs/index.md`, README navigation, or CI when the change
+  repairs discoverability or validation; keep the diff narrow and explain why.
+- Keep the research draft as an evidence trail when it records uncertainty,
+  alternatives, or a decision that has not yet been accepted.
+- Do not duplicate a whole draft in a formal page; promote the stable conclusion
+  and link back to the draft only when the research context remains useful.
 
 ---
 
@@ -120,9 +139,10 @@ For this repository, priority is also ordered by merge-conflict risk:
 - **R0**: `docs/drafts/README.md`, the research index, and a documentation plan.
 - **R1**: additive research drafts that explain architecture, build gaps, and
   navigation using current source evidence.
-- **R2**: small updates to `docs/index.md` or existing published MDX only when a
-  stable link is needed.
-- **R3**: publishing or restructuring existing docs, only with explicit approval.
+- **R2**: low-conflict additions to published MDX, `meta.json`, README links, or
+  CI when the content is confirmed and improves navigation or correctness.
+- **R3**: broad restructuring, mass link migration, or changing the docs site
+  framework; do this only with explicit approval.
 
 ---
 
@@ -146,8 +166,9 @@ Only these files may live at project root. Everything else → `docs/`:
 - `backend/README.md`, `frontend/README.md`, `sdk/README.md`
 
 Repository-specific rule: do not add new root-level documentation files for
-this research pass. Keep new material under `docs/drafts/` and leave existing
-root docs unchanged unless a minimal navigation fix is required.
+this research pass. Keep uncertain research under `docs/drafts/`, while stable
+content may be added to the existing formal documentation tree through focused,
+low-conflict edits.
 
 ---
 
@@ -503,13 +524,15 @@ claiming that `cd docs && bun run build` is available.
 
 ### Step 3: Build in Priority Order
 
-For this repository, build the low-conflict research layer first:
+For this repository, build the low-conflict research layer first, then publish
+confirmed conclusions incrementally:
 
 - Create or update `docs/drafts/README.md`.
 - Write the first evidence-backed project orientation or architecture draft.
 - Record broken links, missing navigation, and unavailable build commands in the
-  plan instead of silently fixing unrelated published documents.
-- Only then consider a minimal index link or a promotion into `docs/content/docs/`.
+  plan.
+- Fix confirmed broken navigation with focused changes, and add stable formal
+  pages where there is a clear audience and existing navigation home.
 
 **P0 first** (foundation for everything else):
 - AGENTS.md — without this, AI agents have no guidance
