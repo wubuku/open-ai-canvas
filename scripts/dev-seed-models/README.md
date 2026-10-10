@@ -66,11 +66,13 @@ NO_PROXY=127.0.0.1,localhost bun scripts/dev-seed-models/seed.ts my-seed.yaml
 
 参考 `seed.example.json`（JSON、完整字段）、`seed.quick.yaml`（YAML、最小字段）和 `seed.ark.yaml`（火山方舟 Seedance/Seedream/Doubao，密钥引用外部 `.env` 的 `${VAR}`）。字段如下：
 
-- `backendBaseUrl`：后端 API 根地址，默认 `http://localhost:8080/api`。
+- `backendBaseUrl`：后端 API 根地址，缺省 `http://localhost:8080/api`（脚本内置默认，对应手动 `go run`）。`seed.ark.yaml` 显式写 `http://127.0.0.1:28080/api`，对应 `./scripts/dev.sh` 的内置后端端口 28080。
 - `admin`：用于登录 / 注册的管理员账号。若账不存在，脚本会注册（**库中尚无用户时，首个注册用户自动成为管理员**）；已存在则直接登录。
 - `channels[]`：每个渠道对应一个上游接入：
   - `name`、`baseUrl`、`apiKey`（或 `secretKey`）、可选 `headers`。
   - `models[]`：该渠道下要启用的模型。
+- `storage`（可选）：平台对象存储设置，见下方「存储服务与导入模板」。
+- `arkPrivateAssets`（可选）：方舟可信素材库（资产库）AK/SK，见下方「存储服务与导入模板」。
 
 每个模型（`models[]` 元素）需显式给出：
 
@@ -99,6 +101,42 @@ channels:
 ```
 
 变量未设置且无缺省值时，脚本会在读取阶段直接报错并提示缺哪个变量，不会写进半成品数据。
+
+### 存储服务与导入模板（`storage` / `arkPrivateAssets`）
+
+除模型外，清单还能 seed 两个平台级设置，解决「生图/生视频拿不到可公网访问的参考素材地址」的问题（本地数据目录不是对象存储，后端会报「本地存储尚未配置服务器访问地址」）。二者都是可选的，不写则跳过。
+
+**`storage`**：平台对象存储。本地 dev 推荐用 **S3 兼容存储**（`provider: s3`）接你的 AWS/MinIO/R2 等桶。以 `seed.ark.yaml` 为例（值全部 `${VAR}` 引用 `.env`，不写死）：
+
+```yaml
+storage:
+  provider: s3
+  s3Preset: aws
+  region: ${AWS_STORAGE_REGION}
+  endpoint: https://s3.${AWS_STORAGE_REGION}.amazonaws.com
+  bucket: ${AWS_STORAGE_PRIVATE_BUCKET}
+  accessKeyId: ${AWS_STORAGE_ACCESS_KEY}
+  accessKeySecret: ${AWS_STORAGE_SECRET_KEY}
+  enabled: true
+```
+
+- 支持 `s3` / `aliyun` / `tencent` / `qiniu`；`s3` 额外要 `s3Preset`（`aws`/`r2`/`b2`/`rustfs`/`custom`）、`region`、`endpoint`、`bucket`、AK/SK。
+- **S3 在「启用」前，脚本会先调 `POST /admin/settings/oss/test` 对 bucket 写入/读取/删除探针对象**，通过后再 `PATCH /admin/settings/oss` 落库启用；测试失败会直接告警并跳过启用，避免入一个坏配置。测试每 6 秒限一次。
+
+**`arkPrivateAssets`**：方舟可信素材库，Seedance 上传参考图 + 仿真人肖像审核走这条链路。地区 `cn-beijing` 与方舟 `ark.cn-beijing.volces.com` 保持一致（你的方舟项目在其它区域要改）。示例：
+
+```yaml
+arkPrivateAssets:
+  enabled: true
+  region: cn-beijing
+  projectName: ${VOLCENGINE_LIVENESS_PROJECT}
+  accessKeyId: ${VOLCENGINE_LIVENESS_AK}
+  accessKeySecret: ${VOLCENGINE_LIVENESS_SK}
+```
+
+脚本调用 `PATCH /admin/settings/ark-private-assets` 落库（AK/SK 由后端用 `.settings-key` 加密存储，日志不打印）。若你的视频渠道走漫飞/企业线，把 `projectName`/AK/SK 换成对应的 `MF_SO_ARK_ASSET_*` / `HZ_ARK_ASSET_*` 即可。
+
+对应 Web UI 入口：存储 `/admin/settings/storage`，方舟素材库 `/admin/settings/ark-private-assets`。
 
 ### 计费方式（本地 dev 可忽略）
 
@@ -129,6 +167,8 @@ channels:
 5. 逐模型 `POST /admin/logical-models`：创建前台逻辑模型，并把路由指向该渠道模型（`pricePolicy: "channel"`，价格跟随渠道）；code 已存在时跳过并提示。
 
 重复运行安全：脚本幂等——渠道按名字复用（更新而非新建）；渠道模型按 `modelKey` 去重；前台逻辑模型 `code` 已存在时跳过并提示，可放心反复运行。
+
+登录后、处理渠道前，若清单写了 `storage` / `arkPrivateAssets`，脚本会先 `PATCH` 这两个平台设置（S3 存储另有一次连接测试），失败只告警、不阻塞渠道 seed。
 
 ## 边界与注意事项
 

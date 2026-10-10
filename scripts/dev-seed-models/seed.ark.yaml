@@ -7,11 +7,11 @@
 #   # 1) 把你的 api-server/.env 里所有非注释行解析为 KEY=VALUE 并 export 到当前 shell
 #   export $(cat .env | grep -v '^#' | xargs)     # .env 路径按你实际位置换成绝对/相对路径
 #
-#   # 2) 用 seed 脚本灌入模型（backendBaseUrl 默认 http://localhost:8080/api）
+#   # 2) 用 seed 脚本灌入模型 + 存储 + 方舟素材库（backendBaseUrl 默认 http://127.0.0.1:28080/api，见下）
 #   NO_PROXY=127.0.0.1,localhost \
 #     bun scripts/dev-seed-models/seed.ts scripts/dev-seed-models/seed.ark.yaml
 #
-# 依赖：yaml 依赖（cd scripts/dev-seed-models && bun install，只用一次）；后端需已启动（./scripts/dev.sh）。
+# 依赖：yaml 依赖（cd scripts/dev-seed-models && bun install，只用一次）；后端需已启动（./scripts/dev.sh，默认后端 28080）。
 #
 # 模型 ID 与 baseUrl 均来自上游权威配置 application.yml 的 ai-model-catalog：
 #   * Seedance 2.0      -> upstream-model-id `doubao-seedance-2-0-260128`（provider-name=official，default-for-kind）
@@ -23,12 +23,42 @@
 # 注意：
 #  * 每个模型都省略了 pricing —— 脚本按「按次、免费」补齐，本地 dev 计费无关紧要。
 #  * capability + protocol 必须显式声明（上游 /models 只返回模型名，无法推断）。
+#  * 除模型外，本清单同时 seed「存储服务(storage)」与「方舟可信素材库(arkPrivateAssets)」，
+#    全部通过 ${VAR} 引用 api-server/.env 里的值，绝不写死密钥。
 
-backendBaseUrl: http://localhost:8080/api
+backendBaseUrl: http://127.0.0.1:28080/api
 
 admin:
   username: admin
   password: admin123456          # 首个注册用户自动成为管理员；已存在则直接登录
+
+# ── 存储服务：AWS S3（兼容）── 替「服务器本地存储」出可被浏览器/生成服务访问的资源地址 ──
+# 本地默认数据目录不是对象存储；生图/生视频的「参考素材」需要一个公网可访问的地址，
+# 否则后端报「本地存储尚未配置服务器访问地址，请设置 CANVAS_PUBLIC_BASE_URL 或改用 OSS 存储」。
+# 这里用 api-server/.env 里的 AWS S3 凭据把平台存储切到 S3（provider=s3 走 S3 兼容协议）。
+# 启用 S3 前，脚本会先调用 /admin/settings/oss/test 对 bucket 写入/读取/删除探针对象，通过后才落库启用。
+# AK/SK 与 bucket 全部来自 ${VAR}，不写死。
+storage:
+  provider: s3
+  s3Preset: aws
+  region: ${AWS_STORAGE_REGION}
+  endpoint: https://s3.${AWS_STORAGE_REGION}.amazonaws.com
+  bucket: ${AWS_STORAGE_PRIVATE_BUCKET}
+  accessKeyId: ${AWS_STORAGE_ACCESS_KEY}
+  accessKeySecret: ${AWS_STORAGE_SECRET_KEY}
+  enabled: true
+
+# ── 方舟可信素材库（资产库）── Seedance 上传参考图 + 仿真人肖像审核用 ──
+# Seedance 的「仿真人肖像检查」走方舟的资产/产物校验链路：上传参考图 -> 建资产 -> 等服务端人像鉴伪。
+# projectName/AK/SK 来自 api-server/.env 的「方舟资产/产物校验链路」变量（VOLCENGINE_LIVENESS_*）。
+#  ↔ 若你的视频走漫飞(MF)/企业(HZ)渠道，请把下面三行换成 MF_SO_ARK_ASSET_* / HZ_ARK_ASSET_*。
+#  ↔ region 与上方 Seedance 渠道 baseUrl 的 cn-beijing 保持一致；方舟项目在其它区域时改这里。
+arkPrivateAssets:
+  enabled: true
+  region: cn-beijing
+  projectName: ${VOLCENGINE_LIVENESS_PROJECT}
+  accessKeyId: ${VOLCENGINE_LIVENESS_AK}
+  accessKeySecret: ${VOLCENGINE_LIVENESS_SK}
 
 channels:
   # ── 通道 1：Seedance 2.0 生视频（火山方舟 Contents Generations 异步任务接口）──

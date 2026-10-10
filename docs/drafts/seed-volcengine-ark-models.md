@@ -58,6 +58,23 @@ NO_PROXY=127.0.0.1,localhost \
 
 > `export $(cat .env | grep -v '^#' | xargs)` 的含义：`grep -v '^#'` 去掉注释行，`xargs` 把每行 `KEY=VALUE` 拼成一条命令的参数，`export` 一次性把它们写进当前 shell 环境变量。它只影响当前 shell 进程，`.env` 本身不被修改。
 
+## 除模型外：seed 存储服务 + 方舟素材库
+
+`seed.ark.yaml` 在同一清单里还 seed 两个平台级设置，解决「生图/生视频拿参考素材时后端报『本地存储尚未配置服务器访问地址』」：
+
+| 段 | 作用 | 变量来源（api-server/.env） | 后端落库接口 |
+| --- | --- | --- | --- |
+| `storage` | 平台对象存储切到 AWS S3（`provider: s3`），替代本地存储出公网地址 | `AWS_STORAGE_REGION` / `AWS_STORAGE_ACCESS_KEY` / `AWS_STORAGE_SECRET_KEY` / `AWS_STORAGE_PRIVATE_BUCKET` | `POST /admin/settings/oss/test` 通过后 `PATCH /admin/settings/oss` |
+| `arkPrivateAssets` | 方舟可信素材库，Seedance 上传参考图 + 仿真人肖像审核 | `VOLCENGINE_LIVENESS_PROJECT` / `VOLCENGINE_LIVENESS_AK` / `VOLCENGINE_LIVENESS_SK` | `PATCH /admin/settings/ark-private-assets` |
+
+要点：
+
+- **S3 必须先测试后启用**：`storage.enabled: true` 时脚本先对 bucket 写入/读取/删除探针对象（`POST /admin/settings/oss/test`），通过才会 `PATCH` 启用；测试失败会显式告警并跳过，避免入一个坏配置。
+- **`endpoint` 用 `${AWS_STORAGE_REGION}` 拼接**：清单里写 `https://s3.${AWS_STORAGE_REGION}.amazonaws.com`，region 即 `ap-southeast-2`，最终 `https://s3.ap-southeast-2.amazonaws.com`（AWS 标准 endpoint，s3 客户端走虚拟主机式寻址）。桶用**私有的** `AWS_STORAGE_PRIVATE_BUCKET`（公共读桶给静态资源用，这里私有桶靠预签名 URL 交付，权限更稳）。
+- **方舟素材库的三段鉴权**：`region` 本项目固定 `cn-beijing`（与上面 Seedance 渠道 `ark.cn-beijing.volces.com` 一致）；`projectName` 是方舟项目名，AK/SK 是该项目下的 IAM 密钥。若你的视频走漫飞(MF)/企业(HZ)渠道，换成 `MF_SO_ARK_ASSET_*` / `HZ_ARK_ASSET_*` 对应变量。
+- **密钥不打印**：两个段都只通过 `${VAR}` 引用，脚本日志只印 provider/bucket/project/region，不印 AK/SK；AK/SK 由后端用 `.settings-key` 加密落库。
+- **UI 对照入口**：存储 `/admin/settings/storage`；方舟素材库 `/admin/settings/ark-private-assets`。seed 只是把这两处表单要填的内容脚本化，二者等价。
+
 ## 执行后发现与预期
 
 - 脚本按「渠道名复用、模型按 `modelKey` 去重、逻辑模型 `code` 已存在则跳过」幂等运行，可反复执行不产生重复数据。

@@ -102,10 +102,43 @@ interface ChannelSpec {
   models: ModelSpec[];
 }
 
+/** 平台对象存储（OSS / S3 兼容）设置；缺省整段则跳过存储 seed。 */
+interface StorageSpec {
+  /** s3 / aliyun / tencent / qiniu。启用模型输入参考图，本地 dev 建议用 S3 兼容存储。 */
+  provider: "s3" | "aliyun" | "tencent" | "qiniu";
+  enabled: boolean;
+  /** s3 预设：aws / r2 / b2 / rustfs / custom；非 s3 时忽略。 */
+  s3Preset?: string;
+  region?: string;
+  endpoint?: string;
+  bucket?: string;
+  accessKeyId?: string;
+  accessKeySecret?: string;
+  cdnBaseUrl?: string;
+  publicBaseUrl?: string;
+  pathPrefix?: string;
+  pathStyle?: boolean;
+  sessionToken?: string;
+  allowUserS3?: boolean;
+  cdnAuthMode?: string;
+  allowPrivateProxy?: boolean;
+}
+
+/** 方舟可信素材库（资产库）设置；Seedance 上传参考图 + 仿真人肖像审核用。 */
+interface ArkPrivateAssetsSpec {
+  enabled: boolean;
+  region: string;
+  projectName: string;
+  accessKeyId: string;
+  accessKeySecret: string;
+}
+
 interface SeedConfig {
   backendBaseUrl?: string;
   admin: { username: string; password: string; displayName?: string };
   channels: ChannelSpec[];
+  storage?: StorageSpec;
+  arkPrivateAssets?: ArkPrivateAssetsSpec;
 }
 
 // ---------------------------------------------------------------------------
@@ -649,6 +682,46 @@ async function seedOneModel(
   console.log(`  ✓ 前台逻辑模型「${code}」已创建并绑定路由`);
 }
 
+async function seedStorage(api: ApiClient, storage: StorageSpec): Promise<void> {
+  const req: Record<string, unknown> = {
+    enabled: storage.enabled,
+    provider: storage.provider,
+    region: storage.region ?? "",
+    endpoint: storage.endpoint ?? "",
+    cdnBaseUrl: storage.cdnBaseUrl ?? "",
+    bucket: storage.bucket ?? "",
+    accessKeyId: storage.accessKeyId ?? "",
+    accessKeySecret: storage.accessKeySecret ?? "",
+    publicBaseUrl: storage.publicBaseUrl ?? "",
+    pathPrefix: storage.pathPrefix ?? "",
+    s3Preset: storage.s3Preset ?? (storage.provider === "s3" ? "custom" : ""),
+    pathStyle: storage.pathStyle ?? false,
+    sessionToken: storage.sessionToken ?? "",
+    allowUserS3: storage.allowUserS3 ?? false,
+    cdnAuthMode: storage.cdnAuthMode ?? "",
+    allowPrivateProxy: storage.allowPrivateProxy ?? false,
+  };
+  // S3 兼容存储在被「启用」前，后端要求先通过连接测试（写入/读取/删除探针对象，限流 6 次/分）。
+  // 测试失败直接抛错，不继续 PATCH，避免后端返回「S3 关键配置尚未通过连接测试」的次生错误。
+  if (storage.provider === "s3" && storage.enabled) {
+    await api.request("POST", "/admin/settings/oss/test", req);
+    console.log("  ✓ 存储连接测试通过（写入/读取/删除探针对象）");
+  }
+  await api.request("PATCH", "/admin/settings/oss", req);
+  console.log(`  ✓ 存储已配置（provider=${storage.provider}${storage.bucket ? `, bucket=${storage.bucket}` : ""}${storage.enabled ? ", 已启用" : ", 未启用"}）`);
+}
+
+async function seedArkPrivateAssets(api: ApiClient, ark: ArkPrivateAssetsSpec): Promise<void> {
+  await api.request("PATCH", "/admin/settings/ark-private-assets", {
+    enabled: ark.enabled,
+    region: ark.region,
+    projectName: ark.projectName,
+    accessKeyId: ark.accessKeyId,
+    accessKeySecret: ark.accessKeySecret,
+  });
+  console.log(`  ✓ 方舟可信素材库已配置（project=${ark.projectName}, region=${ark.region}${ark.enabled ? ", 已启用" : ", 未启用"}）`);
+}
+
 async function main() {
   const args = process.argv.slice(2);
   if (args.includes("--list-protocols")) {
@@ -696,6 +769,25 @@ async function main() {
   let okCount = 0;
   let failCount = 0;
   const existingCodes = await fetchExistingLogicalCodes(api);
+
+  // 平台级配置（存储 / 方舟素材库）先于渠道，失败不阻塞渠道 seed，但会显式告警。
+  if (config.storage) {
+    console.log("\n=== 存储服务 ===");
+    try {
+      await seedStorage(api, config.storage);
+    } catch (e) {
+      console.warn(`  ✗ 存储配置失败：${(e as Error).message}`);
+    }
+  }
+  if (config.arkPrivateAssets) {
+    console.log("\n=== 方舟可信素材库（资产库） ===");
+    try {
+      await seedArkPrivateAssets(api, config.arkPrivateAssets);
+    } catch (e) {
+      console.warn(`  ✗ 方舟素材库配置失败：${(e as Error).message}`);
+    }
+  }
+
   for (const channel of config.channels) {
     console.log(`\n=== 渠道：${channel.name} ===`);
     try {
