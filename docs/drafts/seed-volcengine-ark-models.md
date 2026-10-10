@@ -79,6 +79,23 @@ NO_PROXY=127.0.0.1,localhost \
 
 本清单是 `docs/drafts/local-dev-quickstart.md`「完整工作循环」里 `seed.ts` 的一种具体交付形态：清空（`dev-reset.sh`）→ 启动（`dev.sh`）→ Seed（本清单）。日常「测脏了重来」时，重复第 2 步即可，无需再改清单。
 
+## 不 seed，改在 Web UI 里手动新增 / 查阅模型
+
+seed 只是把「系统渠道 → 渠道模型 → 前台逻辑模型/价格」这一串写进数据库的一种方式；同一套数据也能在 Web UI 手工维护，入口与 seed 落库一一对应：
+
+| 层 | seed 落库 | Web UI 入口 |
+| --- | --- | --- |
+| 系统渠道（名称/Base URL/API Key/协议） | `channels` 列表 | 管理后台「系统渠道」`/admin/channels`：左侧「渠道」→「新增渠道」 |
+| 渠道模型（capability/protocol/能力/价格） | 渠道下的 `models` | 选中渠道后右侧「模型管理」→「新增模型」或「拉取模型」 |
+| 前台逻辑模型 + 路由 | `logicalModels` | 「前台模型」`/admin/models`（需 `frontendModelsEnabled` 开关） |
+
+关键澄清（这几条正是常见的"找不到入口"原因）：
+
+- **「模型选择」页不是新增入口**：`/settings?section=models` 只让你在每个领域（生图 / 视频 / 文本 / 音频）勾一个**默认模型**，不能新增。它页面那行说明就是"按领域选择默认模型；模型能力与请求协议在渠道『模型与能力』中配置"。真正新增的地方是上表里的「系统渠道」（管理员）和「个人渠道」（用户）。
+- **"生图 / 视频 / 文本 / 音频" 是在「新增模型」里选的**：`web/src/pages/admin/components/channel-model-manager.tsx` 的模型表格有「能力（capability）」与「请求协议（protocol）」两列，「新增模型」表单里选 capability + protocol，能力参数（尺寸 / 分辨率 / 画幅 / 参考图等）与定价在同一模型编辑里配。
+- **两套渠道不冲突**：seed 写的是 `scope=system` 的「系统渠道」（模型选择页里显示成「系统 X/次」），后台 `/admin/channels` 维护的也是它；普通用户还能在「个人渠道」`/settings?section=channels` 加自己的渠道（`scope≠system`，见 `web/src/pages/settings/index.tsx:57` 的 `userChannels` 过滤）。但「个人渠道」这一栏受 `customChannelsEnabled` 开关控制（`web/src/pages/settings/index.tsx:42`），默认可能不显示——管理员在 `/admin/settings/features`（「功能开放」）里打开它才会出现。
+- **管理后台自身在哪进**：首页没有后台入口链接，管理员入口在工作台左下角头像菜单 / 「我的账户」卡片里的「管理员后台」，或直接访问 `/admin`（详见 `local-dev-quickstart.md`「零、一键启动脚本」下"管理后台（/admin）入口在哪"）。
+
 ## 验证记录（本机实测 2026-10-10）
 
 按「清空 → 启动 → Seed（真实密钥）→ 复查」完整跑了一遍闭环，最终确认模型 ID、渠道与逻辑模型都正确落库。

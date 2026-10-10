@@ -2,15 +2,19 @@
 # 影策本地 dev 环境一键启动（macOS / Linux），等价于 Windows 的 scripts/start-local.ps1。
 #
 # 用法：
-#   ./scripts/dev.sh                 # 默认端口 8080 / 3000，冲突时自动改到 8081 / 3001 …
-#   CANVAS_BACKEND_PORT=8081 ./scripts/dev.sh   # 指定后端端口
-#   CANVAS_FRONTEND_PORT=3001 ./scripts/dev.sh  # 指定前端端口
+#   ./scripts/dev.sh                               # 默认端口：后端 28080 / 前端 28300
+#   ./scripts/dev.sh --backend-port=28081          # 指定后端端口
+#   ./scripts/dev.sh --frontend-port=28301         # 指定前端端口
+#   ./scripts/dev.sh --force=kill                  # 端口被占用时先杀死占用进程再启动
+#   CANVAS_BACKEND_PORT=28081 ./scripts/dev.sh     # 也可用环境变量覆盖端口
 #
-# 已内建处理两个坑，无需手工记忆：
-#   1. 端口冲突：默认 8080（后端）/ 3000（前端）被占时自动递增找空闲端口，
-#      前端 vite 的 /api 代理（VITE_API_PROXY_TARGET）联动指向实际后端端口。
-#   2. 本机 HTTP 代理：NO_PROXY 追加 127.0.0.1/localhost/::1，健康检查不会再被代理误导返回 502。
+# 端口规则（避免每次自动换端口带来的混乱）：
+#   · 内置两个「不常用、大概率不与他人冲突」的默认端口；可用命令行参数或环境变量覆盖。
+#   · 覆盖优先级：命令行参数 > 环境变量（CANVAS_BACKEND_PORT / CANVAS_FRONTEND_PORT）> 内置默认值。
+#   · 端口被占用时默认报错退出（不自动避让、不换端口）；加 --force=kill 才会先杀占用进程。
+#   · 前端 vite 的 /api 代理（VITE_API_PROXY_TARGET）自动联动到实际后端端口。
 #
+# 另外内建：本机 HTTP 代理坑（NO_PROXY 追加 127.0.0.1/localhost/::1，健康检查不会被代理误导）。
 # 依赖、数据目录、Go 缓存都落在仓库内 .local/（已被 .gitignore 忽略），不污染家目录。
 
 set -euo pipefail
@@ -21,8 +25,13 @@ WEB_DIR="$REPO_ROOT/web"
 DATA_DIR="$REPO_ROOT/.local/project-workbench-debug"
 CACHE_DIR="$REPO_ROOT/.local/cache"
 
-BACKEND_PORT="${CANVAS_BACKEND_PORT:-8080}"
-FRONTEND_PORT="${CANVAS_FRONTEND_PORT:-3000}"
+# 默认端口：刻意避开 3000 / 8080 这类高频端口。
+DEFAULT_BACKEND_PORT=28080
+DEFAULT_FRONTEND_PORT=28300
+
+BACKEND_PORT="${CANVAS_BACKEND_PORT:-$DEFAULT_BACKEND_PORT}"
+FRONTEND_PORT="${CANVAS_FRONTEND_PORT:-$DEFAULT_FRONTEND_PORT}"
+FORCE_KILL=0
 
 BACKEND_LOG="/tmp/yingce-backend.log"
 WEB_LOG="/tmp/yingce-web.log"
@@ -31,6 +40,31 @@ log()    { printf '\033[36m[dev]\033[0m %s\n' "$*"; }
 warn()   { printf '\033[33m[dev]\033[0m %s\n' "$*"; }
 die()    { printf '\033[31m[dev]\033[0m %s\n' "$*" >&2; exit 1; }
 
+usage() {
+    cat <<'EOF'
+用法：
+  ./scripts/dev.sh                               # 默认端口：后端 28080 / 前端 28300
+  ./scripts/dev.sh --backend-port=PORT           # 指定后端端口
+  ./scripts/dev.sh --frontend-port=PORT          # 指定前端端口
+  ./scripts/dev.sh --force=kill                  # 端口被占用时杀死占用进程再启动
+  CANVAS_BACKEND_PORT=PORT ./scripts/dev.sh      # 环境变量同样可覆盖端口
+
+端口被占用时默认报错退出（不自动避让）；覆盖优先级：命令行参数 > 环境变量 > 内置默认值。
+EOF
+}
+
+# ---- 命令行参数 ----
+for arg in "$@"; do
+    case "$arg" in
+        --force=kill|--force-kill) FORCE_KILL=1 ;;
+        --backend-port=*)  BACKEND_PORT="${arg#*=}" ;;
+        --frontend-port=*) FRONTEND_PORT="${arg#*=}" ;;
+        -h|--help) usage; exit 0 ;;
+        *) die "未知参数：${arg}（支持 --backend-port=、--frontend-port=、--force=kill、-h）" ;;
+    esac
+done
+
+# ---- 端口工具 ----
 # 端口是否已在监听（macOS 用 lsof，Linux 优先 ss，兜底 /dev/tcp）。
 is_port_used() {
     if command -v lsof >/dev/null 2>&1; then
@@ -42,20 +76,66 @@ is_port_used() {
     fi
 }
 
-# 从给定端口开始，找到第一个空闲端口（静默，仅返回端口号；
-# 「端口被占」提示由调用方在命令替换之外打印，避免污染端口变量）。
-pick_free_port() {
-    local port="$1"
-    while is_port_used "$port"; do
-        port=$((port + 1))
+# 列出监听指定端口的进程 PID（每行一个，可能多个）。
+listener_pids() {
+    if command -v lsof >/dev/null 2>&1; then
+        lsof -nP -tiTCP:"$1" -sTCP:LISTEN 2>/dev/null
+    elif command -v ss >/dev/null 2>&1; then
+        ss -ltnp "sport = :$1" 2>/dev/null | grep -oE 'pid=[0-9]+' | cut -d= -f2
+    fi
+}
+
+# 杀死占用指定端口的进程并等待端口释放（--force=kill 专用）。
+kill_port() {
+    local port="$1" label="$2"
+    local pids pid ppid cmd deadline
+    pids="$(listener_pids "$port" | tr '\n' ' ' | sed 's/ *$//')"
+    [ -n "$pids" ] || die "端口 ${port}（${label}）被占用但无法定位进程，请手动释放后重试。"
+    warn "端口 ${port}（${label}）被占用（PID：${pids}），按 --force=kill 杀死占用进程"
+    for pid in $pids; do
+        # 监听进程常是 npm/bun 包运行器的子进程：一并终止父进程，避免它把子进程重新拉起。
+        ppid="$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')"
+        if [ -n "$ppid" ] && [ "$ppid" != "1" ]; then
+            cmd="$(ps -o command= -p "$ppid" 2>/dev/null)"
+            case "$cmd" in
+                *npm*|*bun*) kill "$ppid" 2>/dev/null || true ;;
+            esac
+        fi
+        kill "$pid" 2>/dev/null || true
     done
-    printf '%s' "$port"
+    deadline=$(( $(date +%s) + 3 ))
+    while is_port_used "$port" && [ "$(date +%s)" -lt "$deadline" ]; do sleep 0.3; done
+    if is_port_used "$port"; then
+        for pid in $(listener_pids "$port"); do kill -9 "$pid" 2>/dev/null || true; done
+        deadline=$(( $(date +%s) + 3 ))
+        while is_port_used "$port" && [ "$(date +%s)" -lt "$deadline" ]; do sleep 0.3; done
+    fi
+    if is_port_used "$port"; then
+        die "端口 ${port}（${label}）杀死后仍被占用，请手动排查。"
+    fi
+    log "端口 ${port}（${label}）已释放"
+}
+
+# 端口占用时：默认报错退出；--force=kill 时先杀死占用进程再继续。
+require_free_port() {
+    local port="$1" label="$2"
+    if is_port_used "$port"; then
+        if [ "$FORCE_KILL" -eq 1 ]; then
+            kill_port "$port" "$label"
+        else
+            die "端口 ${port}（${label}）已被占用。请用 --backend-port / --frontend-port 指定其它端口，或加 --force=kill 杀死占用进程后重试。"
+        fi
+    fi
 }
 
 # ---- 运行时检查 ----
 command -v go  >/dev/null 2>&1 || die "未找到 go（要求 Go 1.25+），请先安装。"
 command -v bun >/dev/null 2>&1 || die "未找到 bun，请先安装。"
 command -v npm >/dev/null 2>&1 || die "未找到 npm（Agent runtime 依赖需要），请先安装。"
+
+# ---- 端口冲突检查：占用即报错退出（--force=kill 时先杀），置于编译之前以快速失败 ----
+require_free_port "$BACKEND_PORT" "后端"
+require_free_port "$FRONTEND_PORT" "前端"
 
 # ---- 依赖安装（缺才装） ----
 if [ ! -d "$WEB_DIR/node_modules" ]; then
@@ -70,13 +150,6 @@ fi
 # ---- 数据目录与缓存 ----
 mkdir -p "$DATA_DIR" "$REPO_ROOT/.local/bin" "$CACHE_DIR/go-build" "$CACHE_DIR/go-mod"
 
-# ---- 端口与代理：规避两个坑 ----
-orig_backend="$BACKEND_PORT"
-orig_frontend="$FRONTEND_PORT"
-BACKEND_PORT="$(pick_free_port "$BACKEND_PORT")"
-FRONTEND_PORT="$(pick_free_port "$FRONTEND_PORT")"
-[ "$BACKEND_PORT" != "$orig_backend" ]  && warn "端口 ${orig_backend} 已被占用，后端改用 ${BACKEND_PORT}"
-[ "$FRONTEND_PORT" != "$orig_frontend" ] && warn "端口 ${orig_frontend} 已被占用，前端改用 ${FRONTEND_PORT}"
 # 前端 /api 代理联动到实际后端端口。
 export VITE_API_PROXY_TARGET="http://127.0.0.1:${BACKEND_PORT}"
 # 回环地址不走系统代理，避免 curl 健康检查被代理误导。
