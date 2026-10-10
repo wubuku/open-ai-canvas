@@ -1,0 +1,353 @@
+screenshots:
+  - file: screenshots/admin-access-register-highlight.png
+    task_id: configure-access-and-email
+    step: 2
+    route: /admin/settings/access
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T03:00:00+08:00
+    verified_locator: 'role=switch name="允许创建新账号，切换后立即生效"'
+    visible_text: 允许创建新账号，切换后立即生效
+    alt: 登录与注册页面高亮显示注册开关
+    sha256: cb274482647a822fad232c1110347a43328efbb60f80ff4d0463ed6d63dc5f41
+  - file: screenshots/admin-access.png
+    task_id: configure-access-and-email
+    step: 1
+    route: /admin/settings/access
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T03:00:00+08:00
+    verified_locator: 'role=heading name="登录与注册"'
+    visible_text: 登录与注册
+    alt: 登录与注册配置页面
+    sha256: 8af50098fd7a1f4943fc34cd56477f1c6f156ca10ad1c404e31de7a573b6b19a
+  - file: screenshots/admin-agent-lessons.png
+    task_id: manage-users-and-notices
+    step: 4
+    route: /admin/agent-lessons
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T03:00:00+08:00
+    verified_locator: 'role=heading name="Agent 记忆"'
+    visible_text: Agent 记忆
+    alt: Agent 记忆巡查页面
+    sha256: d3c5e40872c746c10bdf3316267d0e1c705ba3cec38f957c876deced07d8f044
+  - file: screenshots/admin-announcements.png
+    task_id: manage-users-and-notices
+    step: 2
+    route: /admin/announcements
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T03:00:00+08:00
+    verified_locator: 'role=button name="发布公告"'
+    visible_text: 发布公告
+    alt: 系统公告空状态和发布入口
+    sha256: 108e7d5500de025cd81ff5f6892c15a747c22b9e555bc1e564ba7a32795ddbeb
+  - file: screenshots/admin-appearance.png
+    task_id: configure-product-experience
+    step: 1
+    route: /admin/settings/appearance
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T03:00:00+08:00
+    verified_locator: 'role=heading name="站点及外观"'
+    visible_text: 站点及外观
+    alt: 站点及外观配置页面
+    sha256: cd98584ce9d21b02b5354a4d05b3b540694c60078cbe5296c7191cb93279eec5
+  - file: screenshots/admin-ark-assets.png
+    task_id: configure-storage-integrations
+    step: 3
+    route: /admin/settings/ark-private-assets
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T03:00:00+08:00
+    verified_locator: 'role=heading name="方舟素材库"'
+    visible_text: 方舟素材库
+    alt: 方舟素材库配置页面
+    sha256: ede7e71d23cc8a74d21fb027acccdcffe7a48b4c696a384f3e1dd50048dd8415
+  - file: screenshots/admin-banner-announcements.png
+    task_id: manage-users-and-notices
+    step: 3
+    route: /admin/banner-announcements
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T03:00:00+08:00
+    verified_locator: 'role=button name="新增常驻通知"'
+    visible_text: 新增常驻通知
+    alt: 常驻通知空状态和新增入口
+    sha256: c43a091a299fff51b8f6db11d7e8f498c1eaeece3c5dcadce3c2a4846ee925ef
+  - file: screenshots/admin-channels-add-highlight.png
+    task_id: manage-models-and-resources
+    step: 2
+    route: /admin/channels
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T03:00:00+08:00
+    verified_locator: 'role=button name="新增渠道"'
+    visible_text: 新增渠道
+    alt: 系统渠道页面高亮显示新增渠道按钮
+    sha256: ddede1e5a8e3583721808ec401fcc24a8f3f70a979ed0f515301a0275f247696
+  - file: screenshots/admin-channels.png
+    task_id: manage-models-and-resources
+    step: 1
+    route: /admin/channels
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T03:00:00+08:00
+    verified_locator: 'role=heading name="系统渠道"'
+    visible_text: 系统渠道
+    alt: 系统渠道页面展示渠道和模型入口
+    sha256: 94b31fdf937fbd3e3cee727f799843a542176054ea73bbf566b80180006578c6
+  - file: screenshots/admin-credit-operations.png
+    task_id: manage-billing-and-credits
+    step: 2
+    route: /admin/credit-operations
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T03:00:00+08:00
+    verified_locator: 'role=button name="人工调账"'
+    visible_text: 人工调账
+    alt: 积分运营页面和人工调账入口
+    sha256: 97a1be3d6400c6f30223bde2ceb7c0ccd699822654d1d0c96cbcd7d6e241680e
+  - file: screenshots/admin-drawing-engine.png
+    task_id: configure-product-experience
+    step: 3
+    route: /admin/settings/drawing-engine
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T03:00:00+08:00
+    verified_locator: 'role=heading name="绘图工具"'
+    visible_text: 绘图工具
+    alt: 绘图工具配置页面
+    sha256: cde9ae892749e034598ed729f1f076cb71cb719de6fd89664caa3fe71e54c2ee
+  - file: screenshots/admin-email.png
+    task_id: configure-access-and-email
+    step: 3
+    route: /admin/settings/email
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T03:00:00+08:00
+    verified_locator: 'role=heading name="邮件服务"'
+    visible_text: 邮件服务
+    alt: 邮件服务配置页面
+    sha256: 8028e677e0cc0d43af84b50f6788bb1a61c6e884f40903323dc51284b7707f13
+  - file: screenshots/admin-features.png
+    task_id: configure-product-experience
+    step: 2
+    route: /admin/settings/features
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T03:00:00+08:00
+    verified_locator: 'role=heading name="功能开放"'
+    visible_text: 功能开放
+    alt: 功能开放配置页面
+    sha256: f18788fa1611fd9f14e8c5424a09d29a7640458aba58b5e752f703648307115f
+  - file: screenshots/admin-logs.png
+    task_id: monitor-and-troubleshoot
+    step: 1
+    route: /admin/logs
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T03:00:00+08:00
+    verified_locator: 'role=heading name="请求明细"'
+    visible_text: 请求明细
+    alt: 请求明细页面展示筛选与请求记录
+    sha256: e2892591c013408189e414795f8e2b8bc0346492575036d4c60d707469227c79
+  - file: screenshots/admin-models-disabled.png
+    task_id: manage-models-and-resources
+    step: 3
+    route: /admin/models
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T03:00:00+08:00
+    verified_locator: '前台模型暂未开放'
+    visible_text: 前台模型暂未开放
+    alt: 前台模型关闭时的提示页面
+    sha256: 6812e0f0d2f2807306133bf5bbef9c1ae490f804acac9fc2c31c4aebc085d59f
+  - file: screenshots/admin-overview-export-highlight.png
+    task_id: quickstart-admin
+    step: 2
+    route: /admin
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T03:00:00+08:00
+    verified_locator: 'role=button name="导出 CSV"'
+    visible_text: 导出 CSV
+    alt: 运行总览中高亮显示导出 CSV按钮
+    sha256: 18375a5579a154ff4c205f3cf313d39f92bb0293e4b4c6cf0f7b4375f8e2f9c5
+  - file: screenshots/admin-overview.png
+    task_id: quickstart-admin
+    step: 1
+    route: /admin
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T03:00:00+08:00
+    verified_locator: 'role=heading name="运行总览"'
+    visible_text: 运行总览
+    alt: 管理员后台运行总览
+    sha256: 80041be8ad69011b6c2ccb98ebb7409592f644fd2e59d51c2e66c6f0303422a8
+  - file: screenshots/admin-payments.png
+    task_id: manage-billing-and-credits
+    step: 1
+    route: /admin/payments
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T03:00:00+08:00
+    verified_locator: 'role=heading name="支付充值"'
+    visible_text: 支付充值
+    alt: 支付充值页面及适配器状态
+    sha256: c2d51edce1764de8f119022049b19c771ad018503081a2f4fd586e96dd9b3dfb
+  - file: screenshots/admin-performance.png
+    task_id: monitor-and-troubleshoot
+    step: 2
+    route: /admin/settings/system-performance
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T03:00:00+08:00
+    verified_locator: 'role=heading name="系统性能"'
+    visible_text: 系统性能
+    alt: 系统性能页面展示运行指标
+    sha256: c0e0e9aa2183a08c79fce149c7a33c3719705c521959b9b10fababadc16cee99
+  - file: screenshots/admin-plugins.png
+    task_id: manage-plugins-and-skills
+    step: 1
+    route: /admin/plugins
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T03:00:00+08:00
+    verified_locator: 'role=heading name="插件管理"'
+    visible_text: 插件管理
+    alt: 插件管理页面
+    sha256: 7db385c75b8efd8740cdbc348ebc210dd89ed7d8f14e08eb843388a3d306b0ca
+  - file: screenshots/admin-prompt-templates.png
+    task_id: manage-models-and-resources
+    step: 4
+    route: /admin/prompt-templates
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T03:00:00+08:00
+    verified_locator: 'role=heading name="提示词模板"'
+    visible_text: 提示词模板
+    alt: 提示词模板版本列表
+    sha256: 70cbcd021c920dd75269cb2055df71aaa520e6cf560996ba25530d48e57bc384
+  - file: screenshots/admin-redemption-codes.png
+    task_id: manage-billing-and-credits
+    step: 3
+    route: /admin/redemption-codes
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T03:00:00+08:00
+    verified_locator: 'role=button name="生成批次"'
+    visible_text: 生成批次
+    alt: 兑换码批次页面
+    sha256: 971b61f32f89d423d672d9ab0889c27260e7643d598da58e2fbb1d41eec54457
+  - file: screenshots/admin-resources.png
+    task_id: manage-models-and-resources
+    step: 5
+    route: /admin/resources
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T03:00:00+08:00
+    verified_locator: 'role=heading name="存储资源"'
+    visible_text: 存储资源
+    alt: 存储资源列表和容量指标
+    sha256: 612d4652eebe76c512b2c5a6ee5efe234917dc1240f44c470b7f8912eef95406
+  - file: screenshots/admin-response-interception.png
+    task_id: operate-safety-and-updates
+    step: 1
+    route: /admin/settings/response-interception
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T03:00:00+08:00
+    verified_locator: 'role=heading name="模型响应拦截"'
+    visible_text: 模型响应拦截
+    alt: 模型响应拦截配置页面
+    sha256: 24d6f8dbbd7ae433f2e71e0372830e79b7ab39e7555249bf4056ba1c4470a8b1
+  - file: screenshots/admin-runtime-policy.png
+    task_id: configure-runtime-policy
+    step: 1
+    route: /admin/settings/runtime-policy
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T03:00:00+08:00
+    verified_locator: 'role=heading name="资源与策略"'
+    visible_text: 资源与策略
+    alt: 资源与策略配置页面
+    sha256: cba2c22c316ba23f212fd02aeb0d3291466fc1d9ad0f50b61f9dfeea0d675396
+  - file: screenshots/admin-skill-curation.png
+    task_id: manage-plugins-and-skills
+    step: 2
+    route: /admin/skill-curation
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T03:00:00+08:00
+    verified_locator: 'role=heading name="技能分类"'
+    visible_text: 技能分类
+    alt: 技能分类和策展页面
+    sha256: ce004a5a8fedd2aacf1848db5bf17ab7950ad5d57b55bd6b8463a282a7b62e3b
+  - file: screenshots/admin-storage-test-highlight.png
+    task_id: configure-storage-integrations
+    step: 2
+    route: /admin/settings/storage
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T03:00:00+08:00
+    verified_locator: 'role=button name="测试连接"'
+    visible_text: 测试连接
+    alt: 存储服务页面高亮显示测试连接按钮
+    sha256: 21722813d4af4943b139de80cfe1bac0eb290b3deb14ed5f44161bd3c5750fcb
+  - file: screenshots/admin-storage.png
+    task_id: configure-storage-integrations
+    step: 1
+    route: /admin/settings/storage
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T03:00:00+08:00
+    verified_locator: 'role=heading name="存储服务"'
+    visible_text: 存储服务
+    alt: 存储服务配置页面
+    sha256: f98434c1a7b2e6e9a71d4b102a45469fbfd367469cf2bd11597e17c842d1d418
+  - file: screenshots/admin-system-update-check-highlight.png
+    task_id: operate-safety-and-updates
+    step: 3
+    route: /admin/settings/system-update
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T03:00:00+08:00
+    verified_locator: 'role=button name="检查更新"'
+    visible_text: 检查更新
+    alt: 系统更新页面高亮显示检查更新按钮
+    sha256: fb1122d9b1e189105f4270580ddac9a375961f1ffe8f86c0a31af4837f9d8fff
+  - file: screenshots/admin-system-update.png
+    task_id: operate-safety-and-updates
+    step: 2
+    route: /admin/settings/system-update
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T03:00:00+08:00
+    verified_locator: 'role=heading name="系统更新"'
+    visible_text: 系统更新
+    alt: 系统更新页面及部署能力提示
+    sha256: 37c82e4f9252ff127f70cc34b8732d832bd00af7c840417a69f485079c217540
+  - file: screenshots/admin-third-party.png
+    task_id: configure-storage-integrations
+    step: 4
+    route: /admin/settings/third-party
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T03:00:00+08:00
+    verified_locator: 'role=heading name="第三方参数配置"'
+    visible_text: 第三方参数配置
+    alt: 第三方参数配置页面
+    sha256: a8b26d22e7cc0f2f1997bad7a51139d16e508ee0ea4e306a8ac8999560879959
+  - file: screenshots/admin-users.png
+    task_id: manage-users-and-notices
+    step: 1
+    route: /admin/users
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T03:00:00+08:00
+    verified_locator: 'role=heading name="用户管理"'
+    visible_text: 用户管理
+    alt: 用户管理列表
+    sha256: dc1ec4888ce4d3f044edfa3ae6934125d32a6a0c92b03c0b273c08f46d7b0f57

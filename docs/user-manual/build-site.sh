@@ -29,4 +29,5 @@ npx vitepress build .
 
 test -f .vitepress/dist/index.html
 test -f .vitepress/dist/creator/index.html
+test -f .vitepress/dist/admin/index.html
 printf 'Built user manual at %s\n' "$manual_dir/.vitepress/dist"

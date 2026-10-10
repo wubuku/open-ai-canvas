@@ -3,7 +3,7 @@ import { defineConfig } from 'vitepress';
 export default defineConfig({
   lang: 'zh-CN',
   title: '影策用户手册',
-  description: '影策创作台的图文使用手册',
+  description: '影策创作台与管理员后台的图文使用手册',
   head: [['link', { rel: 'icon', href: '/favicon.svg' }]],
   cleanUrls: true,
   lastUpdated: true,
@@ -11,6 +11,7 @@ export default defineConfig({
   themeConfig: {
     nav: [
       { text: '创作台', link: '/creator/' },
+      { text: '管理员后台', link: '/admin/' },
     ],
     sidebar: {
       '/creator/': [
@@ -58,10 +59,52 @@ export default defineConfig({
           ],
         },
       ],
+      '/admin/': [
+        {
+          text: '开始使用',
+          items: [
+            { text: '管理员后台', link: '/admin/' },
+            { text: '快速上手', link: '/admin/00-quickstart' },
+          ],
+        },
+        {
+          text: '监控与运营',
+          items: [
+            { text: '运行总览、请求明细和系统性能', link: '/admin/10-tasks/monitor-and-troubleshoot' },
+            { text: '用户、公告和 Agent 记忆', link: '/admin/10-tasks/manage-users-and-notices' },
+            { text: '支付、积分和兑换码', link: '/admin/10-tasks/manage-billing-and-credits' },
+          ],
+        },
+        {
+          text: '模型、资源与扩展',
+          items: [
+            { text: '系统渠道、模型、提示词和资源', link: '/admin/10-tasks/manage-models-and-resources' },
+            { text: '插件与技能分类', link: '/admin/10-tasks/manage-plugins-and-skills' },
+          ],
+        },
+        {
+          text: '平台配置',
+          items: [
+            { text: '站点外观、功能和绘图工具', link: '/admin/10-tasks/configure-product-experience' },
+            { text: '资源配额、并发和超时', link: '/admin/10-tasks/configure-runtime-policy' },
+            { text: '登录、注册和邮件服务', link: '/admin/10-tasks/configure-access-and-email' },
+            { text: '存储、方舟和第三方参数', link: '/admin/10-tasks/configure-storage-integrations' },
+            { text: '响应拦截与系统更新', link: '/admin/10-tasks/operate-safety-and-updates' },
+          ],
+        },
+        {
+          text: '参考与排障',
+          items: [
+            { text: '管理员参考', link: '/admin/20-reference' },
+            { text: '后台概念与权限', link: '/admin/30-concepts' },
+            { text: '常见问题与排障', link: '/admin/90-troubleshooting' },
+          ],
+        },
+      ],
     },
     search: { provider: 'local' },
     outline: { level: [2, 3] },
     socialLinks: [],
-    footer: { message: '影策创作台用户手册' },
+    footer: { message: '影策用户手册' },
   },
 });

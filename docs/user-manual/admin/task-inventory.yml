@@ -1,0 +1,219 @@
+manual_version: 1
+target:
+  app: yingce-web
+  scope: admin
+  url: http://localhost:28300
+  audience:
+    - admin
+  depth: standard
+tasks:
+  - id: quickstart-admin
+    title: 完成管理员只读巡检
+    role: admin
+    frequency: core
+    impact: high
+    coverage: flagship
+    evidence:
+      - type: navigation
+        note: 管理后台首页和监控菜单是管理员首要入口
+    preconditions:
+      - 已登录管理员账号
+    routes:
+      - /admin
+      - /admin/logs
+      - /admin/settings/system-performance
+    status: verified
+    manual_pages:
+      - 00-quickstart.md
+
+  - id: monitor-and-troubleshoot
+    title: 查看运行总览、请求明细和系统性能
+    role: admin
+    frequency: core
+    impact: high
+    coverage: flagship
+    evidence:
+      - type: sidebar
+        note: 监控与排查分组包含运行总览、请求明细和系统性能
+    preconditions:
+      - 已登录管理员账号
+    routes:
+      - /admin
+      - /admin/logs
+      - /admin/settings/system-performance
+    status: verified
+    manual_pages:
+      - 10-tasks/monitor-and-troubleshoot.md
+
+  - id: manage-models-and-resources
+    title: 配置系统渠道、模型、提示词和资源
+    role: admin
+    frequency: core
+    impact: critical
+    coverage: full
+    evidence:
+      - type: sidebar
+        note: 模型与资源分组包含渠道、模板和资源
+    preconditions:
+      - 已登录管理员账号
+    routes:
+      - /admin/channels
+      - /admin/models
+      - /admin/prompt-templates
+      - /admin/resources
+    status: verified
+    manual_pages:
+      - 10-tasks/manage-models-and-resources.md
+
+  - id: manage-users-and-notices
+    title: 管理用户、公告和 Agent 记忆
+    role: admin
+    frequency: common
+    impact: critical
+    coverage: full
+    evidence:
+      - type: sidebar
+        note: 用户与运营分组提供用户和通知入口
+    preconditions:
+      - 已登录管理员账号
+    routes:
+      - /admin/users
+      - /admin/announcements
+      - /admin/banner-announcements
+      - /admin/agent-lessons
+    status: verified
+    manual_pages:
+      - 10-tasks/manage-users-and-notices.md
+
+  - id: manage-billing-and-credits
+    title: 处理支付、积分和兑换码
+    role: admin
+    frequency: common
+    impact: critical
+    coverage: rescue
+    evidence:
+      - type: sidebar
+        note: 支付、积分和兑换码属于高影响运营入口
+    preconditions:
+      - 已登录管理员账号
+      - 已取得财务或运营授权
+    routes:
+      - /admin/payments
+      - /admin/credit-operations
+      - /admin/redemption-codes
+    status: verified
+    manual_pages:
+      - 10-tasks/manage-billing-and-credits.md
+
+  - id: manage-plugins-and-skills
+    title: 管理插件与技能分类
+    role: admin
+    frequency: occasional
+    impact: high
+    coverage: full
+    evidence:
+      - type: sidebar
+        note: 平台扩展能力和技能策展入口
+    preconditions:
+      - 已登录管理员账号
+    routes:
+      - /admin/plugins
+      - /admin/skill-curation
+    status: verified
+    manual_pages:
+      - 10-tasks/manage-plugins-and-skills.md
+
+  - id: configure-product-experience
+    title: 配置站点外观、功能和绘图工具
+    role: admin
+    frequency: occasional
+    impact: high
+    coverage: full
+    evidence:
+      - type: sidebar
+        note: 平台配置分组中的用户可见性设置
+    preconditions:
+      - 已登录管理员账号
+    routes:
+      - /admin/settings/appearance
+      - /admin/settings/features
+      - /admin/settings/drawing-engine
+    status: verified
+    manual_pages:
+      - 10-tasks/configure-product-experience.md
+
+  - id: configure-runtime-policy
+    title: 配置资源配额、任务并发和超时
+    role: admin
+    frequency: common
+    impact: critical
+    coverage: flagship
+    evidence:
+      - type: user-report
+        note: 用户反馈等待视频生成超时过短，需要区分前端等待和后台任务策略
+    preconditions:
+      - 已登录管理员账号
+      - 已准备变更单和回滚值
+    routes:
+      - /admin/settings/runtime-policy
+    status: verified
+    manual_pages:
+      - 10-tasks/configure-runtime-policy.md
+
+  - id: configure-access-and-email
+    title: 配置登录、注册和邮件服务
+    role: admin
+    frequency: occasional
+    impact: critical
+    coverage: full
+    evidence:
+      - type: sidebar
+        note: 账号创建、OAuth、服务协议和验证码邮件配置
+    preconditions:
+      - 已登录管理员账号
+      - 已准备隔离账号和邮件测试方案
+    routes:
+      - /admin/settings/access
+      - /admin/settings/email
+    status: verified
+    manual_pages:
+      - 10-tasks/configure-access-and-email.md
+
+  - id: configure-storage-integrations
+    title: 配置存储、方舟素材库和第三方参数
+    role: admin
+    frequency: rare
+    impact: critical
+    coverage: rescue
+    evidence:
+      - type: sidebar
+        note: 对象存储、可信素材同步和第三方参数入口
+    preconditions:
+      - 已登录管理员账号
+      - 已准备隔离凭据和回滚配置
+    routes:
+      - /admin/settings/storage
+      - /admin/settings/ark-private-assets
+      - /admin/settings/third-party
+    status: verified
+    manual_pages:
+      - 10-tasks/configure-storage-integrations.md
+
+  - id: operate-safety-and-updates
+    title: 配置响应拦截与系统更新
+    role: admin
+    frequency: rare
+    impact: critical
+    coverage: rescue
+    evidence:
+      - type: sidebar
+        note: 错误文案规则和部署更新入口
+    preconditions:
+      - 已登录管理员账号
+      - 已准备变更审批、备份和回退方案
+    routes:
+      - /admin/settings/response-interception
+      - /admin/settings/system-update
+    status: verified
+    manual_pages:
+      - 10-tasks/operate-safety-and-updates.md
