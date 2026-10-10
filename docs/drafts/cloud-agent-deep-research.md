@@ -2,6 +2,8 @@
 
 > 本文是基于当前仓库源码、模型、HTTP handler、前端 Agent 面板、Pi runtime、独立 `yingce-agent`、Skill 服务和已有测试做的深度静态调研。它首先服务于开发者和 AI Agent 的代码导航；未经过真实登录态、真实模型、SSE 断线和独立容器联调的内容不会写成运行验收结论。
 
+> **阅读关系与术语。** 本文是跨模块研究草稿：[架构总览](../content/docs/overview/architecture.mdx)说明稳定的系统边界，[画布开发导航](../content/docs/canvas/canvas-development.mdx)说明画布代码入口，[代码地图](../content/docs/backend/code-map.mdx)负责从功能定位代码，[HTTP API](../content/docs/backend/http-api.mdx)负责协议细节；本文补充它们之间的执行链、证据和待验证边界。下文中的 **Pi runtime** 指运行在 Node.js 进程中的 Pi SDK 会话执行器；**bridge** 指 Go 控制面与 Node runtime 之间的受控请求通道；**SSE**（Server-Sent Events，服务器向浏览器单向推送事件）指 Agent 前端的观察和回放通道；**Skill** 指产品内版本化的工作流参考材料，和项目协作者使用的 `.agents/skills` 不是同一条加载路径。
+
 ## 先读结论
 
 当前的 Agent 是一个由浏览器、Go 控制面、任务系统和 Pi Node runtime 组成的持久化执行系统。它不是“前端把聊天消息发给一个模型 API”这么简单，也不是一个拥有服务器文件系统权限的通用 Coding Agent。
@@ -9,11 +11,11 @@
 最重要的边界如下：
 
 1. **浏览器负责交互和观察。** 画布 Agent 面板负责选择模型、权限模式、Skill、上下文、提交消息、展示事件、收集审批和把画布增量应用到本地编辑器。
-2. **Go 后端负责授权和事实。** `backend/internal/handler/agent.go` 接收请求，`backend/internal/app/cloud_agent.go` 完成幂等和运行准入，`cloud_agent_*` 系列文件负责策略、上下文、工具、审批、任务、持久化和恢复。
+2. **Go 后端负责授权和事实。** `backend/internal/handler/agent.go` 接收请求，`backend/internal/app/cloud_agent.go` 完成幂等和运行准入，`backend/internal/app/cloud_agent_*.go` 系列文件负责策略、上下文、工具、审批、任务、持久化和恢复。
 3. **Pi runtime 负责模型循环。** Node runtime 负责把服务端提供的工具交给 Pi SDK，执行“模型请求 -> 工具调用 -> 工具结果 -> 下一轮模型请求”的循环；它不决定用户能不能读写画布，也不直接访问数据库。
 4. **媒体生成仍然是后端任务。** Agent 只能提出结构化的 `generate_media` 或 `image_layer_split` 工具调用；真正的模型路由、模型能力、价格、额度、资源引用、任务提交、Worker 执行和结果回写仍走现有 Go 任务链。
 5. **Skill 不是授权。** Skill 可以提供工作流知识和参考材料，但工具权限、节点能力、审批、预算、资源归属和安全校验永远由服务端代码决定。
-6. **运行可以脱离浏览器继续。** 每轮 Agent 是一个持久化运行，根任务复用普通任务的身份、计费、取消和 Worker 语义；浏览器的 SSE 只是观察通道，断开不会自动终止运行。
+6. **运行可以脱离浏览器继续。** 每轮 Agent 是一个持久化运行；根 `cloud_agent` 任务是非计费的控制面载体，正常模型轮次由 `cloud_agent_step` 子任务承载，上下文/记忆压缩使用专用任务，媒体生成则进入媒体任务和既有 Worker/计费链路。浏览器的 SSE 只是观察通道，断开不会自动终止运行。
 
 可以把主链路压缩为：
 
@@ -39,13 +41,13 @@
 | --- | --- | --- |
 | 修改 Agent 面板或提交行为 | `web/src/components/canvas/canvas-cloud-agent-panel.tsx` | `web/src/services/api/agent.ts`、`web/src/services/cloud-agent-conversations.ts` |
 | 修改事件流或断线重连 | `web/src/services/api/agent.ts` | `backend/internal/handler/agent.go`、`web/src/components/canvas/canvas-cloud-agent-events.ts` |
-| 新增或修改只读工具 | `backend/internal/app/cloud_agent_tools.go` | `cloud_agent_tools_read.go`、`cloud_agent_runtime_tools.go` |
-| 新增画布写操作 | `backend/internal/app/cloud_agent_tools.go` | `cloud_agent_tools_canvas.go`、`cloud_agent_mutation.go`、`cloud_agent_runtime_tools.go` |
-| 修改媒体生成 | `backend/internal/app/cloud_agent_media.go` | `cloud_agent_runtime_media.go`、`task_creation.go`、provider/worker |
-| 修改 Pi 与 Go 的桥接 | `backend/internal/app/cloud_agent_pi_coordinator.go` | `cloud_agent_pi_model.go`、`cloud_agent_pi_bridge.go`、`internal/agent/runtime/` |
+| 新增或修改只读工具 | `backend/internal/app/cloud_agent_tools.go` | `backend/internal/app/cloud_agent_tools_read.go`、`backend/internal/app/cloud_agent_runtime_tools.go` |
+| 新增画布写操作 | `backend/internal/app/cloud_agent_tools.go` | `backend/internal/app/cloud_agent_tools_canvas.go`、`backend/internal/app/cloud_agent_mutation.go`、`backend/internal/app/cloud_agent_runtime_tools.go` |
+| 修改媒体生成 | `backend/internal/app/cloud_agent_media.go` | `backend/internal/app/cloud_agent_runtime_media.go`、`backend/internal/app/task_creation.go`、`backend/internal/app/task_worker.go`、`backend/internal/provider/`、`backend/internal/protocol/` |
+| 修改 Pi 与 Go 的桥接 | `backend/internal/app/cloud_agent_pi_coordinator.go` | `backend/internal/app/cloud_agent_pi_model.go`、`backend/internal/app/cloud_agent_pi_bridge.go`、`backend/internal/agent/runtime/` |
 | 修改独立 Agent 容器 | `yingce-agent/server.mjs` | `yingce-agent/README.md`、`backend/agent-runtime/pi/agent-runtime.mjs` |
 | 修改 Skill 读取和版本快照 | `backend/internal/app/cloud_agent_tools_skills.go` | `backend/internal/skills/`、`backend/internal/model/models_platform.go` |
-| 修改偏好、记忆或计划 | `backend/internal/app/cloud_agent_policy.go` | `cloud_agent_profile.go`、`cloud_agent_lessons.go`、`cloud_agent_plan.go` |
+| 修改偏好、记忆或计划 | `backend/internal/app/cloud_agent_policy.go` | `backend/internal/app/cloud_agent_profile.go`、`backend/internal/app/cloud_agent_lessons.go`、`backend/internal/app/cloud_agent_plan.go` |
 | 修改 Agent 行为规则 | `backend/internal/prompts/agent-system-policy.md` | `docs/content/docs/backend/agent-prompt-policy.mdx` |
 
 ## 1. 调研范围和证据分级
@@ -61,10 +63,10 @@
 
 - Agent 请求、运行、幂等和续轮：`backend/internal/app/cloud_agent.go`。
 - HTTP 合同和 SSE：`backend/internal/handler/agent.go`、`web/src/services/api/agent.ts`。
-- Go 调度器和 Pi 生命周期：`backend/internal/app/cloud_agent_runtime_scheduler.go`、`cloud_agent_pi_coordinator.go`。
+- Go 调度器和 Pi 生命周期：`backend/internal/app/cloud_agent_runtime_scheduler.go`、`backend/internal/app/cloud_agent_pi_coordinator.go`。
 - Pi 请求和隔离运行时：`backend/internal/app/cloud_agent_pi_request.go`、`backend/agent-runtime/pi/agent-runtime.mjs`。
-- 工具 schema 和工具编译：`backend/internal/app/cloud_agent_tools.go`、`cloud_agent_tools_read.go`、`cloud_agent_tools_skills.go`。
-- 画布读写和媒体：`backend/internal/app/cloud_agent_runtime_tools.go`、`cloud_agent_media.go`、`cloud_agent_runtime_media.go`。
+- 工具 schema 和工具编译：`backend/internal/app/cloud_agent_tools.go`、`backend/internal/app/cloud_agent_tools_read.go`、`backend/internal/app/cloud_agent_tools_skills.go`。
+- 画布读写和媒体：`backend/internal/app/cloud_agent_runtime_tools.go`、`backend/internal/app/cloud_agent_media.go`、`backend/internal/app/cloud_agent_runtime_media.go`。
 - 运行持久化：`backend/internal/model/cloud_agent.go`、`backend/internal/repository/cloud_agent.go`。
 - Skill 数据和服务：`backend/internal/model/models_platform.go`、`backend/internal/skills/`、`backend/internal/repository/skill_packages.go`。
 - 前端会话、提交和画布同步：`web/src/components/canvas/canvas-cloud-agent-panel.tsx`、`web/src/services/cloud-agent-conversations.ts`、`web/src/services/agent-canvas-sync.ts`。
@@ -78,11 +80,11 @@ Agent 的画布上下文不是简单把整个 JSON 一次塞给模型。服务�
 当前主要能力包括：
 
 - `canvas_list_node_types`：读取服务端注册的节点能力、用途、默认尺寸、可更新字段、输入类型和连接约束。它是 Agent 选择节点类型的事实来源，不能凭 UI 名称猜 `nodeType`。
-- `canvas_get_state`：读取画布目录、节点、连线和 `snapshotHash`。可以分页读取全部节点，或用 `nodeIds` 精读指定节点，用 `focusNodeIds + depth` 读取邻域，用 `focusNodeIds + includeRelated` 读取连通分量。
+- `canvas_get_state`：读取画布目录、节点、连线、整画布 `snapshotHash` 和媒体准入使用的 `mediaSnapshotHash`。可以分页读取全部节点，或用 `nodeIds` 精读指定节点，用 `focusNodeIds + depth` 读取邻域，用 `focusNodeIds + includeRelated` 读取连通分量。
 - 角色卡节点会返回结构化的设定、形象表示和图片/音频引用；角色卡的 `content` 为空不代表角色卡没有内容。
 - 生成字段会区分草稿、任务状态和可用的输出资源引用；模型不能把历史提示词、节点标题或候选素材列表当成真实画面观察。
-- `canvas_read_storyboard`：按页读取结构化分镜脚本的镜头行，取得真实 `rowId` 和 `snapshotHash`。
-- `canvas_read_batch_table`：按页读取批量创作表的配置、参考图列、任务行和预览，取得行级 `rowId` 与参考图 `mentionToken`。
+- `canvas_read_storyboard`：按页读取结构化分镜脚本的镜头行，取得真实 `rowId` 和该分镜节点的 `snapshotHash`。
+- `canvas_read_batch_table`：按页读取批量创作表的配置、参考图列、任务行和预览，取得行级 `rowId`、该批量表节点的 `snapshotHash` 与参考图 `mentionToken`。
 - `previs_scene_read`：读取预演场景目录或场景/镜头/对象的摘要，并取得预演专用快照哈希。
 - `task_get`：查询当前用户、当前画布下的任务状态和脱敏诊断信息。
 
@@ -100,23 +102,23 @@ Agent 的画布上下文不是简单把整个 JSON 一次塞给模型。服务�
 - `image_annotation_render` 根据归一化坐标生成临时 PNG 标注参考图，并通过当前用户资源存储和短期 lease 管理；它不修改原图片节点。
 - 文字编辑仍要以原图和标注图为参考，进入正常图片生成、审批和任务链。
 
-### 2.3 画布写入
+### 2.3 画布写入和预演操作
 
-当前云端 Agent 主工具合同以 `compileCloudAgentTools` 产生的工具为准。主要写操作如下：
+当前云端 Agent 主工具合同以 `compileCloudAgentTools` 产生的工具为准。下面列出主要画布写操作，以及不直接写服务端画布的预演请求：
 
 | 工具 | 能做什么 | 关键前置和限制 |
 | --- | --- | --- |
 | `canvas_apply_ops` | 创建节点、更新节点字段、移动节点、建立连接 | 必须提交最新 `snapshotHash`；每次最多 20 项；不能删除节点、写任意 metadata 或写媒体 URL/storage key |
 | `canvas_arrange_nodes` | 自动排版、对齐、等距和分组整理 | 只改坐标；最多 50 个节点；跳过锁定节点、容器和不应被移动的子节点 |
 | `canvas_create_storyboard` | 创建结构化分镜脚本节点和真实镜头行 | 适用于多镜头、连续性和逐镜维护；不能用普通 Markdown 伪装结构化分镜 |
-| `canvas_edit_storyboard` | 追加、修改或删除单个分镜行 | 必须使用最新 `rowId` 和 `snapshotHash`；只能改允许的镜头文本和时长字段 |
-| `canvas_edit_batch_table` | 编辑批量创作表行、参考图列、模式、并发和全局提示词 | 先读最新表状态；只改计划，不提交收费生成；不能写输出节点、任务状态或资源地址 |
+| `canvas_edit_storyboard` | 追加、修改或删除单个分镜行 | 必须使用最新 `rowId` 和该分镜节点的 `snapshotHash`；只能改允许的镜头文本和时长字段 |
+| `canvas_edit_batch_table` | 编辑批量创作表行、参考图列、模式、并发和全局提示词 | 必须使用最新行 ID 和该批量表节点的 `snapshotHash`；只改计划，不提交收费生成；不能写输出节点、任务状态或资源地址 |
 | `canvas_create_character` | 将形象图片及可选声音打包成角色卡并放置节点 | 需要已有就绪图片；已有同名角色应优先复用；设定只能填有依据的内容 |
-| `generate_media` | 提交图片、视频或音频生成 | 先读画布和模型目录；服务端做能力、参考素材、价格、额度和任务准入；所有模式都走独立审批 |
+| `generate_media` | 提交图片、视频或音频生成 | 先读画布的 `mediaSnapshotHash` 和模型目录；服务端做能力、参考素材、价格、额度和任务准入；所有可用模式都走独立审批 |
 | `image_layer_split` | 对图片做对象拆分并生成透明图层 | 复用媒体准入；先创建草稿，用户批准后才提交任务 |
 | `previs_scene_create` | 创建预演场景并绑定可打开工作台的 video 工作站节点 | 必须提供当前 `canvasSnapshotHash` |
 | `previs_apply_patch` | 修改预演场景、镜头、对象、相机、灯光和动画 | 使用预演 `snapshotHash`；最多 32 项；语义 patch 不能提交原始 JSON、URL 或 storage key |
-| `previs_preview` | 提交白模预演视频任务 | 先读取真实 `sceneId`、`shotId`；结果仍由任务系统管理 |
+| `previs_preview` | 请求当前浏览器预演视口录制白模预演 | 先读取真实 `sceneId`、`shotId`；后端只校验并返回 `previewRequestId`，前端通过 `previs:preview-requested` 事件交给当前预演工作台录制，不创建后端媒体任务或进入 Worker |
 
 `canvas_apply_ops` 的操作会用能力注册表验证来源节点、目标节点、输入类型、句柄和结构化行引用。分镜行级连接必须使用读取结果里的 `row:<rowId>`，不能把节点 ID 当作行 ID。
 
@@ -135,7 +137,7 @@ Agent 还具备一组不直接修改画布的协作能力：
 
 不能把以下内容写成当前 Agent 已经拥有：
 
-- 任意读取仓库文件、执行 Shell、访问浏览器或访问 Web。Pi 标准工具路由在测试和兼容代码中有痕迹，但当前运行请求只启用平台声明的工具，且 runtime 关闭了默认 filesystem skills、extensions、prompt templates 和 context files。
+- 任意读取仓库文件、执行 Shell、访问浏览器或访问 Web。代码中确实存在 `routeStandardTool` 和 `read_file`、`bash`、`web_search` 等兼容路由，但当前运行请求不会把它们加入平台工具 schema；即使直接进入这些路由，文件、Shell、Web handler 也返回“未配置/不可用”。Pi runtime 同时关闭了默认 filesystem skills、extensions、prompt templates 和 context files。
 - 直接访问数据库。Node runtime 和独立 `yingce-agent` 均通过 Go bridge 工作。
 - 直接持有供应商密钥或自行选择未授权上游。模型请求由 Go 的渠道、逻辑模型、能力和计费系统接管。
 - 通过 Skill 获得新的权限。Skill 的文本只能影响工作方法和参考知识，不能授权删除节点、提交媒体或越过审批。
@@ -155,7 +157,7 @@ Agent 还具备一组不直接修改画布的协作能力：
 - 运行期间允许继续输入；此时发送入口改为 `interjection`，不与停止按钮混用。
 - 处理 SSE 事件、运行快照、审批确认、取消和画布 patch。
 
-输入组件 `canvas-cloud-agent-composer.tsx` 支持：
+输入组件 `web/src/components/canvas/canvas-cloud-agent-composer.tsx` 支持：
 
 - 普通文本输入和附件。
 - `@` 选择画布节点、素材、Skill 和附件。
@@ -202,7 +204,7 @@ Accept: text/event-stream
 
 1. 收到 `canvas_updated` 等事件时优先提取 `canvasPatch`。
 2. 在约 40ms 窗口内合并多个 patch，批量应用到当前 store 和编辑器。
-3. patch 应用失败、事件没有 patch、事件缺口或发现冲突时，标记 `needsRefresh`。
+3. 需要画布同步的事件缺少 patch、patch 应用失败或事件流出错时，标记 `needsRefresh`；普通文本和状态事件不会因为没有 patch 自动刷新。
 4. 全量刷新受约一秒的节流和单请求在途约束，重复通知只保留一次尾随刷新。
 5. 画布同步只处理当前画布；其他画布事件直接忽略。
 
@@ -240,7 +242,7 @@ handler 层负责登录、请求体大小、未知字段拒绝、速率限制、
 4. 校验 Skill 是否属于当前用户、已经加入技能库且启用。
 5. 根据逻辑模型或受管渠道解析模型，不接受浏览器传入的自定义密钥和任意上游地址。
 6. 建立当前请求的可信历史、创作锚点、策略快照、工具 schema 和 Skill 快照。
-7. 用事务创建根 `Task` 并预留固定 Agent 请求的积分；并发重复提交只有一个请求可以成功提交。
+7. 用事务创建非计费的根 `Task` 控制面载体，并把本轮最大积分作为后续模型/媒体任务的上限；并发重复提交只有一个请求可以成功提交。
 8. 确保 `CloudAgentExecution` 存在并启动或恢复 Pi session。
 
 运行请求支持：
@@ -255,7 +257,7 @@ handler 层负责登录、请求体大小、未知字段拒绝、速率限制、
 
 服务端把多种来源编译为本轮上下文：
 
-- 版本化系统策略：`internal/prompts/agent-system-policy.md` 和媒体策略。
+- 版本化系统策略：`backend/internal/prompts/agent-system-policy.md` 和 `backend/internal/prompts/agent-media-policy.md`。
 - 当前用户请求与父轮可信历史。
 - 画布摘要、焦点节点、结构化内容和资源候选。
 - 本轮权限、预算、模型合同和能力集合。
@@ -346,7 +348,7 @@ Skill 相关模型分为几层：
 5. 模型需要工作流知识时调用 `skill_search`，检索已启用技能名称、描述和卡片文件名。
 6. 模型调用 `skill_read_file` 读取 `SKILL.md` 或搜索结果中允许的文本卡片。
 7. 文件按页返回，每页最多约 12000 字符；空路径用于列出目录。
-8. 同一运行内同一个 Skill 的同一路径只允许读取一次，结果和失败都会进入持久化状态。
+8. 同一运行内同一个 Skill 的成功读取结果只执行一次并进入缓存；确定性的参数错误也会缓存。瞬时、权限或版本冲突会进入工具历史，但不会冻结重试。
 9. 每次读取前后服务端检查版本和 hash；Skill 被更新、禁用或快照不一致时返回冲突，不能混用新旧正文。
 10. SSE 只展示读取回执和路径，不把完整 Skill 正文重复写入事件，避免把大段指令扩散到 UI 日志。
 
@@ -390,6 +392,8 @@ canvas_get_state
 
 `CloudAgentCanvasMutation` 会保留运行 ID、画布 ID、步骤 ID、前后 snapshot hash、有限的 before JSON、是否已经提交任务和撤销状态。撤销接口还要检查期望快照，避免用户或其他协作者已经继续编辑后把新改动覆盖掉。
 
+快照的粒度由工具决定，不能跨工具混用：普通节点操作使用整画布 `snapshotHash`；分镜和批量表读写使用目标节点的 `snapshotHash`（兼容整画布哈希）；媒体生成使用 `mediaSnapshotHash`；预演修改使用场景 `snapshotHash`。媒体哈希忽略画布位置、尺寸和自动保存字段，但仍包含生成所依赖的节点业务字段与连线。
+
 ### 7.2 写入能力的安全模型
 
 服务端对每次写入重新检查：
@@ -406,13 +410,13 @@ canvas_get_state
 
 ### 7.3 媒体工具是“准备、审批、提交、等待、回写”
 
-`generate_media` 的逻辑不是一个普通同步工具调用：
+`generate_media` 的逻辑不是一个普通同步工具调用。`previs_preview` 是另一条轻量路径：它只读取并校验预演场景/镜头，返回录制请求；`web/src/components/canvas/canvas-cloud-agent-events.ts` 把结果转成 `previs:preview-requested` 浏览器事件，由 `web/src/components/canvas/previs/canvas-previs-workbench.tsx` 判断是否属于当前工作台并执行视口录制。它不走下面的媒体 admission、计费、审批和 Worker 流程。
 
 1. 模型先选择操作模式、源文本节点、媒体参考节点和模型选择。
 2. `model_list` 根据模式和真实参考节点返回匹配模型、能力和价格；空结果不能退回任意不匹配模型。
 3. Go 执行 dry admission，校验 prompt、素材归属、模型能力、画幅、时长、音频、预算、并发、额度和资源引用。
 4. 服务端生成包含模型、参考素材、预估费用和目标节点的审批预览，并把审批 call hash 固定下来。
-5. 所有权限模式都要求用户通过 `/approvals/:approvalId/decision` 明确批准媒体生成。
+5. 所有可用权限模式下，媒体生成工具都要求用户通过 `/approvals/:approvalId/decision` 明确批准；`auto` 只会自动执行普通画布写入，不能绕过媒体审批。
 6. 批准后才创建收费任务；任务由普通 Worker 执行，Agent 等待任务终态。
 7. 生成完成后由后端以原始目标节点和任务绑定同时匹配，成功才回写画布。
 8. 事件会区分生成错误和回写错误。目标节点不存在、任务绑定变化或结果资源不可用时不能假装媒体已经写回成功。
@@ -420,15 +424,17 @@ canvas_get_state
 
 `image_layer_split` 复用媒体准入和结果回写路径，但它是独立的图像分层操作，不能当作一般的画布节点修改。
 
+预演台的 `previs_scene_create` 和 `previs_apply_patch` 属于画布写操作：在 `request_approval` 下进入通用画布审批，在 `auto` 下可按普通写入策略执行。`previs_preview` 不修改服务端画布，也不创建后端 `Task`；浏览器录制完成后，预演工作台才可能通过前端保存/回写路径产生画布节点和资源变化。
+
 ### 7.4 现有工具注册表的阅读陷阱
 
-仓库还存在 `cloud_agent_pi_canvas_tools_registry.go` 和 `cloud_agent_pi_canvas_tools_handlers.go`，其中注册了 `canvas_node_create`、`canvas_node_delete`、`canvas_bulk_operation` 等另一套工具定义，并带有自己的 `RequireApproval`、权限和 handler。
+仓库还存在 `backend/internal/app/cloud_agent_pi_canvas_tools_registry.go` 和 `backend/internal/app/cloud_agent_pi_canvas_tools_handlers.go`，其中注册了 `canvas_node_create`、`canvas_node_delete`、`canvas_bulk_operation` 等另一套工具定义，并带有自己的 `RequireApproval`、权限和 handler。
 
 本轮在仓库内没有找到 `NewCanvasToolRegistry` 被云端 Agent 主执行路径调用；当前云端工具 schema 和白名单由 `cloudAgentTools` / `compileCloudAgentTools` 生成，写入主路径使用 `canvas_apply_ops`、`canvas_arrange_nodes`、结构化编辑和媒体工具。尤其是主路径的 `canvas_apply_ops` 明确禁止删除节点。
 
 开发时必须先确认改的是哪套合同：
 
-- 要修改当前 `/model` 交给 Pi 的云端工具，改 `cloud_agent_tools.go` 和对应 `cloud_agent_*` 执行器，并补 `CloudAgentSupportedToolNames` 与运行测试。
+- 要修改当前 `/model` 交给 Pi 的云端工具，改 `backend/internal/app/cloud_agent_tools.go` 和对应 `backend/internal/app/cloud_agent_*.go` 执行器，并补 `CloudAgentSupportedToolNames` 与运行测试。
 - 不能只在 `CanvasToolRegistry` 里添加工具，就认为云端 Agent 已能调用。
 - 如果两套注册表都需要保留，应补充唯一事实源或明确它们的产品边界，否则工具文档、capability hash 和实际执行会漂移。
 
@@ -454,7 +460,7 @@ Node 收到工具执行结果中的 `pause` 后主动中止 Pi 当前 session。
 
 ### 8.3 预算和费用
 
-运行请求包含最大积分、最多生成任务、最多视频秒数和可选最大步骤。媒体生成还会经过模型报价和任务 admission。普通文本 Agent 运行的收费、取消、任务恢复和上游调用日志复用平台任务系统。
+运行请求包含最大积分、最多生成任务、最多视频秒数和可选最大步骤。根 `cloud_agent` 任务本身不进入模型 Worker，也不直接计费；正常模型轮次由 `cloud_agent_step` 子任务承载，上下文压缩使用 `cloud_agent_context_compaction`，记忆压缩使用专用 `canvas_text` 任务，媒体生成则创建带审批和额度上限的媒体任务。普通文本 Agent 运行的收费、取消、任务恢复和上游调用日志复用平台任务系统。需要注意，`GET /api/agent/capabilities` 当前仍返回 `billing: "fixed_request"` 这一兼容元数据；判断真实计费应沿 `Task.Operation`、`BillingOrder` 和 `NonBillable` admission 路径核对，不能把该字段解释为根任务已经收费。
 
 “模型返回了工具调用”不等于“已扣费并已生成”：
 
@@ -474,7 +480,7 @@ Node 收到工具执行结果中的 `pause` 后主动中止 Pi 当前 session。
 
 ### 9.2 个人记忆
 
-个人经验模型在 `models_agent_lesson.go`，服务和 handler 在 `cloud_agent_lessons.go`、`agent_lesson.go` 等文件。记忆按 `author_user_id` 隔离：
+个人经验模型在 `backend/internal/model/models_agent_lesson.go`，服务和 handler 在 `backend/internal/app/cloud_agent_lessons.go`、`backend/internal/handler/agent_lesson.go` 等文件。记忆按 `author_user_id` 隔离：
 
 - 用户手动添加可以直接批准。
 - Agent 通过 `remember_lesson` 写入待审状态。
@@ -507,7 +513,7 @@ Node 收到工具执行结果中的 `pause` 后主动中止 Pi 当前 session。
 
 | 对象 | 作用 | 事实来源 |
 | --- | --- | --- |
-| `tasks` | Agent 根任务、模型步骤、媒体生成任务 | 任务状态、Worker、计费和取消 |
+| `tasks` | Agent 根任务、模型步骤、媒体生成任务 | 任务状态和取消；模型步骤/媒体任务进入 Worker 与计费，根任务只是非计费控制面载体 |
 | `cloud_agent_executions` | Agent 控制检查点 | status、revision、active task、media task、state JSON |
 | `cloud_agent_pi_sessions` | Pi 原生 JSONL session | Pi 会话和上下文压缩快照 |
 | `cloud_agent_event_records` | append-only 运行事件 | SSE 回放和审计 |
@@ -549,8 +555,8 @@ Node 收到工具执行结果中的 `pause` 后主动中止 Pi 当前 session。
 
 建议步骤：
 
-1. 在 `cloud_agent_tools.go` 中定义工具名、描述、参数 schema 和暴露条件。
-2. 在 `cloud_agent_tools_read.go` 的读取分支中解析严格参数。
+1. 在 `backend/internal/app/cloud_agent_tools.go` 中定义工具名、描述、参数 schema 和暴露条件。
+2. 在 `backend/internal/app/cloud_agent_tools_read.go` 的读取分支中解析严格参数。
 3. 在服务端按当前用户和当前画布校验归属；不要接受默认用户、空 ID 或客户端的权限结论。
 4. 判断是否可缓存、是否可批量执行、是否需要读次数预算。
 5. 把结果作为可序列化数据写入 canonical tool message，避免返回无法重放的临时对象。
@@ -589,11 +595,11 @@ cloudAgentTools.go schema
 - `cloudAgentTools` 的参数合同和模型选择提示。
 - `cloudAgentMedia` 的参数解析、引用绑定和 admission。
 - `cloudAgentRuntimeMedia` 的审批、任务等待和结果回写。
-- `task_creation.go` 的能力、价格、额度和资源校验。
+- `backend/internal/app/task_creation.go` 的能力、价格、额度和资源校验。
 - 对应 provider、Worker、结果资源和任务状态。
 - `canvas_updated` 的 draft、submit、complete 或失败事件。
 - 前端审批卡、任务状态和回写失败展示。
-- `cloud_agent_media_*_test.go`、任务事实和恢复测试。
+- `backend/internal/app/cloud_agent_media_*_test.go`、任务事实和恢复测试。
 
 只在 Skill 或 prompt 中新增“支持某种媒体”不算完成，因为真正的能力由服务端注册表、模型目录和任务适配器决定。
 
@@ -634,29 +640,29 @@ cloudAgentTools.go schema
 
 | 现象 | 先查哪里 | 典型根因 |
 | --- | --- | --- |
-| 消息没有创建运行 | `panel.tsx` pending、`api/agent.ts`、handler | 对话 scope、请求校验、模型选择、幂等记录损坏 |
-| 运行创建但不动 | `cloud_agent_pi_coordinator.go`、scheduler、Task | runtime 未启动、活动任务卡住、恢复状态不一致 |
-| Agent 反复读取画布 | `cloud_agent_tools_read.go`、runtime read cache | 读预算、缓存 key、上下文压缩后正文不在历史 |
+| 消息没有创建运行 | `web/src/components/canvas/canvas-cloud-agent-panel.tsx` pending、`web/src/services/api/agent.ts`、`backend/internal/handler/agent.go` | 对话 scope、请求校验、模型选择、幂等记录损坏 |
+| 运行创建但不动 | `backend/internal/app/cloud_agent_pi_coordinator.go`、`backend/internal/app/cloud_agent_runtime_scheduler.go`、Task | runtime 未启动、活动任务卡住、恢复状态不一致 |
+| Agent 反复读取画布 | `backend/internal/app/cloud_agent_tools_read.go`、runtime read cache | 读预算、缓存 key、上下文压缩后正文不在历史 |
 | 写入被拒绝 | `cloudAgentToolAllowed`、快照校验、capability registry | 只读权限、旧 snapshot、未知字段或节点能力不匹配 |
-| 媒体一直等审批 | `cloud_agent_runtime_media.go`、handler approval | approval ID、call hash、恢复竞争或媒体设置不一致 |
+| 媒体一直等审批 | `backend/internal/app/cloud_agent_runtime_media.go`、`backend/internal/handler/agent.go` approval | approval ID、call hash、恢复竞争或媒体设置不一致 |
 | 生成成功但画布没结果 | `settleCloudAgentMedia`、writeback 事件 | 目标节点缺失、任务绑定变化、资源不可用或画布冲突 |
-| 画布 UI 没同步 | `agent-canvas-sync.ts`、`canvas_updated` payload | patch 缺失、事件游标缺口、应用冲突或刷新节流 |
-| Skill 读取失败 | `cloud_agent_tools_skills.go`、Skill version/hash | Skill 未加入/启用、路径不在快照、版本已变化或重复读取 |
+| 画布 UI 没同步 | `web/src/services/agent-canvas-sync.ts`、`canvas_updated` payload | patch 缺失、事件游标缺口、应用冲突或刷新节流 |
+| Skill 读取失败 | `backend/internal/app/cloud_agent_tools_skills.go`、Skill version/hash | Skill 未加入/启用、路径不在快照、版本已变化或重复读取 |
 | 审批后重复收费 | `callId`、`MediaTaskID`、Pi session | 没有重放已有回执、重新 dry/admit 或未复用持久化任务 |
 
 ## 12. 测试和验证地图
 
 本轮没有启动前后端、真实模型或独立 `yingce-agent`，因此以下是源码中可找到的测试地图，不把它们写成已运行结果：
 
-- Agent 基础合同和能力：`backend/internal/app/cloud_agent_test.go`、`cloud_agent_contract_test.go`。
-- 工具分派和参数修复：`cloud_agent_tool_dispatch_test.go`、`cloud_agent_invalid_arguments_test.go`、`cloud_agent_tool_repair_test.go`。
-- 上下文压缩和 Skill 按需读取：`cloud_agent_context_test.go`、`cloud_agent_skill_search_test.go`、`cloud_agent_skill_usage_test.go`。
-- 画布 patch、布局、快照和撤销：`cloud_agent_canvas_events_test.go`、`cloud_agent_layout_test.go`、`cloud_agent_step_hash_test.go`、`cloud_agent_undo_test.go`。
-- 分镜、批量表和角色卡：`cloud_agent_storyboard_test.go`、`cloud_agent_batch_table_test.go`、`cloud_agent_character_test.go`。
-- 媒体模型、审批、回写和失败分类：`cloud_agent_model_selection_test.go`、`cloud_agent_media_test.go`、`cloud_agent_approval_settings_test.go`、`cloud_agent_media_writeback_test.go`、`cloud_agent_tool_error_class_test.go`。
-- Pi session、bridge、恢复和完整运行：`cloud_agent_pi_contract_test.go`、`cloud_agent_pi_recovery_test.go`、`cloud_agent_pi_runtime_e2e_test.go`、`cloud_agent_runtime_e2e_test.go`。
-- SSE 和 HTTP：`backend/internal/handler/text_events_test.go`、`agent_run_pagination_test.go`、`web/src/services/api/agent.ts` 的流解析实现。
-- Skill 包、版本和文件服务：`backend/internal/skills/skill_packages_test.go`、`skills_json_test.go`、`repository/cloud_agent_pi_session_test.go`。
+- Agent 基础合同和能力：`backend/internal/app/cloud_agent_test.go`、`backend/internal/app/cloud_agent_contract_test.go`。
+- 工具分派和参数修复：`backend/internal/app/cloud_agent_tool_dispatch_test.go`、`backend/internal/app/cloud_agent_invalid_arguments_test.go`、`backend/internal/app/cloud_agent_tool_repair_test.go`。
+- 上下文压缩和 Skill 按需读取：`backend/internal/app/cloud_agent_context_test.go`、`backend/internal/app/cloud_agent_skill_search_test.go`、`backend/internal/app/cloud_agent_skill_usage_test.go`。
+- 画布 patch、布局、快照和撤销：`backend/internal/app/cloud_agent_canvas_events_test.go`、`backend/internal/app/cloud_agent_layout_test.go`、`backend/internal/app/cloud_agent_step_hash_test.go`、`backend/internal/app/cloud_agent_undo_test.go`。
+- 分镜、批量表和角色卡：`backend/internal/app/cloud_agent_storyboard_test.go`、`backend/internal/app/cloud_agent_batch_table_test.go`、`backend/internal/app/cloud_agent_character_test.go`。
+- 媒体模型、审批、回写和失败分类：`backend/internal/app/cloud_agent_model_selection_test.go`、`backend/internal/app/cloud_agent_media_test.go`、`backend/internal/app/cloud_agent_approval_settings_test.go`、`backend/internal/app/cloud_agent_media_writeback_test.go`、`backend/internal/app/cloud_agent_tool_error_class_test.go`。
+- Pi session、bridge、恢复和完整运行：`backend/internal/app/cloud_agent_pi_contract_test.go`、`backend/internal/app/cloud_agent_pi_runner_test.go`、`backend/internal/app/cloud_agent_pi_recovery_test.go`、`backend/internal/app/cloud_agent_runtime_e2e_test.go`。
+- SSE 和 HTTP：`backend/internal/handler/text_events_test.go`、`backend/internal/handler/agent_run_pagination_test.go`、`web/src/services/api/agent.ts` 的流解析实现。
+- Skill 包、版本和文件服务：`backend/internal/skills/skill_packages_test.go`、`backend/internal/skills/skills_json_test.go`、`backend/internal/repository/cloud_agent_pi_session_test.go`。
 
 建议实现改动后从小到大验证：
 
@@ -716,13 +722,13 @@ go test ./internal/agent/...
 - API、幂等和 SSE：web/src/services/api/agent.ts、web/src/services/cloud-agent-conversations.ts
 - 画布增量同步：web/src/services/agent-canvas-sync.ts
 - Go 运行准入：backend/internal/app/cloud_agent.go
-- Pi 生命周期和恢复：backend/internal/app/cloud_agent_pi_coordinator.go、cloud_agent_runtime_scheduler.go
-- 模型/工具/事件 bridge：cloud_agent_pi_model.go、cloud_agent_pi_bridge.go、internal/agent/runtime/
+- Pi 生命周期和恢复：backend/internal/app/cloud_agent_pi_coordinator.go、backend/internal/app/cloud_agent_runtime_scheduler.go
+- 模型/工具/事件 bridge：backend/internal/app/cloud_agent_pi_model.go、backend/internal/app/cloud_agent_pi_bridge.go、backend/internal/agent/runtime/
 - 工具 schema：backend/internal/app/cloud_agent_tools.go
-- 画布读取：cloud_agent_tools_read.go、cloud_agent_canvas_state.go
-- 画布写入：cloud_agent_runtime_tools.go、cloud_agent_tools_canvas.go、cloud_agent_mutation.go
-- 媒体任务：cloud_agent_media.go、cloud_agent_runtime_media.go、task_creation.go
-- Skill：cloud_agent_tools_skills.go、backend/internal/skills/、web/src/services/skill-runtime.ts
+- 画布读取：backend/internal/app/cloud_agent_tools_read.go、backend/internal/app/cloud_agent_canvas_state.go
+- 画布写入：backend/internal/app/cloud_agent_runtime_tools.go、backend/internal/app/cloud_agent_tools_canvas.go、backend/internal/app/cloud_agent_mutation.go
+- 媒体任务：backend/internal/app/cloud_agent_media.go、backend/internal/app/cloud_agent_runtime_media.go、backend/internal/app/task_creation.go
+- Skill：backend/internal/app/cloud_agent_tools_skills.go、backend/internal/skills/、web/src/services/skill-runtime.ts
 - Node runtime：backend/agent-runtime/pi/agent-runtime.mjs；独立服务：yingce-agent/server.mjs
 
 研究或修改时遵守：

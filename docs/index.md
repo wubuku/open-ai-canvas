@@ -11,6 +11,7 @@
 - [本地开发](content/docs/backend/local-development.mdx)：本地启动、数据目录和相关开发约束。
 - [HTTP API](content/docs/backend/http-api.mdx)：响应信封、任务、SSE、模型和 Agent 协议边界。
 - [云端 Agent 深度调研报告](drafts/cloud-agent-deep-research.md)：跨前端、Go 控制面、Pi runtime、Skill、画布工具、媒体任务和恢复机制的深度导航；未完成真实端到端验收的内容已明确标注。
+- [画布系统深度调研报告](drafts/canvas-deep-research.md)：面向准备自建 AI 视频创作画布的开发者，梳理可借鉴的架构、七层状态模型、并发合并、生成回写和渲染性能设计。
 - [研究草稿入口](drafts/README.md)：查看尚未稳定或尚未真实验收的调研结论。
 
 ## 设计沉淀

@@ -163,6 +163,7 @@ cd web && bun run dev
 - Agent 文档入口：先读 `docs/index.md`，再读 `docs/drafts/README.md` 和 `docs/drafts/DOCUMENTATION_PLAN.md`；研究草稿用于承载未稳定结论，已确认且低冲突的结论应增量补入对应正式文档、导航或元数据。
 - Agent 深度研究入口：需要理解云端 Agent 的能力、前端面板、Go 控制面、Pi `/model`/`/tool`/`/event` bridge、Skill 两条交付路径、画布工具、媒体审批或恢复机制时，先读 `docs/drafts/cloud-agent-deep-research.md`，再按报告中的代码导航进入实现；不要把项目 `.agents/skills`、产品用户 Skill 和 Pi 默认 filesystem skills 当成同一条加载路径。
 - 画布相关开发、排障或 Agent 工具变更：先读 `docs/content/docs/canvas/canvas-development.mdx`，再按其中的“按问题找入口”进入页面、类型、store、生成、同步或后端 capability。
+- 画布架构决策、并发与同步模型、生成回写或性能设计评审：先读 `docs/drafts/canvas-deep-research.md`（七层状态模型、三方合并、异步最小增量回写、资源完整性和实施清单）。
 - 文档默认中文，不写过期日期，不公开密码、Token、Cookie、真实账号或机器敏感路径。命令、端口、环境变量必须以当前脚本和 Compose 为准。
 - Git 提交说明使用 `<type>(<scope>): <业务模块> - <变更摘要>`，`type` 为 `feat|fix|refactor|perf|docs|test|build|ci|chore|revert`。
 

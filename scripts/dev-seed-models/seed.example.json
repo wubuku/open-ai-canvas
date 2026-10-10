@@ -1,0 +1,39 @@
+{
+  "backendBaseUrl": "http://localhost:8080/api",
+  "admin": {
+    "username": "admin",
+    "password": "CHANGE_ME_STRONG_PASSWORD",
+    "displayName": "本地管理员"
+  },
+  "channels": [
+    {
+      "name": "示例 OpenAI 兼容渠道",
+      "baseUrl": "https://api.example.com/v1",
+      "apiKey": "sk-REPLACE_WITH_REAL_KEY",
+      "models": [
+        {
+          "modelKey": "gpt-4o",
+          "capability": "text",
+          "protocol": "chat-completion",
+          "pricing": {
+            "billingMode": "token",
+            "inputTokenPriceMicrocredits": 250,
+            "outputTokenPriceMicrocredits": 1000,
+            "costInputTokenPriceMicrocredits": 250,
+            "costOutputTokenPriceMicrocredits": 1000
+          }
+        },
+        {
+          "modelKey": "gpt-image-1",
+          "capability": "image",
+          "protocol": "openai-image",
+          "pricing": {
+            "billingMode": "fixed_request",
+            "unitPriceMicrocredits": 400,
+            "costUnitPriceMicrocredits": 400
+          }
+        }
+      ]
+    }
+  ]
+}
