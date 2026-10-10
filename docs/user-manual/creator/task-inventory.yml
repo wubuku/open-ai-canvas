@@ -1,0 +1,232 @@
+manual_version: 1
+target:
+  app: yingce-web
+  scope: creator
+  url: http://localhost:28300
+  audience:
+    - creator
+  depth: standard
+tasks:
+  - id: register-and-login
+    title: 注册与登录
+    role: creator
+    frequency: common
+    impact: medium
+    coverage: concise
+    evidence:
+      - type: route
+        note: /login /register /forgot-password 独立路由
+    preconditions: []
+    routes:
+      - /login
+      - /register
+    status: verified
+    manual_pages:
+      - 10-tasks/register-and-login.md
+
+  - id: use-canvas
+    title: 使用自由画布进行创作
+    role: creator
+    frequency: core
+    impact: high
+    coverage: flagship
+    evidence:
+      - type: user-confirmed
+        note: 用户确认自由画布为最高优先级
+    preconditions:
+      - 已登录
+    routes:
+      - /canvas
+      - /canvas/:id
+    status: verified
+    manual_pages:
+      - 10-tasks/use-canvas.md
+
+  - id: generate-image
+    title: 用提示词生成图片
+    role: creator
+    frequency: core
+    impact: medium
+    coverage: full
+    evidence:
+      - type: ui-cta
+        note: 首页主 CTA，图片模式
+    preconditions:
+      - 已登录
+      - 有可用积分
+    routes:
+      - /create
+    status: verified
+    manual_pages:
+      - 10-tasks/generate-image.md
+
+  - id: create-modes
+    title: 选择创作模式
+    role: creator
+    frequency: core
+    impact: medium
+    coverage: full
+    evidence:
+      - type: ui-mode-switcher
+        note: 首页创作区提供视频、图片、文本和 Agent 四种模式
+    preconditions:
+      - 已登录
+    routes:
+      - /
+    status: verified
+    manual_pages:
+      - 10-tasks/create-modes.md
+
+  - id: generate-video
+    title: 用提示词生成视频
+    role: creator
+    frequency: common
+    impact: high
+    coverage: full
+    evidence:
+      - type: ui-cta
+        note: 首页视频模式按钮
+    preconditions:
+      - 已登录
+      - 有可用积分
+    routes:
+      - /create
+    status: verified
+    manual_pages:
+      - 10-tasks/generate-video.md
+
+  - id: browse-tasks
+    title: 查看创作历史和任务状态
+    role: creator
+    frequency: common
+    impact: low
+    coverage: full
+    evidence:
+      - type: sidebar-nav
+        note: 侧栏"创作历史"
+    preconditions:
+      - 已登录
+    routes:
+      - /tasks
+    status: verified
+    manual_pages:
+      - 10-tasks/browse-tasks.md
+
+  - id: manage-assets
+    title: 管理资产
+    role: creator
+    frequency: common
+    impact: medium
+    coverage: full
+    evidence:
+      - type: sidebar-nav
+        note: 侧栏"资产"
+    preconditions:
+      - 已登录
+    routes:
+      - /assets
+    status: verified
+    manual_pages:
+      - 10-tasks/manage-assets.md
+
+  - id: browse-skills
+    title: 浏览和使用技能
+    role: creator
+    frequency: common
+    impact: low
+    coverage: concise
+    evidence:
+      - type: sidebar-nav
+        note: 侧栏"技能"，输入框 @技能
+    preconditions:
+      - 已登录
+    routes:
+      - /skills
+    status: verified
+    manual_pages:
+      - 10-tasks/browse-skills.md
+
+  - id: use-plugins
+    title: 查看和使用插件
+    role: creator
+    frequency: occasional
+    impact: medium
+    coverage: concise
+    evidence:
+      - type: sidebar-nav
+        note: 侧栏“插件”展示协议和应用插件
+    preconditions:
+      - 已登录
+    routes:
+      - /plugins
+    status: verified
+    manual_pages:
+      - 10-tasks/use-plugins.md
+
+  - id: browse-inspirations
+    title: 浏览灵感库
+    role: creator
+    frequency: common
+    impact: low
+    coverage: concise
+    evidence:
+      - type: sidebar-nav
+        note: 侧栏"灵感"及首页轮播
+    preconditions:
+      - 已登录
+    routes:
+      - /inspirations
+    status: verified
+    manual_pages:
+      - 10-tasks/browse-inspirations.md
+
+  - id: manage-projects
+    title: 管理短剧项目
+    role: creator
+    frequency: common
+    impact: medium
+    coverage: full
+    evidence:
+      - type: sidebar-nav
+        note: 侧栏"短剧 Agent"
+    preconditions:
+      - 已登录
+    routes:
+      - /projects
+    status: verified
+    manual_pages:
+      - 10-tasks/manage-projects.md
+
+  - id: use-wallet
+    title: 领取积分和查看钱包
+    role: creator
+    frequency: common
+    impact: low
+    coverage: concise
+    evidence:
+      - type: sidebar-nav
+        note: 侧栏"影策加油站"和顶部积分按钮
+    preconditions:
+      - 已登录
+    routes:
+      - /wallet
+    status: verified
+    manual_pages:
+      - 10-tasks/use-wallet.md
+
+  - id: personal-settings
+    title: 个人设置
+    role: creator
+    frequency: occasional
+    impact: low
+    coverage: concise
+    evidence:
+      - type: sidebar-nav
+        note: 账户菜单 → 设置
+    preconditions:
+      - 已登录
+    routes:
+      - /settings
+    status: verified
+    manual_pages:
+      - 10-tasks/personal-settings.md

@@ -1,0 +1,342 @@
+screenshots:
+  - file: screenshots/assets-page.png
+    task_id: manage-assets
+    step: 1
+    route: /assets
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T01:03:00+08:00
+    verified_locator: '侧栏 资产'
+    visible_text: 资产
+    alt: 资产页面展示素材列表和分类标签
+    sha256: 69153e30609f92be75ae3f108e123898e35fe870917269f8986fd663e079d089
+  - file: screenshots/canvas-add-node-panel.png
+    task_id: use-canvas
+    step: 2
+    route: /canvas/:id
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T01:01:00+08:00
+    verified_locator: '底部工具栏 添加节点'
+    visible_text: 添加节点
+    alt: 添加节点面板展示所有创作节点类型
+    sha256: 18392603b696081741d1c47b1838468f9d03fa99a5e4c6c404e347bc17abe02c
+  - file: screenshots/canvas-overview.png
+    task_id: use-canvas
+    step: 1
+    route: /canvas/:id
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T00:56:00+08:00
+    verified_locator: '画布主区域'
+    visible_text: 添加节点
+    alt: 自由画布全貌展示节点连线、添加节点面板和工具栏
+    sha256: b06ffe85ebb9dffecaf934518263fcc8b651acc973749a239bb4b96781eb10a2
+  - file: screenshots/canvas-shortcuts-dialog.png
+    task_id: use-canvas
+    step: 3
+    route: /canvas/:id
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T01:00:00+08:00
+    verified_locator: '视图控制栏 画布快捷键'
+    visible_text: 全选节点
+    alt: 画布快捷键对话框展示 22 个快捷键
+    sha256: c0eddddeefc19690fb91bb4230ef2ef027dc38209087fcbafcecf7d6f2986a97
+  - file: screenshots/canvas-toolbar.png
+    task_id: use-canvas
+    step: 4
+    route: /canvas/:id
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T01:01:00+08:00
+    verified_locator: '底部工具栏'
+    visible_text: 撤销
+    alt: 画布底部工具栏展示区域选择、撤销重做、添加节点等按钮
+    sha256: 51d2110ef037921adc7f2cbf05ce0d699ae3086d9635dd73b414ec9de465fcd6
+  - file: screenshots/canvas-topbar.png
+    task_id: use-canvas
+    step: 5
+    route: /canvas/:id
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T01:01:00+08:00
+    verified_locator: '顶部工具栏'
+    visible_text: 已保存到云端
+    alt: 画布顶部工具栏展示画布名、保存状态、版本和分享按钮
+    sha256: ab49be592f8eedaf74748ad02c4f95d0c610d8cbe7429b898322294f771cd90c
+  - file: screenshots/create-home.png
+    task_id: generate-image
+    step: 1
+    route: /
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T01:02:00+08:00
+    verified_locator: '创作模式 图片按钮'
+    visible_text: 开始创作
+    alt: 创作首页展示创作模式和提示词输入框
+    sha256: 7337c5812943284ae3de241d389d2953179968bfe82260f8dcc9a4890ac28957
+  - file: screenshots/inspirations-page.png
+    task_id: browse-inspirations
+    step: 1
+    route: /inspirations
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T01:04:00+08:00
+    verified_locator: '侧栏 灵感'
+    visible_text: 灵感
+    alt: 灵感页面展示创意卡片
+    sha256: 9b21a9b2d3dcaa042a0adc35b8dc04ff5099b31f6f1ce67ae4588f5686d591d9
+  - file: screenshots/login-page.png
+    task_id: register-and-login
+    step: 1
+    route: /login
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T01:06:00+08:00
+    verified_locator: '登录表单'
+    visible_text: 登录
+    alt: 影策登录页
+    sha256: 47f81f2c3cdd14fcb9a5acb00b08a1d1053cc816eb89119f8f69844942b74321
+  - file: screenshots/projects-page.png
+    task_id: manage-projects
+    step: 1
+    route: /projects
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T01:04:00+08:00
+    verified_locator: '侧栏 短剧 Agent'
+    visible_text: 短剧 Agent
+    alt: 短剧项目页面
+    sha256: d4e51881f839db0027ce006343e42e9c96042a1ff5360c5bc13053ce175d158f
+  - file: screenshots/settings-page.png
+    task_id: personal-settings
+    step: 1
+    route: /settings
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T01:05:00+08:00
+    verified_locator: '账户菜单 设置'
+    visible_text: 设置
+    alt: 个人设置页面
+    sha256: ef334956a1729cd19f6fdd9d4db3658d5e386bf16153a3a403fec457fdebec47
+  - file: screenshots/skills-page.png
+    task_id: browse-skills
+    step: 1
+    route: /skills
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T01:03:00+08:00
+    verified_locator: '侧栏 技能'
+    visible_text: 技能
+    alt: 技能页面展示技能列表
+    sha256: f3174edc691f6e78d5e332de45ef21bb1c961ed0355b2a24c4c6564113407ddf
+  - file: screenshots/tasks-page.png
+    task_id: browse-tasks
+    step: 1
+    route: /tasks
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T01:03:00+08:00
+    verified_locator: '侧栏 创作历史'
+    visible_text: 创作历史
+    alt: 创作历史页面展示任务列表
+    sha256: 8a762b5cfd372fc2ac8ee766235345e7b05f435f58006a9aed61cf4bc6117d32
+  - file: screenshots/wallet-page.png
+    task_id: use-wallet
+    step: 1
+    route: /wallet
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T01:05:00+08:00
+    verified_locator: '顶部积分按钮'
+    visible_text: 积分
+    alt: 钱包页面展示积分余额和记录
+    sha256: 67d10ed0a920e27813d2cf69c14fb63988f40bd983ac864b01e6eaa6bd55cced
+  - file: screenshots/assets-edit-title-highlight.png
+    task_id: manage-assets
+    step: 2
+    route: /assets
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T01:27:00+08:00
+    verified_locator: 'role=textbox name="标题" exact=true'
+    visible_text: 编辑素材
+    alt: 编辑素材对话框中高亮显示标题输入框
+    sha256: ac6ed3a7b444e2fb8e41650fb7b58643ab6d435877e39e9d4137f9d41f226c9f
+  - file: screenshots/assets-item-menu.png
+    task_id: manage-assets
+    step: 3
+    route: /assets
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T01:22:00+08:00
+    verified_locator: 'menuitem 编辑'
+    visible_text: 编辑 下载 移入回收站 彻底删除
+    alt: 素材操作菜单展示编辑下载和删除入口
+    sha256: 6e4c140f97345b12634aa7b9e6d19a34bbdd363bf35e9ab93ef41988f33ac682
+  - file: screenshots/create-agent-mode.png
+    task_id: create-modes
+    step: 4
+    route: /
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T01:33:00+08:00
+    verified_locator: 'role=button name="Agent"'
+    visible_text: 新建画布，与 Agent 创作 在已有画布中继续
+    alt: Agent 模式展示新建画布和继续已有画布按钮
+    sha256: 6c08bd163e7da2cbaba37222fea5f06c145c35928f72bfb1e7124ffec1f98978
+  - file: screenshots/create-image-mode.png
+    task_id: create-modes
+    step: 1
+    route: /
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T01:31:00+08:00
+    verified_locator: 'role=button name="图片生成"'
+    visible_text: 选择图片模型 生成设置：1:1
+    alt: 图片模式展示模型和画幅设置
+    sha256: 4efe46cd302b2c32fd3847a31366a899c16dd98a4f3106b5e22620e01c229d96
+  - file: screenshots/create-text-mode.png
+    task_id: create-modes
+    step: 3
+    route: /
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T01:32:00+08:00
+    verified_locator: 'role=button name="文本生成"'
+    visible_text: 选择文本模型 流式 思考
+    alt: 文本模式展示模型和流式思考设置
+    sha256: 2ee19968c5c3e02b4030105be411572da27bafe78e00c2e468838df93d23c9ac
+  - file: screenshots/create-video-settings-highlight.png
+    task_id: create-modes
+    step: 2
+    route: /
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T01:57:00+08:00
+    verified_locator: 'role=button name="视频时长：5秒"'
+    visible_text: 选择视频模型 生成设置：16:9 · 720P 视频时长：5秒
+    alt: 视频模式中高亮显示视频时长设置
+    sha256: 30be86adeefc6b902bba613d0d78b9f2db450841d088d37d22db1e875456498a
+  - file: screenshots/inspirations-detail-dialog.png
+    task_id: browse-inspirations
+    step: 2
+    route: /inspirations
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T01:14:00+08:00
+    verified_locator: 'role=dialog'
+    visible_text: 用这个创意创作
+    alt: 灵感详情对话框展示完整提示词和用这个创意创作按钮
+    sha256: bcb59b9c8236ef1802cfcf855b0e0880ad0b02c311d40807758af6fda443a7e1
+  - file: screenshots/inspirations-use-creative.png
+    task_id: browse-inspirations
+    step: 3
+    route: /create
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T01:15:00+08:00
+    verified_locator: 'textbox 创作提示词'
+    visible_text: 创作提示词
+    alt: 灵感带入创作后提示词框已填入完整内容
+    sha256: ec25aafd18f702e6419d766b20e78e3043fa8964fcf976f3ec4b52f21081ae9f
+  - file: screenshots/plugins-page.png
+    task_id: use-plugins
+    step: 1
+    route: /plugins
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T01:36:00+08:00
+    verified_locator: '侧栏 插件'
+    visible_text: 插件中心
+    alt: 插件中心展示分类、筛选和插件状态
+    sha256: 98019d00a0f68836a5d909e50f334167a62279153172181260a0c0bc6d107ae4
+  - file: screenshots/projects-start-highlight.png
+    task_id: manage-projects
+    step: 2
+    route: /projects
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T01:46:00+08:00
+    verified_locator: 'group 开始一部新短剧'
+    visible_text: 展开创作
+    alt: 短剧 Agent 页面高亮显示开始一部新短剧入口
+    sha256: f588dfef1fa36b4688fcb0479068ee11fc40ecc3156f617dc1b979988383a04f
+  - file: screenshots/projects-story-settings.png
+    task_id: manage-projects
+    step: 3
+    route: /projects
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T01:39:00+08:00
+    verified_locator: 'group 故事设置'
+    visible_text: 章节数量 叙事结构 单章字数
+    alt: 短剧 Agent 故事设置面板展示章节和叙事参数
+    sha256: 66e4e2981c2088c52b2dc6d74cfb01adc29d29be601ea01ee9f43c8fe563e264
+  - file: screenshots/settings-personal-channel-highlight.png
+    task_id: personal-settings
+    step: 2
+    route: /settings
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T01:45:00+08:00
+    verified_locator: 'role=button name="个人渠道 模型服务与个人工作流"'
+    visible_text: 个人渠道
+    alt: 设置页高亮显示个人渠道配置入口
+    sha256: 7f1bf46c3ae523d74612dfa5a3cedaec52ba240b9b9d8077a3daf39fba495e07
+  - file: screenshots/skills-detail-panel.png
+    task_id: browse-skills
+    step: 3
+    route: /skills
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T01:19:00+08:00
+    verified_locator: '技能卡片详情'
+    visible_text: 加入技能库
+    alt: 技能详情面板展示技能说明和加入技能库按钮
+    sha256: 5855853725f079f65c6986541d66e61c0e5d87f22a0789f32cf0599b7d6acd27
+  - file: screenshots/skills-search-highlight.png
+    task_id: browse-skills
+    step: 2
+    route: /skills
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T01:48:00+08:00
+    verified_locator: 'role=textbox name="搜索技能或作者"'
+    visible_text: 搜索技能或作者
+    alt: 技能库搜索框被高亮显示
+    sha256: c7f31a6791287b56033b07bda6d220302af5d260fe2999e98b942f45040455e0
+  - file: screenshots/tasks-failed-filter-highlight.png
+    task_id: browse-tasks
+    step: 2
+    route: /tasks
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T01:47:00+08:00
+    verified_locator: 'role=radio name="失败/取消2"'
+    visible_text: 失败/取消2
+    alt: 创作历史状态筛选中的失败取消选项被高亮显示
+    sha256: 35b06e5ba0749189446d8e8b955aeb7c6996124477883e838247e3afc4058786
+  - file: screenshots/wallet-history-dialog.png
+    task_id: use-wallet
+    step: 2
+    route: /
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T01:42:00+08:00
+    verified_locator: 'role=tab name="积分消耗历史"'
+    visible_text: 积分消耗历史
+    alt: 积分中心展示充值兑换和积分消耗历史标签
+    sha256: 12337d4b9abe82be75c8998c0d5de45f18be976e3b72ddab64cf8a130dd034f6
+  - file: screenshots/projects-start-expanded.png
+    task_id: manage-projects
+    step: 2
+    route: /projects
+    viewport: 1440x900
+    locale: zh-CN
+    captured_at: 2026-10-11T01:38:00+08:00
+    verified_locator: 'group 开始一部新短剧'
+    visible_text: 开始一部新短剧
+    alt: 新短剧创作面板展示故事输入框和操作按钮
+    sha256: 02e558a904b345385caeae501a8d38cfc187fa9caaceb8ae32214cba5492ffa3

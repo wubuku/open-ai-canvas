@@ -8,6 +8,12 @@ docs/*
 !docs/adr/
 !docs/plans/
 !docs/drafts/
+# Keep the user manual source versioned while ignoring its local dependencies,
+# VitePress cache, and generated site output.
+!docs/user-manual/
+docs/user-manual/node_modules/
+docs/user-manual/.vitepress/cache/
+docs/user-manual/.vitepress/dist/
 # Keep the new plugin design spec versioned without unignoring generated docs.
 !docs/content/
 docs/content/*

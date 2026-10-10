@@ -1,0 +1,4 @@
+interface:
+  display_name: "影策 Web UI 用户手册"
+  short_description: "面向影策创作台与管理员后台的真实浏览器中文用户手册生成与回走校验流程"
+  default_prompt: "Use $web-studio-user-manual to create or update a task-oriented end-user manual for the Yingce creator workspace or admin console, with verified browser steps and annotated screenshots; when explicitly requested, build or preview its VitePress static site with Chinese local search, sidebar, and internal-ledger exclusions."
