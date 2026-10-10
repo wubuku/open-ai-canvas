@@ -6,13 +6,20 @@
  *   登录/注册管理员 → 创建系统渠道 → 拉取上游目录(诊断) → 逐模型定价启用 → 创建前台逻辑模型(+路由)。
  *
  * 运行（需要 bun，Node 22+ 亦可）：
- *   bun scripts/dev-seed-models/seed.ts [seed.json]
- * 未指定文件时读取 scripts/dev-seed-models/seed.local.json。
+ *   bun scripts/dev-seed-models/seed.ts [seed.json | seed.yaml]
+ * 未指定文件时读取 scripts/dev-seed-models/seed.local.json（或 seed.local.yaml）。
+ *
+ * 清单支持 JSON 与 YAML 两种格式（按扩展名区分），并支持引用环境变量：
+ *   apiKey: ${OPENAI_API_KEY}            —— 敏感密钥只放环境变量，绝不写进清单。
+ *   password: ${ADMIN_PASSWORD:-admin}   —— 支持缺省值。
+ *
+ * 本地 dev 的「计费」无关紧要：模型的 pricing 可整段省略，脚本按「按次、0 价」补齐，
+ * 用最少字段即可立即开测（生图 / 生视频 / 剧本解析等）。
  *
  * 重要边界：
  *  - 每个模型的 capability(text/image/video/audio) 和 protocol 必须显式声明，
  *    上游 /models 目录只返回模型名，无法推断能力或协议。
- *  - 渠道密钥(apiKey/secretKey)与价格全部来自清单文件，请勿提交含真实密钥的清单。
+ *  - 渠道密钥(apiKey/secretKey)应通过环境变量注入，不提交含真实密钥的清单。
  *  - 重复运行是安全的：渠道模型按 modelKey 去重导入，逻辑模型 code 冲突时会报错并跳过。
  */
 
@@ -80,7 +87,8 @@ interface ModelSpec {
   code?: string;
   /** 前台逻辑模型名称，缺省用 displayName / modelKey。 */
   logicalName?: string;
-  pricing: ModelPricing;
+  /** 计费规则；本地 dev 可整段省略，脚本按「按次、0 价」补齐（计费在本地无关紧要）。 */
+  pricing?: ModelPricing;
   /** 覆盖内置能力模板；key 为 text/image/video，结构见 backend internal/app/model_capability.go。 */
   capabilityConfig?: Record<string, unknown>;
 }
@@ -122,6 +130,17 @@ function defaultTextCapability() {
   };
 }
 
+// 图片默认尺寸/比例预设，复刻 backend internal/app/model_capability_defaults.go 的
+// legacyImageSizeValues()（前后端共同展示的基础预设）。
+// 不能用 size.parameter="none"：backend 的 channelModelDefaultOptions 对 image 无条件输出
+// defaults["size"]，而 size="none" 时能力规格里根本没有 size 选项，导致 sanitizeChannelModel
+// 报「默认参数 size 不在前台模型能力范围内」，整个渠道模型被 /model-catalog 丢弃，
+// 生图模型在设置页里就看不见了。
+const DEFAULT_IMAGE_SIZE_VALUES = [
+  "1:1", "3:2", "2:3", "4:3", "3:4", "16:9", "21:9", "9:16",
+  "1024x1024", "1536x1024", "1024x1536",
+];
+
 function defaultImageCapability() {
   return {
     version: 1,
@@ -132,7 +151,7 @@ function defaultImageCapability() {
         maxImageBytes: 10485760,
         maskSupported: false,
       },
-      size: { parameter: "none" },
+      size: { parameter: "size", values: DEFAULT_IMAGE_SIZE_VALUES, default: "1:1", allowCustom: true },
       quality: { supported: false },
       transparentBackground: { supported: false },
       responseFormat: { supported: false },
@@ -149,23 +168,23 @@ function defaultVideoCapability() {
       references: {
         promptMaxChars: 8000,
         minImages: 0,
-        maxImages: 4,
-        maxImageBytes: 10485760,
+        maxImages: 9,
+        maxImageBytes: 31457280,
         maxVideos: 0,
         maxVideoBytes: 0,
-        maxVideoDuration: 15,
+        maxVideoDurationSeconds: 0,
         maxAudios: 0,
         maxAudioBytes: 0,
-        maxAudioDuration: 15,
+        maxAudioDurationSeconds: 0,
       },
-      duration: { selection: "range", min: 1, max: 10, step: 1, default: 5 },
-      ratios: ["16:9"],
+      duration: { selection: "range", min: 1, max: 15, step: 1, default: 6 },
+      ratios: ["16:9", "9:16", "1:1", "4:3", "3:4", "21:9"],
       defaultRatio: "16:9",
-      resolutions: ["720p"],
+      resolutions: ["480p", "720p", "1080p", "1440p", "2160p"],
       defaultResolution: "720p",
       generateAudio: { supported: false, default: false },
       watermark: { supported: false, default: false },
-      operations: ["text_to_video"],
+      operations: ["text_to_video", "image_to_video"],
       defaultOperation: "text_to_video",
     },
   };
@@ -299,7 +318,7 @@ function imageSizeFromConfig(size: any): any {
 // ---------------------------------------------------------------------------
 
 function buildPriceTier(spec: ModelSpec) {
-  const p = spec.pricing;
+  const p = spec.pricing ?? {};
   const billingMode = p.billingMode ?? "fixed_request";
 
   const tier: any = {
@@ -348,6 +367,81 @@ function mergeDeep(base: Record<string, unknown>, override: Record<string, unkno
     }
   }
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// 清单加载：JSON / YAML + 环境变量引用展开
+// ---------------------------------------------------------------------------
+
+/** 展开字符串中的 ${VAR} 与 ${VAR:-默认值}；变量未设置且无默认值时抛错。 */
+function expandEnvString(value: string): string {
+  return value.replace(/\$\{([A-Za-z_][A-Za-z0-9_]*)(:-[^}]*)?\}/g, (_m, name: string, fallback?: string) => {
+    const env = process.env[name];
+    if (env !== undefined && env !== "") return env;
+    if (fallback !== undefined) return fallback.slice(2); // 去掉 ":-"
+    throw new Error(`清单引用了未设置的环境变量 \${${name}}，请先 export ${name}=...`);
+  });
+}
+
+/** 递归展开配置树里所有字符串叶子中的环境变量引用。 */
+function expandEnv(value: unknown): unknown {
+  if (typeof value === "string") return expandEnvString(value);
+  if (Array.isArray(value)) return value.map(expandEnv);
+  if (isPlainObject(value)) {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value)) out[k] = expandEnv(v);
+    return out;
+  }
+  return value;
+}
+
+/** 读取并解析清单（按扩展名选 JSON / YAML），随后展开环境变量引用。 */
+async function loadConfig(path: string): Promise<SeedConfig> {
+  let raw: string;
+  try {
+    raw = await Bun.file(path).text();
+  } catch (e) {
+    fail(`无法读取清单 ${path}：${(e as Error).message}\n用法：bun scripts/dev-seed-models/seed.ts [seed.json|seed.yaml]`);
+  }
+  raw = raw.replace(/^﻿/, "");
+
+  let parsed: unknown;
+  if (/\.ya?ml$/i.test(path)) {
+    let yamlMod: { parse: (text: string) => unknown };
+    try {
+      yamlMod = await import("yaml");
+    } catch {
+      fail("读取 YAML 清单需要 yaml 依赖，请先执行：cd scripts/dev-seed-models && bun install（JSON 清单无需安装）");
+    }
+    parsed = yamlMod.parse(raw);
+  } else {
+    try {
+      parsed = JSON.parse(raw);
+    } catch (e) {
+      fail(`清单不是合法 JSON：${(e as Error).message}（YAML 清单请使用 .yaml / .yml 后缀）`);
+    }
+  }
+  return expandEnv(parsed) as SeedConfig;
+}
+
+/** 回环后端 + 本机 HTTP 代理未排除回环时提示（bun 从 OS 环境读代理，脚本内改 process.env 无效）。 */
+function warnLoopbackProxy(base: string) {
+  let host = "";
+  try {
+    host = new URL(base).hostname;
+  } catch {
+    return;
+  }
+  if (host !== "localhost" && host !== "127.0.0.1" && host !== "::1") return;
+  const proxySet = ["http_proxy", "https_proxy", "all_proxy"].some((k) => process.env[k]);
+  if (!proxySet) return;
+  const noProxy = (process.env.no_proxy ?? process.env.NO_PROXY ?? "").toLowerCase();
+  if (noProxy.includes("localhost") || noProxy.includes("127.0.0.1") || noProxy === "*") return;
+  console.warn(
+    "\n⚠ 检测到本机 HTTP 代理，但回环地址未排除：fetch 到 localhost 后端可能被代理误导返回 502。\n" +
+      "  请在命令前加 NO_PROXY 前缀，例如：\n" +
+      "  NO_PROXY=127.0.0.1,localhost bun scripts/dev-seed-models/seed.ts ...\n",
+  );
 }
 
 function fail(msg: string): never {
@@ -431,20 +525,48 @@ class ApiClient {
 // 主流程
 // ---------------------------------------------------------------------------
 
-async function seedChannel(api: ApiClient, channel: ChannelSpec): Promise<void> {
+/** 按名字查已有系统渠道（复用，实现幂等），未命中返回 null。 */
+async function findChannelByName(api: ApiClient, name: string): Promise<{ id: string } | null> {
+  const page = await api.request("GET", `/admin/channels?keyword=${encodeURIComponent(name)}&limit=100`);
+  const channels: any[] = page?.channels ?? [];
+  return channels.find((c) => c.name === name) ?? null;
+}
+
+/** 预取所有前台逻辑模型的 code，用于跳过已存在项（幂等）。 */
+async function fetchExistingLogicalCodes(api: ApiClient): Promise<Set<string>> {
+  try {
+    const res = await api.request("GET", "/admin/logical-models");
+    const models: any[] = res?.models ?? [];
+    return new Set(models.map((m) => m.code as string).filter(Boolean));
+  } catch (e) {
+    console.warn(`  · 读取已有前台逻辑模型失败（忽略，仍尝试直接创建）：${(e as Error).message}`);
+    return new Set();
+  }
+}
+
+async function seedChannel(api: ApiClient, channel: ChannelSpec, existingCodes: Set<string>): Promise<void> {
   const modelKeys = channel.models.map((m) => m.modelKey);
 
-  // 1. 创建系统渠道，同时注入模型名列表（不依赖上游 /models 端点即可建好模型记录）。
-  const created = await api.request("POST", "/admin/channels", {
+  // 1. 复用同名渠道（幂等）：命中已存在渠道则 PATCH 更新，未命中才 POST 新建。
+  const payload = {
     name: channel.name,
     baseUrl: channel.baseUrl,
     apiKey: channel.apiKey ?? "",
     secretKey: channel.secretKey ?? "",
     models: modelKeys,
     headers: Object.entries(channel.headers ?? {}).map(([k, v]) => ({ key: k, value: v })),
-  });
-  const channelId: string = created.channel.id;
-  console.log(`  ✓ 渠道「${channel.name}」已创建/存在（id=${channelId}）`);
+  };
+  const existing = await findChannelByName(api, channel.name);
+  let channelId: string;
+  if (existing) {
+    const updated = await api.request("PATCH", `/admin/channels/${existing.id}`, payload);
+    channelId = updated.channel.id;
+    console.log(`  ✓ 渠道「${channel.name}」已存在并更新（id=${channelId}）`);
+  } else {
+    const created = await api.request("POST", "/admin/channels", payload);
+    channelId = created.channel.id;
+    console.log(`  ✓ 渠道「${channel.name}」已创建（id=${channelId}）`);
+  }
 
   // 2. 拉取上游目录（仅诊断/校验；失败不阻塞，因为模型记录已由第 1 步建立）。
   let upstreamModels: string[] = [];
@@ -476,7 +598,7 @@ async function seedChannel(api: ApiClient, channel: ChannelSpec): Promise<void> 
       continue;
     }
     try {
-      await seedOneModel(api, channelId, modelId, spec, channel);
+      await seedOneModel(api, channelId, modelId, spec, channel, existingCodes);
     } catch (e) {
       console.warn(`  ✗ 模型「${spec.modelKey}」配置失败：${(e as Error).message}`);
     }
@@ -489,6 +611,7 @@ async function seedOneModel(
   modelId: string,
   spec: ModelSpec,
   channel: ChannelSpec,
+  existingCodes: Set<string>,
 ): Promise<void> {
   const capabilityConfig = buildCapabilityConfig(spec);
 
@@ -499,7 +622,7 @@ async function seedOneModel(
     displayName: spec.displayName ?? spec.modelKey,
     capability: spec.capability,
     protocol: spec.protocol,
-    billingMode: spec.pricing.billingMode ?? "fixed_request",
+    billingMode: spec.pricing?.billingMode ?? "fixed_request",
     capabilityConfig,
     priceTiers: [buildPriceTier(spec)],
     enabled: true,
@@ -509,6 +632,10 @@ async function seedOneModel(
   // 4b. 创建前台逻辑模型：能力规格由渠道模型能力投影，路由指向该渠道模型，价格跟随渠道。
   const capabilitySpec = capabilitySpecFromConfig(spec.capability, capabilityConfig);
   const code = spec.code ?? slugifyModelKey(spec.modelKey);
+  if (existingCodes.has(code)) {
+    console.log(`  · 前台逻辑模型「${code}」已存在，跳过创建（如需重建请先删除旧逻辑模型）`);
+    return;
+  }
   await api.request("POST", "/admin/logical-models", {
     code,
     name: spec.logicalName ?? spec.displayName ?? spec.modelKey,
@@ -532,14 +659,16 @@ async function main() {
     return;
   }
 
-  const configPath = args.find((a) => !a.startsWith("--")) || "scripts/dev-seed-models/seed.local.json";
-  let config: SeedConfig;
-  try {
-    const raw = await Bun.file(configPath).text();
-    config = JSON.parse(raw);
-  } catch (e) {
-    fail(`无法读取清单 ${configPath}：${(e as Error).message}\n用法：bun scripts/dev-seed-models/seed.ts [seed.json]`);
+  let configPath = args.find((a) => !a.startsWith("--"));
+  if (!configPath) {
+    // 缺省先看 seed.local.json，没有再看 seed.local.yaml（二者都被 .gitignore 忽略）。
+    configPath = "scripts/dev-seed-models/seed.local.json";
+    if (!(await Bun.file(configPath).exists())) {
+      const alt = "scripts/dev-seed-models/seed.local.yaml";
+      if (await Bun.file(alt).exists()) configPath = alt;
+    }
   }
+  const config: SeedConfig = await loadConfig(configPath);
 
   // 清单静态校验。
   for (const channel of config.channels) {
@@ -552,23 +681,25 @@ async function main() {
       if (!valid.includes(m.protocol)) {
         fail(`模型「${m.modelKey}」protocol "${m.protocol}" 不属于 capability "${m.capability}"。合法值：${valid.join(", ")}`);
       }
-      if (["text", "token"].includes(m.pricing.billingMode ?? "") && !m.pricing.inputTokenPriceMicrocredits && m.pricing.billingMode === "token") {
-        console.warn(`⚠ 模型「${m.modelKey}」使用 token 计费但未设置 token 价格`);
+      if (!m.pricing) {
+        console.log(`  · 模型「${m.modelKey}」未声明 pricing，按「按次、免费」补齐（本地 dev 计费无关紧要）`);
       }
     }
   }
 
   const base = config.backendBaseUrl ?? "http://localhost:8080/api";
   console.log(`目标后端：${base}`);
+  warnLoopbackProxy(base);
   const api = new ApiClient(base);
   await api.ensureAdmin(config.admin);
 
   let okCount = 0;
   let failCount = 0;
+  const existingCodes = await fetchExistingLogicalCodes(api);
   for (const channel of config.channels) {
     console.log(`\n=== 渠道：${channel.name} ===`);
     try {
-      await seedChannel(api, channel);
+      await seedChannel(api, channel, existingCodes);
       okCount++;
     } catch (e) {
       failCount++;

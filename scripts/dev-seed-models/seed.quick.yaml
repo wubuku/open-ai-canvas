@@ -1,0 +1,51 @@
+# 本地快速 seed 模板：用最少字段立即开测（生图 / 生视频 / 剧本解析等）。
+#
+# 关键点：
+#  1. 密钥走环境变量（${VAR}），绝不写进本文件。
+#  2. 每个模型的 pricing 都省略了 —— 本地 dev 计费无关紧要，脚本按「按次、免费」补齐。
+#  3. capability + protocol 必须显式声明（上游 /models 只返回模型名，无法推断）。
+#
+# 用法：
+#   export OPENAI_API_KEY=sk-...          # 先注入密钥
+#   NO_PROXY=127.0.0.1,localhost bun scripts/dev-seed-models/seed.ts seed.quick.yaml
+#   # 若用 YAML 报缺依赖：cd scripts/dev-seed-models && bun install
+
+backendBaseUrl: http://localhost:8080/api
+
+admin:
+  username: admin
+  password: ${ADMIN_PASSWORD:-admin123456}
+
+channels:
+  - name: OpenAI 兼容
+    baseUrl: https://api.openai.com/v1
+    apiKey: ${OPENAI_API_KEY}            # ← 来自环境变量
+
+    models:
+      # 文本 / 剧本解析
+      - modelKey: gpt-4o
+        capability: text
+        protocol: chat-completion
+
+      # 生图（默认「不发送尺寸」交给上游默认值，够测；要固定比例见文末注释）
+      - modelKey: gpt-image-1
+        capability: image
+        protocol: openai-image
+
+      # 生视频（OpenAI 兼容 /v1/videos）
+      - modelKey: sora-2
+        capability: video
+        protocol: newapi
+
+# 补充：若要给生图模型固定画幅比例，用 capabilityConfig 覆盖默认能力（size 的 parameter
+# 仅支持 none / size / aspect_ratio 三种；默认模板是 none）。
+#
+#   - modelKey: gpt-image-1
+#     capability: image
+#     protocol: openai-image
+#     capabilityConfig:
+#       image:
+#         size:
+#           parameter: aspect_ratio
+#           values: ["1:1", "16:9", "9:16"]
+#           default: "16:9"

@@ -44,6 +44,8 @@ docs/content/docs/canvas/*
 !.env.example
 # Local dev seed manifests may contain real upstream keys; never commit them.
 scripts/dev-seed-models/seed.local.json
+scripts/dev-seed-models/seed.local.yaml
+scripts/dev-seed-models/seed.local.yml
 data/
 .local/
 /.local/docker-compose.postgres.yml

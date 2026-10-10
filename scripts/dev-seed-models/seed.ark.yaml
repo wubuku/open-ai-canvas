@@ -1,0 +1,103 @@
+# 模型 seed 清单：火山方舟 Seedance 2.0（视频）/ 即梦 Seedream 5.0 Lite（图片）/ OpenAI-Next Grok（文本）。
+#
+# 配合外部 api-server/.env 使用：先把那里的环境变量加载进当前 shell，再跑本文件。
+# 密钥与模型 ID 只通过 ${VAR} 引用环境变量，绝不写进本文件。
+#
+# 用法（在仓库根目录）：
+#   # 1) 把你的 api-server/.env 里所有非注释行解析为 KEY=VALUE 并 export 到当前 shell
+#   export $(cat .env | grep -v '^#' | xargs)     # .env 路径按你实际位置换成绝对/相对路径
+#
+#   # 2) 用 seed 脚本灌入模型（backendBaseUrl 默认 http://localhost:8080/api）
+#   NO_PROXY=127.0.0.1,localhost \
+#     bun scripts/dev-seed-models/seed.ts scripts/dev-seed-models/seed.ark.yaml
+#
+# 依赖：yaml 依赖（cd scripts/dev-seed-models && bun install，只用一次）；后端需已启动（./scripts/dev.sh）。
+#
+# 模型 ID 与 baseUrl 均来自上游权威配置 application.yml 的 ai-model-catalog：
+#   * Seedance 2.0      -> upstream-model-id `doubao-seedance-2-0-260128`（provider-name=official，default-for-kind）
+#   * 即梦 5.0 Lite      -> upstream-model-id `doubao-seedream-5-0-lite-260128`（provider-name=seedream 国内生图，default-for-kind）
+#   * OpenAI-Next Grok   -> 支持 grok-4.5 / grok-4.6 / grok-4.7，default-model=grok-4.5
+# 注意「即梦 5.0 Lite」是**国内** seedream Provider（密钥 VOLCENGINE_SEEDREAM_API_KEY），不是 MFHW 海外版
+# （image.mfhw-seedream-5-lite 默认 enabled=false，本清单不引用 MFHW_SEEDREAM_* 变量）。
+#
+# 注意：
+#  * 每个模型都省略了 pricing —— 脚本按「按次、免费」补齐，本地 dev 计费无关紧要。
+#  * capability + protocol 必须显式声明（上游 /models 只返回模型名，无法推断）。
+
+backendBaseUrl: http://localhost:8080/api
+
+admin:
+  username: admin
+  password: admin123456          # 首个注册用户自动成为管理员；已存在则直接登录
+
+channels:
+  # ── 通道 1：Seedance 2.0 生视频（火山方舟 Contents Generations 异步任务接口）──
+  # baseUrl 用裸主机，插件自动补 /api/v3/contents/generations/tasks；鉴权为 Bearer API Key。
+  - name: Seedance 2.0 视频（火山方舟）
+    baseUrl: https://ark.cn-beijing.volces.com
+    apiKey: ${VOLCENGINE_SEEDANCE_API_KEY}      # ← 来自 api-server/.env
+
+    models:
+      - modelKey: doubao-seedance-2-0-260128   # ← 官方 Seedance 2.0（application.yml 的 upstream-model-id）
+        capability: video
+        protocol: volcengine-ark-video
+        displayName: Seedance 2.0
+        # 能力：复刻上游 application.yml 的 ark-seedance-2-standard 档案——
+        #   分辨率 480p/720p/1080p/4K；比例 16:9/9:16/1:1/4:3/21:9；时长 4-15s(默认 5)；
+        #   参考媒体 图片9 / 视频3 / 音频3；支持生成音频与参考图/视频/音频的生成模式。
+        # 脚本通用默认只有 text_to_video + image_to_video，这里补齐 Seedance 真实支持的全模态。
+        capabilityConfig:
+          video:
+            references:
+              promptMaxChars: 8000
+              minImages: 0
+              maxImages: 9
+              maxImageBytes: 31457280
+              maxVideos: 3
+              maxVideoBytes: 209715200
+              maxVideoDurationSeconds: 15
+              maxAudios: 3
+              maxAudioBytes: 15728640
+              maxAudioDurationSeconds: 15
+            duration: { selection: range, min: 4, max: 15, step: 1, default: 5 }
+            ratios: ["16:9", "9:16", "1:1", "4:3", "21:9"]
+            defaultRatio: "16:9"
+            resolutions: ["480p", "720p", "1080p", "4K"]
+            defaultResolution: "720p"
+            generateAudio: { supported: true, default: true }
+            watermark: { supported: true, default: false }
+            operations: ["text_to_video", "image_to_video", "reference_to_video", "audio_to_video"]
+            defaultOperation: "text_to_video"
+
+  # ── 通道 2：即梦 5.0 Lite 生图（国内方舟 images/generations 接口）──
+  # 国内 seedream Provider：密钥 VOLCENGINE_SEEDREAM_API_KEY + 国内 baseUrl，不是 MFHW 海外 key。
+  - name: 即梦 Seedream 5.0 Lite 图片（火山方舟）
+    baseUrl: https://ark.cn-beijing.volces.com
+    apiKey: ${VOLCENGINE_SEEDREAM_API_KEY}      # ← 国内 Seedream 生图 key（来自 api-server/.env）
+
+    models:
+      - modelKey: doubao-seedream-5-0-lite-260128  # ← 即梦 5.0 Lite（application.yml image.seedream-5-lite）
+        capability: image
+        protocol: volcengine-ark-image
+        displayName: 即梦 5.0 Lite
+        # 尺寸能力：显式收敛到上游 application.yml image-capability-profiles.seedream-5-lite 的
+        # exposed 比例（16:9 / 9:16 / 21:9 / 4:3 / 3:4 / 1:1），默认 1:1。不写则用脚本内置默认，
+        # 但这里写死可保证生图模型在 /model-catalog 里可路由（size 选项必须与默认值一致）。
+        capabilityConfig:
+          image:
+            size:
+              parameter: size
+              values: ["1:1", "4:3", "3:4", "16:9", "9:16", "21:9"]
+              default: "1:1"
+              allowCustom: false
+
+  # ── 通道 3：OpenAI-Next Grok 文本（OpenAI Chat Completion 协议，可做 LLM 调用 / 剧本解析测试）──
+  # baseUrl 带 /v1，最终请求 https://api.openai-next.com/v1/chat/completions。
+  - name: Grok 文本（OpenAI-Next）
+    baseUrl: https://api.openai-next.com/v1
+    apiKey: ${OPENAI_NEXT_GROK_API_KEY}        # ← 来自 api-server/.env
+
+    models:
+      - { modelKey: grok-4.5, capability: text, protocol: chat-completion, displayName: Grok 4.5 }
+      - { modelKey: grok-4.6, capability: text, protocol: chat-completion, displayName: Grok 4.6 }
+      - { modelKey: grok-4.7, capability: text, protocol: chat-completion, displayName: Grok 4.7 }

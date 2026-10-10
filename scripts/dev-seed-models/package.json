@@ -1,0 +1,9 @@
+{
+  "name": "dev-seed-models",
+  "private": true,
+  "type": "module",
+  "description": "本地 dev 环境模型配置 seed 脚本。JSON 清单零依赖；YAML 清单需要本目录的 yaml 依赖（bun install）。",
+  "dependencies": {
+    "yaml": "^2.7.0"
+  }
+}
