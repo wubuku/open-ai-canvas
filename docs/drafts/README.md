@@ -27,7 +27,15 @@
 - [本地前后端构建与快速启动指引](local-dev-quickstart.md)：本地起前后端 dev 环境的最小步骤，含 3000 端口冲突与本机 HTTP 代理干扰两个坑，及「不常用端口」联动启动方法；并给出「清空测试残留 → 启动 → seed」的完整可重复循环（`dev-reset.sh` + `dev.sh` + `dev-seed-models/seed.ts`），以及管理后台 `/admin` 的入口位置（首页无链接，在头像菜单 / 账户卡片，管理员可见）。
 - [用火山方舟（Ark）密钥 Seed 模型数据](seed-volcengine-ark-models.md)：从外部 `api-server/.env` 导入环境变量 → 用 seed 脚本灌入 Seedance 2.0 视频 / 即梦 5.0 Lite 图片 / Grok 文本模型的可重放步骤（`scripts/dev-seed-models/seed.ark.yaml`），并说明不 seed 时在 Web UI（系统渠道 `/admin/channels` / 个人渠道）手动新增模型的对照入口。
 - [云端 Agent 深度调研报告](cloud-agent-deep-research.md)：Agent 能力矩阵、前端面板、Go 控制面、Pi bridge、Skill 生命周期、画布读写、媒体审批、持久化恢复、排障和开发者导读。
+- [Agent 能力与技术实现全景调研](agent-capabilities-and-architecture-research.md)：对照画布云端 Agent 与助手消息内的创作交互，梳理产品能力、不同执行合同、持久化/审批边界和架构取舍。
+- [技能广场与 Skill 运行机制调研](skills-usage-and-runtime-research.md)：解释 `/skills` 中产品技能的用途、加入和选用方式、云端 Agent 与普通创作入口的加载差异，以及技能文本和实际工具能力的边界。
 - [画布系统深度调研报告](canvas-deep-research.md)：面向准备自建 AI 视频创作画布的开发者，讲七层状态模型、数据模型、三方合并、生成回写、资源完整性、渲染性能与实施清单。
+- [预演台系统深度调研报告](previs-workbench-deep-research.md)：研究嵌入画布的 3D 预演工作台，覆盖场景 schema、动画语义、本地草稿与画布同步、Three.js 截帧录制、输出物化和 Agent 执行边界。
+- [当前数据模型综述与导航](data-model-overview-and-navigation.md)：汇总浏览器状态、后端持久化、JSON 文档与物理资源的模型边界，按领域导航到源码和专题，并记录 schema 版本差异。
+- [后端架构考古与 Spring Boot 移植评估](backend-architecture-review.md)：从当前 Go 源码与测试归纳后端架构得失，区分可迁移原则、项目特定选择和待验证范围。
+- [Go 后端迁移到 Java Spring Boot 指引](go-to-spring-boot-migration-guide.md)：面向保留现有 Web UI 的 Java 重建，覆盖模块结构、数据与 API 兼容、异步生成、视频等待超时、资源、Agent、分阶段切换和验收。
+- [画布 Java 迁移前置条件：HTTP 黑盒合同验证方案](canvas-java-http-contract-test-plan.md)：规定如何冻结画布端点/wire 合同、建立 Go 基线并用同一套独立 HTTP 状态流测试验收 Java 与混合路由切流。
+- [自动化回归测试与核心功能验收现状调研](test-regression-and-ci-research.md)：盘点前后端测试、PR CI/CD 实际门禁、预演台 Chrome E2E 覆盖及缺口，并给出修改功能后的分层验证步骤。
 
 ## 草稿质量要求
 
