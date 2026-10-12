@@ -64,7 +64,7 @@ profile 为：
 | `legacy-assets` | 可执行 | 旧素材列表/批量读取/更新/删除、文件夹生命周期、批量删除和用户数据快照 |
 | `public-resource` | 可执行，路径未全量 | 独立签名资源 URL、文件名、Range、篡改/缺失/过期签名、资源绑定、重放和安全缓存头；本地 S3-compatible origin 的成功/失败/恢复已由 HTTP fixture 覆盖，CDN/远端 TTL/条件缓存仍需专门 fixture |
 | `restart-recovery` | 可执行，需私有进程控制 fixture | SIGKILL 与优雅重启后原 Cookie、文档/CAS/ETag、历史、分享/签名 URL、资源字节、项目单元/关联与删除状态；提交成功而客户端丢失 ACK 后重启、CAS/幂等重放和精确资源用量；Go 内存上传会话失效后重新上传 |
-| `generation-boundary` | 可执行，路径未全量 | 任务/creation-run/Agent 只读 HTTP 边界：未认证拒绝、owner 查询、missing-ID、foreign creation-run 隔离；不启动模型、不扣费、不执行画布写回 |
+| `generation-boundary` | 可执行，路径未全量 | 任务/creation-run/Agent 只读 HTTP 边界：未认证拒绝、已有任务 owner 详情/日志读取、foreign 任务列表/详情/日志隔离、missing-ID、foreign creation-run 隔离；不启动模型、不扣费、不执行画布写回 |
 | `generation-writeback` | 可执行，明确为 provider-free 子集 | 文本任务创建、owner/foreign 增量读取、`after` 游标、单次完成和终态拒写；不覆盖 Provider、SSE、creation-run 或 Agent 写回 |
 
 以下 catalog 仍保留但不会被上述 profile 的绿色结果隐式覆盖：
@@ -74,7 +74,7 @@ profile 为：
 - `generation-runtime`、`agent-canvas`：Provider-backed 任务写入/恢复、SSE、creation-run 状态机、Agent run/tool/event、记忆和 profile 写入的独立合同族；`generation-writeback` 只覆盖上表明确列出的 provider-free text replay 子集，不能外推为完整生成写回。
 - `provider-resource`：Ark 私有素材同步的外部提交、receipt 和恢复合同。
 
-11 个 runner profile 共映射 **88 个 operation / 111 个 HTTP 场景**；另外 **35 个 deferred**、
+11 个 runner profile 共映射 **88 个 operation / 112 个 HTTP 场景**；另外 **35 个 deferred**、
 **38 个 out-of-scope**。每个 Required profile 的缺失分支均保留在 manifest
 `remaining_paths`，所以“可执行”和“通过”不表示 profile 的全部路径已经覆盖。
 manifest 的 profile `dependencies` 是测试 fixture/跨套件门禁关系，不是 Java
@@ -89,7 +89,7 @@ manifest 的 profile `dependencies` 是测试 fixture/跨套件门禁关系，�
 
 `import` 已覆盖固定 HTTPS 替身的真 PNG/WAV/MP4、选定拓扑/参数/过滤、1000/1001 节点与 5000/5001 连接边界，以及资源导入→素材登记→画布保存/重开/CAS/foreign 隔离。该 HTTP 串联不证明浏览器导入、全部转换组合或远端故障已覆盖。导入端点返回转换结果，不直接持久化画布/资源；重放产生新的 batch/node identity，不能宣称服务端幂等保存。
 
-项目功能开关仅门控项目路由：关闭后已登录 owner/foreign 均为 `403/forbidden`，未登录仍为 `401`，画布文档/历史读取不受该开关影响。Go 跨项目重关联会残留旧项目 full-detail 链接，但分页按新的项目身份返回；这是待裁决现状，不是 Java 应复制的正确性要求。`contract/manifest.yaml` 的 `behavior_decisions` 登记 29 项观测/提案/审批状态；所有分类仍为 `UNKNOWN`，提案不等于批准，静态审计拒绝隐式批准或无依据批准。
+项目功能开关仅门控项目路由：关闭后已登录 owner/foreign 均为 `403/forbidden`，未登录仍为 `401`，画布文档/历史读取不受该开关影响。Go 跨项目重关联会残留旧项目 full-detail 链接，但分页按新的项目身份返回；这是待裁决现状，不是 Java 应复制的正确性要求。`contract/manifest.yaml` 的 `behavior_decisions` 登记 30 项观测/提案/审批状态；所有分类仍为 `UNKNOWN`，提案不等于批准，静态审计拒绝隐式批准或无依据批准。
 
 [`project_link_roles_contract_test.go`](project_link_roles_contract_test.go) 的目的，是补齐同一画布关联多个单元时的角色规范化、唯一身份、重放、逐单元解除与完整解除，并检查错误后的完整状态。32/33 个 Unicode 字符分别验证 PostgreSQL 成功/失败边界；D-26 记录角色更新返回未持久化的新 link ID，D-27 记录 500 后画布归属/revision 已写入、重复失败再次推进，但角色/项目 revision 不提交。它们是 Go 缺陷观测，不是 Java 应复制的正确性要求；也不代表所有故障回滚或并发交错已覆盖。
 
@@ -496,7 +496,7 @@ facet；移除查询串、分享 token 和文件名，不保存 headers 或正�
 后置断言，不能恢复原先的直接跳过。相关 catalog 审计单测共 36 项，另有 9 项
 Python browser audit 单测。
 
-最新完整双轮基线为 `20261013-032039-72738`：两轮均执行 11 个 profile、88 个 operation/111 个 HTTP 场景；清单内 observed/wire 请求分别为 `14105/14104` 与 `14100/14099`，每轮 `70/71/69` 条映射/实际触达/非错误路由，5 条受控故障、3 条响应丢失、3 条 incomplete、0 条未分类中断。真实浏览器两轮均为 6 个场景、171 条页面响应头观测，阻断装饰分别为 9/10 条。新增 `generation-writeback` 只覆盖 provider-free text replay 子集；`canvas.share.resource-object-storage-failure` 通过本地 CDN/object-store fixture 验证分享资源 redirect、成功读取、GET 故障和恢复；这不等同于生产 CDN、TTL 或条件缓存验收。证据目录为 `.local/project-workbench-debug/canvas-contract-review/20261013-032039-72738/`；`remaining_paths`、29 项行为裁决、Java/混合网关门禁与 clean-review `0/3` 仍未闭合，不得与旧版本请求数拼接。
+最新完整双轮基线为 `20261013-040944-41307`：两轮均执行 11 个 profile、88 个 operation/112 个 HTTP 场景；清单内 observed/wire 请求分别为 `14108/14107` 与 `14109/14108`，每轮 `70/71/70` 条映射/实际触达/非错误路由，5 条受控故障、3 条响应丢失、3 条 incomplete、0 条未分类中断。真实浏览器两轮均为 6 个场景，页面响应头观测分别为 170/171 条，阻断装饰各 9 条。`generation-boundary` 的任务 owner/foreign task read 已纳入当前证据；`generation-writeback` 只覆盖 provider-free text replay 子集；`canvas.share.resource-object-storage-failure` 通过本地 CDN/object-store fixture 验证分享资源 redirect、成功读取、GET 故障和恢复；这不等同于生产 CDN、TTL 或条件缓存验收。证据目录为 `.local/project-workbench-debug/canvas-contract-review/20261013-040944-41307/`；`remaining_paths`、30 项行为裁决、Java/混合网关门禁仍未闭合，但当前连续 clean-review 为 `3/3`，不得与旧版本请求数拼接。
 
 71 场景稳定的 schema/完整单元正文状态版已通过独立 CI 两轮及全新启动器第三轮：**72 个 operation 映射、
 71 个顶层 scenario、57 条触达/有非错误响应路由、清单内 1470 次完整请求及 wire

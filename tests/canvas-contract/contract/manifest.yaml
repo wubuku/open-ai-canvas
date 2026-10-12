@@ -335,6 +335,14 @@ behavior_decisions:
     go_observation: In the provider-free text replay path, an authenticated owner can create a text_replay task, append ordered deltas, read them with an after cursor and complete the task once. A foreign user's delta read/write request currently returns HTTP 500/internal because the shared task lookup error is not translated to a resource-scoped not-found response; foreign completion is translated to HTTP 400 by the completion handler. Duplicate completion and post-completion delta writes return HTTP 400; the completed replay returns finalText and complete=true while the retained delta list remains available during its retention window.
     proposed_target: Preserve owner isolation and a single terminal transition, but choose an explicit machine-readable 404/not-found or indistinguishable policy for foreign task access. Keep cursor monotonicity and completion visibility, and decide whether completed deltas remain queryable or are compacted behind finalText. Do not copy Go's internal error status into Java without approval.
     evidence: [tests/canvas-contract/generation_writeback_contract_test.go, backend/internal/handler/routes.go, backend/internal/app/text_replay.go, backend/internal/repository/text_replay.go]
+  - id: D-30
+    classification: UNKNOWN
+    proposal: KNOWN_BUG
+    approval: pending
+    operations: [canvas.task.read, canvas.task.logs]
+    go_observation: An authenticated owner can read an existing task and its logs. A foreign user is excluded from the task list and receives 404 for task detail, but the current logs endpoint returns HTTP 200 with an empty list because it filters by user without first asserting task ownership. Unauthenticated reads remain 401.
+    proposed_target: Keep task list, detail and logs consistently resource-scoped. Choose 404/not-found or an indistinguishable empty response for foreign logs, document it as a single policy, and do not make Java reproduce an accidental 200/internal distinction without approval.
+    evidence: [tests/canvas-contract/generation_boundary_contract_test.go, backend/internal/handler/routes.go, backend/internal/repository/repository_tasks.go]
 profiles:
   core:
     status: REQUIRED
@@ -607,9 +615,9 @@ profiles:
       missing-ID denial and cross-user creation-run isolation without starting
       a model, charging credits or mutating a canvas.
     remaining_paths:
-      - existing task and Agent run owner reads need deterministic local fixtures that do not start a provider runtime
+      - existing Agent run owner reads still need deterministic local fixtures that do not start a provider runtime
       - task SSE cursor/replay, task mutation/recovery, creation-run lease/submission/canvas commit, and Agent event/approval/undo flows remain separate suites
-      - foreign task and Agent run records require durable fixtures before their exact not-found policy can be asserted
+      - foreign Agent run records require durable fixtures before their exact not-found policy can be asserted
     operations:
       - canvas.task.list
       - canvas.task.read
@@ -1786,7 +1794,7 @@ operations:
     evidence: [backend/internal/handler/routes.go, tests/canvas-contract/generation_writeback_contract_test.go]
   - id: canvas.task.list
     profile: generation-boundary
-    scenario: generation.boundary.unauthenticated, generation.boundary.owner-read-only
+    scenario: generation.boundary.unauthenticated, generation.boundary.owner-read-only, generation.boundary.foreign-task-read
     implementation: implemented-and-executed-read-only-boundary
     method: GET
     path: /api/tasks
@@ -1795,7 +1803,7 @@ operations:
     evidence: [backend/internal/handler/routes.go]
   - id: canvas.task.read
     profile: generation-boundary
-    scenario: generation.boundary.unauthenticated, generation.boundary.owner-read-only
+    scenario: generation.boundary.unauthenticated, generation.boundary.owner-read-only, generation.boundary.foreign-task-read
     implementation: implemented-and-executed-read-only-boundary
     method: GET
     path: /api/tasks/{id}
@@ -1876,7 +1884,7 @@ operations:
     evidence: [backend/internal/handler/routes.go, tests/canvas-contract/generation_writeback_contract_test.go]
   - id: canvas.task.logs
     profile: generation-boundary
-    scenario: generation.boundary.unauthenticated, generation.boundary.owner-read-only
+    scenario: generation.boundary.unauthenticated, generation.boundary.owner-read-only, generation.boundary.foreign-task-read
     implementation: implemented-and-executed-read-only-boundary
     method: GET
     path: /api/tasks/{id}/logs

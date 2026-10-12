@@ -130,7 +130,7 @@ func ConfigFromEnv() (Config, error) {
 }
 
 func RequiresSettingsFixture(profile string) bool {
-	return profile == "project-integration" || profile == "project-workbench-core" || profile == "resource-integrity" || profile == "generation-writeback"
+	return profile == "project-integration" || profile == "project-workbench-core" || profile == "resource-integrity" || profile == "generation-boundary" || profile == "generation-writeback"
 }
 
 func envOr(key, fallback string) string {

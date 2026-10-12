@@ -145,6 +145,7 @@ Generation/Agent read boundary:
 - `generation.boundary.unauthenticated`
 - `generation.boundary.owner-read-only`
 - `generation.boundary.cross-user-creation-read`
+- `generation.boundary.foreign-task-read`
 
 Provider-free generation writeback:
 
