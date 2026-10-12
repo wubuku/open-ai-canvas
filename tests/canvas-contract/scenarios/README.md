@@ -118,6 +118,8 @@ Legacy assets:
 - `canvas.legacy-asset.read-update-batch`
 - `canvas.legacy-user-data.snapshot`
 - `canvas.legacy-asset.delete`
+- `canvas.legacy-asset.concurrent-reference-delete`
+- `canvas.legacy-asset.physical-deletion-failure`
 
 Restart recovery (private owned-process fixture required):
 
@@ -167,9 +169,12 @@ validation, owner/CAS rejection, and exactly one before_resource_repair history
 entry. A damaged preimage is exercised by the companion resource-integrity
 profile through the explicit Go purge route. Resource validation checks missing
 and foreign references, rejected asset replacement, purge-induced dangling
-references, repair history, and rejected restore of now-missing media. It does
-not claim purge refuses references, inspect asynchronous physical deletion, or
-inject object-store failures. KEEP/OVERTURN of purge remains a migration decision.
+references, repair history, and rejected restore of now-missing media. The
+legacy-assets companion also races canvas reference creation against explicit
+purge and injects a local object-store DELETE failure, recording the acknowledged
+logical deletion and retained physical object. It does not prove production
+retry timing or every task/project reference source. KEEP/OVERTURN of purge
+remains a migration decision.
 
 The `import` profile has an isolated fixed-origin TLS fixture for success,
 scope/feature rejection, HTTP/business failures, invalid/truncated/oversized JSON,

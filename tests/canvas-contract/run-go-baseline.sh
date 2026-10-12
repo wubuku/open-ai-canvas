@@ -199,7 +199,7 @@ for round in $(seq 1 "$ROUNDS"); do
         SHARE_FIXTURE_READY="$PRIVATE_ROOT/share-fixture-$COUNTER.txt"
         IMPORT_FIXTURE=false
         ALLOWED_UPSTREAM_HOSTS=''
-        if [[ "$profile" == resource-integrity || "$profile" == public-resource || "$profile" == share-public ]]; then ALLOWED_UPSTREAM_HOSTS=127.0.0.1; fi
+        if [[ "$profile" == resource-integrity || "$profile" == public-resource || "$profile" == share-public || "$profile" == legacy-assets || "$profile" == restart-recovery ]]; then ALLOWED_UPSTREAM_HOSTS=127.0.0.1; fi
         TARGET_COMMAND=("$PRIVATE_ROOT/server")
         if [[ "$profile" == restart-recovery ]]; then
             TARGET_COMMAND=("$PRIVATE_ROOT/target-control" "--target-bin=$PRIVATE_ROOT/server" "--target-dir=$REPO_ROOT/backend" "--target-origin=http://127.0.0.1:$BACKEND_PORT" "--ready-file=$PRIVATE_ROOT/control-$COUNTER.json")

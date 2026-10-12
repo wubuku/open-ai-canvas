@@ -102,6 +102,18 @@ controlled_faults:
     recovery_operations: [canvas.recovery.resource-create, canvas.recovery.resource, canvas.recovery.resource-usage]
     recovery_restart: {mode: crash, generation: 4}
     evidence: [tests/canvas-contract/runner/response_loss.go, tests/canvas-contract/response_loss_contract_test.go]
+  - id: resource-import-response-loss
+    kind: response-loss-after-commit
+    profile: restart-recovery
+    scenario: canvas.recovery.response-loss-and-restart
+    method: POST
+    path: /api/resources/import
+    expected_status: 0
+    target_status: 200
+    requests_per_scenario: 1
+    recovery_operations: [canvas.recovery.resource-import, canvas.recovery.resource, canvas.recovery.resource-usage]
+    recovery_restart: {mode: crash, generation: 4}
+    evidence: [tests/canvas-contract/runner/response_loss.go, tests/canvas-contract/response_loss_contract_test.go]
 behavior_decisions:
   - id: D-01
     classification: UNKNOWN
@@ -284,9 +296,18 @@ behavior_decisions:
     proposal: KNOWN_BUG
     approval: pending
     operations: [canvas.legacy-asset.update, canvas.legacy-asset.read, canvas.legacy-asset.list, canvas.legacy-asset.folder-update, canvas.legacy-asset.folder-delete, canvas.legacy-asset.folder-move, canvas.legacy-asset.delete, canvas.legacy-asset.batch-delete]
-    go_observation: Valid foreign asset upsert returns a complete 500/internal envelope rather than an explicit ownership/not-found response. Foreign folder update/delete and cross-owner move return 400, while foreign purge and mixed own/foreign/missing-ID batch purge return 404. Both user directions and anonymous writes are exercised; complete assets/folders/resource metadata, exact fixture bytes and quota remain unchanged after every failure, including both identity orders and root/owned-folder move destinations. This does not prove physical deletion failure, task/project reference sources or concurrent reference creation.
-    proposed_target: Preserve cross-user isolation and all-or-nothing mixed ownership mutations, but approve explicit machine-readable ownership/error semantics without copying Go duplicate-key/internal errors into Java. Do not use frontend hiding or globally unique primary-key conflicts as authorization. Storage-side failures and reference races remain separate required paths.
+    go_observation: >-
+      Valid foreign asset upsert returns a complete 500/internal envelope rather than an explicit ownership/not-found response. Foreign folder update/delete and cross-owner move return 400, while foreign purge and mixed own/foreign/missing-ID batch purge return 404. Both user directions and anonymous writes are exercised; complete assets/folders/resource metadata, exact fixture bytes and quota remain unchanged after every failure, including both identity orders and root/owned-folder move destinations. Local object-store DELETE failure is separately exercised: asset/resource rows disappear after the acknowledged purge while the physical object remains for retry. Canvas-reference/purge ordering is a separate decision below.
+    proposed_target: Preserve cross-user isolation and all-or-nothing mixed ownership mutations, but approve explicit machine-readable ownership/error semantics without copying Go duplicate-key/internal errors into Java. Do not use frontend hiding or globally unique primary-key conflicts as authorization. Storage retry timing and reference races remain separate required paths.
     evidence: [tests/canvas-contract/legacy_ownership_contract_test.go, backend/internal/canvas/user_data.go, backend/internal/app/asset_library.go, backend/internal/app/resource_delete.go, backend/internal/repository/repository_assets_canvases.go]
+  - id: D-31
+    classification: UNKNOWN
+    proposal: KNOWN_BUG
+    approval: pending
+    operations: [canvas.create, canvas.update, canvas.legacy-asset.delete, canvas.resource.read, canvas.legacy-asset.read]
+    go_observation: Six start-barrier trials race a canvas PUT containing a resource-backed legacy asset with explicit asset DELETE/purge. Each acknowledged canvas write persists the resource locator; each acknowledged purge removes the asset and resource rows. Some trials acknowledge both requests, leaving the canvas document with a dangling resource locator because current Go purge intentionally invalidates existing references. The local object-store failure path separately leaves the physical object for the asynchronous deletion outbox; neither test proves production retry timing or task/project reference coverage.
+    proposed_target: Decide whether Java keeps explicit purge as an authorized dangling-reference transition or serializes/rejects purge while a live canvas references the asset. Whichever policy is approved must define the final canvas/resource/asset invariant, repair behavior, and machine-readable conflict semantics. Do not infer safety from request completion order or copy Go's current dangling-reference behavior without approval.
+    evidence: [tests/canvas-contract/legacy_ownership_contract_test.go, backend/internal/canvas/canvas_asset_guard.go, backend/internal/app/resource_delete.go, backend/internal/repository/resource_reference.go]
   - id: D-24
     classification: UNKNOWN
     proposal: KNOWN_BUG
@@ -470,7 +491,7 @@ profiles:
     implementation: implemented-and-executed
     remaining_paths:
       - project/task reference sources; selected anonymous/all-object foreign writes and mixed owner/foreign/missing-ID rollback now execute in both user directions
-      - physical deletion failure and concurrent reference creation
+      - concurrent reference creation is executable through a six-trial HTTP settlement matrix; asynchronous physical deletion failure is executable against the local object-store fixture, but task/project reference sources and retry timing remain separate gates
     reason: >-
       The legacy asset/folder HTTP lifecycle is executable independently with
       uploaded fixtures. Public signed resource delivery remains a separate
@@ -522,6 +543,7 @@ profiles:
       - canvas.recovery.resource-create
       - canvas.recovery.upload-complete
       - canvas.recovery.resource-usage
+      - canvas.recovery.resource-import
   project-workbench:
     status: DEFERRED
     authorization: feature-enabled-and-owned-project-unit-asset-character
@@ -780,6 +802,14 @@ operations:
     path: /api/resources/storage-usage
     owner: resource-storage-accounting
     replay: committed-byte-usage-survives-loss-crash-and-same-key-recovery
+    evidence: [backend/internal/handler/user_data.go, tests/canvas-contract/response_loss_contract_test.go]
+  - id: canvas.recovery.resource-import
+    profile: restart-recovery
+    scenario: canvas.recovery.response-loss-and-restart
+    method: POST
+    path: /api/resources/import
+    owner: resource-metadata-and-object
+    replay: same-key-import-retry-resolves-lost-acknowledgement-without-duplicate-resource-or-byte-charge
     evidence: [backend/internal/handler/user_data.go, tests/canvas-contract/response_loss_contract_test.go]
   - id: canvas.list
     profile: core
@@ -1277,7 +1307,7 @@ operations:
       - backend/internal/canvas/user_asset_document.go
   - id: canvas.legacy-asset.delete
     profile: legacy-assets
-    scenario: "canvas.legacy-asset.delete, canvas.legacy-asset.foreign-write-matrix"
+    scenario: "canvas.legacy-asset.delete, canvas.legacy-asset.foreign-write-matrix, canvas.legacy-asset.concurrent-reference-delete, canvas.legacy-asset.physical-deletion-failure"
     implementation: implemented-and-executed
     method: DELETE
     path: /api/assets/{id}

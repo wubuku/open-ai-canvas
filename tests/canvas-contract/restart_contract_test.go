@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"canvas-contract/harness"
 	"canvas-contract/runner"
 )
 
@@ -62,6 +63,11 @@ func runRestartRecoveryContract(test *testing.T, config runner.Config) {
 		test.Fatal(err)
 	}
 	resourceContent := runner.ImageFixture(test)
+	importFixture, err := harness.NewResourceFixture()
+	if err != nil {
+		test.Fatal(err)
+	}
+	defer importFixture.Close()
 	resourceID := uploadResource(test, owner, "restart.png", "image", resourceContent)
 	createImageAsset(test, owner, resourceID, len(resourceContent))
 	identity := "restart-" + config.RunID
@@ -193,6 +199,6 @@ func runRestartRecoveryContract(test *testing.T, config runner.Config) {
 		getCanvasAndAssert(test, owner, identity, 4, "Saved after two restarts")
 	})
 	test.Run("canvas.recovery.response-loss-and-restart", func(test *testing.T) {
-		runResponseLossRestartMatrix(test, owner, foreign, config)
+		runResponseLossRestartMatrix(test, owner, foreign, config, importFixture)
 	})
 }

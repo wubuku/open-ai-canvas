@@ -219,9 +219,9 @@ test("response loss counts incomplete client requests without inventing complete
   const result = checkResults("response-loss-valid", resultFixture("restart-recovery"));
   expect(result.exitCode).toBe(0);
   const report = JSON.parse(result.stdout.toString());
-  expect(report.controlled_response_loss_requests).toBe(3);
-  expect(report.controlled_fault_requests).toBe(3);
-  expect(report.incomplete_requests).toBe(3);
+  expect(report.controlled_response_loss_requests).toBe(4);
+  expect(report.controlled_fault_requests).toBe(4);
+  expect(report.incomplete_requests).toBe(4);
   expect(report.unclassified_incomplete_requests).toBe(0);
   expect(report.requests_observed).toBe(report.wire_validated_requests);
 });

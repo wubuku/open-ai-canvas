@@ -165,7 +165,7 @@ for (const [name, profile] of Object.entries(manifest.profiles)) {
 const controlledFaults = manifest.controlled_faults ?? [];
 const controlledFaultIDs = new Set<string>();
 for (const fault of controlledFaults) {
-  const lossPaths: Record<string, string> = { "document-response-loss": "PUT /api/canvas-projects/{}", "resource-create-response-loss": "POST /api/resources", "upload-complete-response-loss": "POST /api/resources/uploads/{}/complete" };
+  const lossPaths: Record<string, string> = { "document-response-loss": "PUT /api/canvas-projects/{}", "resource-create-response-loss": "POST /api/resources", "upload-complete-response-loss": "POST /api/resources/uploads/{}/complete", "resource-import-response-loss": "POST /api/resources/import" };
   assert((fault.kind === "request-body-half-close" && fault.id === "upload-body-half-close" || fault.kind === "response-loss-after-commit" && lossPaths[fault.id] === routeKey(fault.method, fault.path)) && !controlledFaultIDs.has(fault.id), `unknown/duplicate controlled fault: ${fault.id}`);
   controlledFaultIDs.add(fault.id);
   assert(manifest.profiles[fault.profile]?.status === "REQUIRED" && scenarios.has(fault.scenario), `controlled fault lacks a Required scenario: ${fault.id}`);

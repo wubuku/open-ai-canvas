@@ -74,7 +74,7 @@ profile 为：
 - `generation-runtime`、`agent-canvas`：Provider-backed 任务写入/恢复、SSE、creation-run 状态机、Agent run/tool/event、记忆和 profile 写入的独立合同族；`generation-writeback` 只覆盖上表明确列出的 provider-free text replay 子集，不能外推为完整生成写回。
 - `provider-resource`：Ark 私有素材同步的外部提交、receipt 和恢复合同。
 
-11 个 runner profile 共映射 **88 个 operation / 112 个 HTTP 场景**；另外 **35 个 deferred**、
+11 个 runner profile 共映射 **89 个 operation / 114 个 HTTP 场景**；另外 **35 个 deferred**、
 **38 个 out-of-scope**。每个 Required profile 的缺失分支均保留在 manifest
 `remaining_paths`，所以“可执行”和“通过”不表示 profile 的全部路径已经覆盖。
 manifest 的 profile `dependencies` 是测试 fixture/跨套件门禁关系，不是 Java
@@ -84,12 +84,12 @@ manifest 的 profile `dependencies` 是测试 fixture/跨套件门禁关系，�
 
 本版本多出的实际路由为 setup 的 `POST /api/creation-runs`：它准备只读 fixture，
 不属于 66 条 Required wire bindings，也不代表该写入 operation 的状态机已覆盖。
-因此清单内完整请求数比 wire 校验多 1；三个丢失 ACK 的请求另计 incomplete，
+因此清单内完整请求数比 wire 校验多 1；四个丢失 ACK 的请求另计 incomplete，
 不计入这两个完整响应数字。请求数量不是代码或分支覆盖率。
 
 `import` 已覆盖固定 HTTPS 替身的真 PNG/WAV/MP4、选定拓扑/参数/过滤、1000/1001 节点与 5000/5001 连接边界，以及资源导入→素材登记→画布保存/重开/CAS/foreign 隔离。该 HTTP 串联不证明浏览器导入、全部转换组合或远端故障已覆盖。导入端点返回转换结果，不直接持久化画布/资源；重放产生新的 batch/node identity，不能宣称服务端幂等保存。
 
-项目功能开关仅门控项目路由：关闭后已登录 owner/foreign 均为 `403/forbidden`，未登录仍为 `401`，画布文档/历史读取不受该开关影响。Go 跨项目重关联会残留旧项目 full-detail 链接，但分页按新的项目身份返回；这是待裁决现状，不是 Java 应复制的正确性要求。`contract/manifest.yaml` 的 `behavior_decisions` 登记 30 项观测/提案/审批状态；所有分类仍为 `UNKNOWN`，提案不等于批准，静态审计拒绝隐式批准或无依据批准。
+项目功能开关仅门控项目路由：关闭后已登录 owner/foreign 均为 `403/forbidden`，未登录仍为 `401`，画布文档/历史读取不受该开关影响。Go 跨项目重关联会残留旧项目 full-detail 链接，但分页按新的项目身份返回；这是待裁决现状，不是 Java 应复制的正确性要求。`contract/manifest.yaml` 的 `behavior_decisions` 登记 31 项观测/提案/审批状态；所有分类仍为 `UNKNOWN`，提案不等于批准，静态审计拒绝隐式批准或无依据批准。
 
 [`project_link_roles_contract_test.go`](project_link_roles_contract_test.go) 的目的，是补齐同一画布关联多个单元时的角色规范化、唯一身份、重放、逐单元解除与完整解除，并检查错误后的完整状态。32/33 个 Unicode 字符分别验证 PostgreSQL 成功/失败边界；D-26 记录角色更新返回未持久化的新 link ID，D-27 记录 500 后画布归属/revision 已写入、重复失败再次推进，但角色/项目 revision 不提交。它们是 Go 缺陷观测，不是 Java 应复制的正确性要求；也不代表所有故障回滚或并发交错已覆盖。
 
@@ -276,9 +276,13 @@ tests/canvas-contract/run-go-baseline.sh --profiles=core --rounds=2 --browser`�
 
 [`legacy_ownership_contract_test.go`](legacy_ownership_contract_test.go) 覆盖匿名全部对象写入、
 双方 foreign folder/move/upsert/purge，以及 mixed own/foreign/missing ID 的移动/批量删除。
+另外，legacy-assets 通过六次并发画布引用/素材删除的 HTTP 结局检查，以及本地
+object-store DELETE 故障后的异步物理对象保留检查；两者分别记录当前 Go purge 的
+引用断链语义和 outbox 待重试状态，不替代任务/项目引用源和生产对象存储重试时序。
 每个失败后比较双方列表、逐素材完整 DTO、folder 与 resource metadata、用量和实际文件字节。
-D-23 记录 foreign upsert 的 Go 500/internal；虽然数据隔离后置状态通过，该错误分类仍待裁决，
-不要求 Java 依赖主键冲突实现权限。项目/任务引用、物理删除失败和并发引用仍未覆盖。
+D-23 记录 foreign upsert 的 Go 500/internal；D-31 记录显式 purge 与画布引用竞态以及
+本地 object-store DELETE 故障，虽然数据隔离和最终可观察状态通过，该错误分类、purge
+是否允许产生断链、生产 outbox 重试时序仍待裁决，不要求 Java 依赖主键冲突实现权限。
 
 历史保留 D-16 场景验证快速普通写入的快照合并、20 次强制恢复的逐次完整 preimage、
 单调 revision、最多 20 条降序历史、驱逐 ID/foreign/stale 拒绝后的状态不变。
@@ -496,7 +500,7 @@ facet；移除查询串、分享 token 和文件名，不保存 headers 或正�
 后置断言，不能恢复原先的直接跳过。相关 catalog 审计单测共 36 项，另有 9 项
 Python browser audit 单测。
 
-最新完整双轮基线为 `20261013-040944-41307`：两轮均执行 11 个 profile、88 个 operation/112 个 HTTP 场景；清单内 observed/wire 请求分别为 `14108/14107` 与 `14109/14108`，每轮 `70/71/70` 条映射/实际触达/非错误路由，5 条受控故障、3 条响应丢失、3 条 incomplete、0 条未分类中断。真实浏览器两轮均为 6 个场景，页面响应头观测分别为 170/171 条，阻断装饰各 9 条。`generation-boundary` 的任务 owner/foreign task read 已纳入当前证据；`generation-writeback` 只覆盖 provider-free text replay 子集；`canvas.share.resource-object-storage-failure` 通过本地 CDN/object-store fixture 验证分享资源 redirect、成功读取、GET 故障和恢复；这不等同于生产 CDN、TTL 或条件缓存验收。证据目录为 `.local/project-workbench-debug/canvas-contract-review/20261013-040944-41307/`；`remaining_paths`、30 项行为裁决、Java/混合网关门禁仍未闭合，但当前连续 clean-review 为 `3/3`，不得与旧版本请求数拼接。
+当前 manifest 登记 162 个 operation、143 个唯一 method/path、89 个 Required operation 和 114 个 HTTP 场景；最新 run-id、每轮 observed/wire 请求、路由触达、受控故障和真实浏览器观测数只维护在[唯一执行账本](../../docs/drafts/canvas-java-http-contract-test-plan.md#当前进度)及其版本化证据目录，不在本 README 复制动态计数。执行报告必须同时保留 11 个 profile、浏览器 6 个场景、`remaining_paths`、31 项行为裁决和 Java/混合网关门禁；页面响应头、HTTP 完整 wire 和 fixture 请求始终分开统计。`generation-boundary` 的任务 owner/foreign task read 已纳入当前证据；`generation-writeback` 只覆盖 provider-free text replay 子集；`canvas.share.resource-object-storage-failure` 通过本地 CDN/object-store fixture 验证分享资源 redirect、成功读取、GET 故障和恢复；这不等同于生产 CDN、TTL 或条件缓存验收。资源 URL 导入与 legacy 素材 purge 的提交后响应丢失、崩溃/重放、引用竞态和本地物理删除失败也已登记；它们使用本地受控 fixture，不等同于远端对象存储恢复或生产 outbox 重试时序。新运行的精确证据以执行账本为准，不得与旧版本请求数拼接。
 
 71 场景稳定的 schema/完整单元正文状态版已通过独立 CI 两轮及全新启动器第三轮：**72 个 operation 映射、
 71 个顶层 scenario、57 条触达/有非错误响应路由、清单内 1470 次完整请求及 wire

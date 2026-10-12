@@ -1,11 +1,16 @@
 package canvas_contract_test
 
 import (
+	"fmt"
 	"net/http"
 	"reflect"
 	"sort"
+	"strings"
+	"sync"
 	"testing"
+	"time"
 
+	"canvas-contract/harness"
 	"canvas-contract/runner"
 )
 
@@ -161,4 +166,123 @@ func runLegacyMixedOwnerRollback(test *testing.T, owner, foreign *runner.Client)
 			requireLegacyOwnershipUnchanged(test, owner, foreign, beforeOwner, beforeForeign, fixture)
 		}
 	}
+}
+
+func runLegacyConcurrentReferenceDelete(test *testing.T, owner *runner.Client, prefix string) {
+	for attempt := 0; attempt < 6; attempt++ {
+		content := runner.ImageFixture(test)
+		resourceID := uploadResource(test, owner, fmt.Sprintf("concurrent-reference-%s-%d.png", prefix, attempt), "image", content)
+		createImageAsset(test, owner, resourceID, len(content))
+		canvasID := fmt.Sprintf("concurrent-reference-%s-%d", prefix, attempt)
+		project := runner.FixtureProject(canvasID, "Concurrent reference", 0, false)
+		attachResource(project, resourceID)
+
+		start := make(chan struct{})
+		var group sync.WaitGroup
+		var saveResponse runner.Response
+		var saveEnvelope runner.Envelope
+		var saveErr error
+		var deleteResponse runner.Response
+		var deleteEnvelope runner.Envelope
+		var deleteErr error
+		group.Add(2)
+		go func() {
+			defer group.Done()
+			<-start
+			saveResponse, saveEnvelope, saveErr = owner.Do(runner.Context(test), http.MethodPut, "/api/canvas-projects/"+canvasID, map[string]any{"project": project}, nil)
+		}()
+		go func() {
+			defer group.Done()
+			<-start
+			deleteResponse, deleteEnvelope, deleteErr = owner.Do(runner.Context(test), http.MethodDelete, "/api/assets/"+resourceID, nil, nil)
+		}()
+		close(start)
+		group.Wait()
+		if saveErr != nil || deleteErr != nil {
+			test.Fatalf("concurrent reference/delete transport failure: save=%v delete=%v", saveErr, deleteErr)
+		}
+		saveOK := saveResponse.StatusCode == http.StatusOK && saveEnvelope.Code == 0
+		deleteOK := deleteResponse.StatusCode == http.StatusOK && deleteEnvelope.Code == 0
+		canvasResponse, canvasEnvelope, err := owner.Do(runner.Context(test), http.MethodGet, "/api/canvas-projects/"+canvasID, nil, nil)
+		if err != nil {
+			test.Fatal(err)
+		}
+		canvasExists := canvasResponse.StatusCode == http.StatusOK && canvasEnvelope.Code == 0
+		referencesResource := false
+		if canvasExists {
+			canvas := runner.DecodeData[struct {
+				Project map[string]any `json:"project"`
+			}](test, canvasEnvelope).Project
+			referencesResource = strings.Contains(string(importJSON(test, canvas)), resourceID)
+		}
+		resourceResponse, resourceEnvelope, err := owner.Do(runner.Context(test), http.MethodGet, "/api/resources/"+resourceID, nil, nil)
+		if err != nil {
+			test.Fatal(err)
+		}
+		resourceExists := resourceResponse.StatusCode == http.StatusOK && resourceEnvelope.Code == 0
+		assetResponse, assetEnvelope, err := owner.Do(runner.Context(test), http.MethodGet, "/api/assets/"+resourceID, nil, nil)
+		if err != nil {
+			test.Fatal(err)
+		}
+		assetExists := assetResponse.StatusCode == http.StatusOK && assetEnvelope.Code == 0
+		if saveOK && deleteOK {
+			if !canvasExists || !referencesResource || assetExists || resourceExists {
+				test.Fatal("concurrent success did not settle as an acknowledged canvas write followed by a complete logical purge")
+			}
+			test.Logf("concurrent reference/delete observed current Go purge semantics: canvas_reference=%t resource=%t asset=%t; both acknowledged operations may leave a dangling canvas reference", referencesResource, resourceExists, assetExists)
+		} else {
+			if saveOK && (!canvasExists || !referencesResource || !resourceExists || !assetExists) {
+				test.Fatal("successful canvas reference did not retain a complete resource/asset state")
+			}
+			if deleteOK && (referencesResource || assetExists || resourceExists) {
+				test.Fatal("successful purge left a canvas reference or logical resource state")
+			}
+		}
+
+		if canvasExists {
+			_, _, _ = owner.Do(runner.Context(test), http.MethodDelete, "/api/canvas-projects/"+canvasID, nil, nil)
+		}
+		if assetExists {
+			_, _, _ = owner.Do(runner.Context(test), http.MethodDelete, "/api/assets/"+resourceID, nil, nil)
+		}
+	}
+}
+
+func runLegacyPhysicalDeletionFailure(test *testing.T, owner, admin *runner.Client) {
+	fixture := harness.NewObjectStoreFixture()
+	test.Cleanup(fixture.Close)
+	configureAdminS3(test, admin, fixture.URL())
+	content := runner.ImageFixture(test)
+	resourceID := uploadResource(test, owner, "physical-deletion-failure.png", "image", content)
+	createImageAsset(test, owner, resourceID, len(content))
+	if fixture.ObjectCount() != 1 {
+		test.Fatal("object-store fixture did not receive the legacy asset object")
+	}
+	response, envelope, err := owner.Do(runner.Context(test), http.MethodGet, "/api/resources/"+resourceID, nil, nil)
+	if err != nil {
+		test.Fatal(err)
+	}
+	runner.RequireSuccess(test, response, envelope)
+	resource := runner.DecodeData[struct {
+		Resource struct {
+			ObjectKey string `json:"objectKey"`
+		} `json:"resource"`
+	}](test, envelope).Resource
+	if resource.ObjectKey == "" {
+		test.Fatal("object-store resource did not expose an object key for the failure witness")
+	}
+
+	fixture.SetFailure(http.MethodDelete, true)
+	response, envelope, err = owner.Do(runner.Context(test), http.MethodDelete, "/api/assets/"+resourceID, nil, nil)
+	if err != nil {
+		test.Fatal(err)
+	}
+	runner.RequireSuccess(test, response, envelope)
+	requireHTTPError(test, owner, http.MethodGet, "/api/assets/"+resourceID, nil, http.StatusNotFound)
+	requireHTTPError(test, owner, http.MethodGet, "/api/resources/"+resourceID, nil, http.StatusNotFound)
+	time.Sleep(150 * time.Millisecond)
+	if fixture.ObjectCount() != 1 {
+		test.Fatal("physical delete failure removed the object instead of retaining the retryable outbox state")
+	}
+	fixture.SetFailure(http.MethodDelete, false)
 }

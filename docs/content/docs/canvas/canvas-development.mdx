@@ -196,7 +196,7 @@ CanvasNodeData
 
 独立 Go module 只指[HTTP 主套件](../../../../tests/canvas-contract/README.md#成果用途与证据职责)：请求目标后端与隔离 fixture，不需要前端或浏览器。另有 Python/Playwright 的[真实浏览器伴随套件](../../../../tests/canvas-contract/README.md#独立运行边界)，需要已运行的真实 Web（本地 Vite 即可）、同源 `/api` 目标和 fixture，通过真实 UI 验收登录、画布编辑/重开、资源显示和公开分享；API 准备/核验不算 UI 操作，浏览器场景不计入 HTTP 覆盖。
 
-Web 的构建/运行不要求 Go 进程，但依赖现有 HTTP/业务合同。Java 保持批准合同通常主要调整连接配置；只迁移画布时仍须由 Java/混合网关提供认证、资源、页面辅助 API 和测试 admin/user fixture。有意改变合同则需 adapter 或前端/测试同步改造，见[前端配合条件与代码依据](../../../../tests/canvas-contract/README.md#web-前端与-java-的配合条件)。最新完整双轮 `20261013-040944-41307` 已完成 88 个 Required operation 对应的 112 个 HTTP 场景与 6 个浏览器场景；清单内 observed/wire 请求分别为 `14108/14107` 与 `14109/14108`；浏览器页面响应头观测分别为 170/171 条，阻断装饰各 9 条，不证明 Java 或所有 UI 能力兼容。`generation-boundary` 已纳入已有任务 owner/foreign task read；`generation-writeback` 仅为 provider-free text replay 子集，不覆盖 Provider、SSE、creation-run 或 Agent 写回。页面响应头、HTTP 完整 wire 和多标签/任务写回不能相互替代。运行证据、剩余路径和维护责任以[专项计划](../../../drafts/canvas-java-http-contract-test-plan.md#文档落点与维护责任)为准。
+Web 的构建/运行不要求 Go 进程，但依赖现有 HTTP/业务合同。Java 保持批准合同通常主要调整连接配置；只迁移画布时仍须由 Java/混合网关提供认证、资源、页面辅助 API 和测试 admin/user fixture。有意改变合同则需 adapter 或前端/测试同步改造，见[前端配合条件与代码依据](../../../../tests/canvas-contract/README.md#web-前端与-java-的配合条件)。最新完整双轮 `20261013-063740-64558` 已完成 89 个 Required operation 对应的 114 个 HTTP 场景与 6 个浏览器场景；清单内 observed/wire 两轮均为 `14160/14159`；浏览器页面响应头两轮均为 171 条，阻断装饰分别为 8/9 条，不证明 Java 或所有 UI 能力兼容。`generation-boundary` 已纳入已有任务 owner/foreign task read；`generation-writeback` 仅为 provider-free text replay 子集，不覆盖 Provider、SSE、creation-run 或 Agent 写回。页面响应头、HTTP 完整 wire 和多标签/任务写回不能相互替代。运行证据、剩余路径和维护责任以[专项计划](../../../drafts/canvas-java-http-contract-test-plan.md#文档落点与维护责任)为准。
 
 ## 四、生成任务与结果回写
 

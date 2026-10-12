@@ -36,7 +36,7 @@ var responseLossCompletePath = regexp.MustCompile(`^/api/resources/uploads/[A-Za
 
 func (client *Client) DoWithResponseLoss(ctx context.Context, faultID, method, path string, send func(context.Context, *Client) (Response, Envelope, error)) (ResponseLossWitness, error) {
 	origin, err := url.Parse(client.Config.BaseURL)
-	allowed := method == http.MethodPut && responseLossCanvasPath.MatchString(path) || method == http.MethodPost && (path == "/api/resources" || responseLossCompletePath.MatchString(path))
+	allowed := method == http.MethodPut && responseLossCanvasPath.MatchString(path) || method == http.MethodPost && (path == "/api/resources" || path == "/api/resources/import" || responseLossCompletePath.MatchString(path))
 	if err != nil || origin.Scheme != "http" && origin.Scheme != "https" || origin.Hostname() == "" || origin.User != nil || origin.Path != "" || origin.RawQuery != "" || origin.Fragment != "" || !allowed || !client.Config.SettingsFixture || faultID == "" || send == nil {
 		return ResponseLossWitness{}, fmt.Errorf("response loss requires an explicitly isolated target, safe origin and exact write operation")
 	}

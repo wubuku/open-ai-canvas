@@ -1933,7 +1933,7 @@ func runImportContract(t *testing.T, config runner.Config) {
 }
 
 func runLegacyAssetsContract(t *testing.T, config runner.Config) {
-	clientA, clientB, _ := prepareClients(t, config)
+	clientA, clientB, admin := prepareClients(t, config)
 	content := runner.ImageFixture(t)
 	resourceID := uploadResource(t, clientA, "legacy-asset-fixture.png", "image", content)
 	secondResourceID := uploadResource(t, clientA, "legacy-asset-fixture-2.png", "image", content)
@@ -1946,6 +1946,9 @@ func runLegacyAssetsContract(t *testing.T, config runner.Config) {
 	})
 	t.Run("canvas.legacy-asset.mixed-owner-rollback", func(test *testing.T) {
 		runLegacyMixedOwnerRollback(test, clientA, clientB)
+	})
+	t.Run("canvas.legacy-asset.concurrent-reference-delete", func(test *testing.T) {
+		runLegacyConcurrentReferenceDelete(test, clientA, config.RunID)
 	})
 
 	t.Run("canvas.legacy-asset.unauthenticated", func(t *testing.T) {
@@ -2109,6 +2112,9 @@ func runLegacyAssetsContract(t *testing.T, config runner.Config) {
 			t.Fatal(err)
 		}
 		runner.RequireError(t, response, envelope, http.StatusNotFound, "")
+	})
+	t.Run("canvas.legacy-asset.physical-deletion-failure", func(test *testing.T) {
+		runLegacyPhysicalDeletionFailure(test, clientA, admin)
 	})
 }
 
