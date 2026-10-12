@@ -2,7 +2,7 @@
 title: Go 后端迁移到 Java Spring Boot 指引
 status: draft
 scope: backend-java-migration
-updated: 2026-10-11
+updated: 2026-10-12
 audience: 准备以 Java Spring Boot 重建影策后端的架构师与开发团队
 ---
 
@@ -10,8 +10,10 @@ audience: 准备以 Java Spring Boot 重建影策后端的架构师与开发团�
 
 > **目标读者**：正在评估用 Java Spring Boot 重建当前 AI 视频创作工作台后端的开发者。
 > **文档定位**：这是迁移和架构改进指引，不是 Go 文件逐个对应 Java 文件的翻译表。
-> **事实边界**：当前项目事实以本仓库源码、配置和测试为准；Java 目标结构是建议。没有在本轮运行后端、连接数据库或调用模型。
-> **相关研究**：[后端架构考古与 Spring Boot 移植评估](backend-architecture-review.md)记录当前实现的得失；[当前数据模型综述与导航](data-model-overview-and-navigation.md)用于逐领域盘点数据落点。
+> **事实边界**：当前项目事实以本仓库源码、配置和测试为准；Java 目标结构是建议。本轮已在隔离 Go/PostgreSQL 环境完成画布 HTTP 合同与真实前端 companion 基线；没有运行 Java、生产数据库或模型调用。
+> **相关研究**：[后端架构考古与 Spring Boot 移植评估](backend-architecture-review.md)记录当前实现的得失；[当前数据模型综述与导航](data-model-overview-and-navigation.md)用于逐领域盘点数据落点；[画布 Java HTTP 合同测试计划](canvas-java-http-contract-test-plan.md)将本文的 API 合同、owner、切流和验收原则落到画布专项。
+
+本文按 `spring-boot-principal-architect` 的 **B：重写/大型重构**模式组织：先建立证据账本、事实 owner、operation 合同和失败恢复协议，再选择模块边界与基础设施；默认采用 PostgreSQL durable facts、短事务、transactional outbox、reconciler、单 writer 和可回滚的逐 operation 切换。该架构指引约束 Java 的目标设计，但不把 Go 当前的包结构、锁顺序、错误文本或缺陷自动提升为兼容合同。
 
 ## 阅读方法与证据等级
 
@@ -25,6 +27,15 @@ audience: 准备以 Java Spring Boot 重建影策后端的架构师与开发团�
 
 如果源码、测试和正式文档出现冲突，先把冲突记录为 M0 事项，不要用 Java 设计“顺手修正”而不留下迁移决策。本文的目标不是证明迁移可无停机，而是把必须证明的兼容合同、数据不变量和恢复路径列出来。
 
+### 迁移验收运行边界与阅读入口
+
+保留现有 Web 是外部合同选择，不是要求 Java 复制 Go 的内部架构。当前前端能独立构建/启动，但仍依赖后端的 HTTP/业务合同；配置可以指向 Java 不等于兼容性已经验证。启动移植或联调前，按目标选择入口：
+
+- **只验收后端合同**：运行独立 Go module 的 HTTP 主套件，准备目标 Java/网关和隔离 fixture；无需 Web、浏览器或 Go 产品进程。从源码运行仍需 Go 工具链。见[套件用途](../../tests/canvas-contract/README.md#成果用途与证据职责)和[独立运行矩阵](../../tests/canvas-contract/README.md#独立运行边界)。
+- **验收真实前端配合**：另运行 Python/Playwright/Chromium companion，准备真实 Web、同源 `/api` 目标及 fixture；可用本地 Vite，不必生产部署。UI 操作与直接 API setup/audit 分开统计，浏览器场景不计入 HTTP 覆盖。见[前端配合条件及连接示例](../../tests/canvas-contract/README.md#web-前端与-java-的配合条件)。
+- **只迁移部分 API**：为登录/session、Resource/Asset、页面辅助 API 和测试 fixture 明确提供者；采用混合网关时坚持逐事实单 writer。只有画布 CRUD 不足以运行现有浏览器场景；当前 setup 还依赖管理员创建测试用户等 API。依赖审计和最新缺口见[专项运行边界](canvas-java-http-contract-test-plan.md#http-与浏览器的独立运行边界)。
+- **有意改变合同**：先批准差异，再选择兼容 adapter 或前端/测试同步改造；不要为保留 UI 无条件复制 Go 缺陷，也不要因后端换语言而默认重写前端。架构实施门槛见 [M1](#132-m1java-基础壳和合同测试)，成果和后续变更的文档落点见[维护责任](canvas-java-http-contract-test-plan.md#文档落点与维护责任)。
+
 ## 0. 迁移进度账本
 
 | 项目 | 当前值 |
@@ -33,9 +44,9 @@ audience: 准备以 Java Spring Boot 重建影策后端的架构师与开发团�
 | 模式 | B：重写 / 大型重构 |
 | 范围 | API/认证兼容、PostgreSQL/Flyway、任务/Provider/计费、媒体、画布、Agent 控制面、切换与回滚 |
 | 非目标 | 第一阶段不重写 Node/Pi runtime，不拆微服务，不引入 Broker/workflow engine，不承诺无停机 |
-| 基线 | `research` 分支，checkout `21dea95e`；证据以当前 checkout 和真实环境核验结果为准 |
-| 当前唯一进行中步骤 | M0：补齐逐 endpoint/逐表/逐 Provider/逐环境清单，并清零或明确阻断关键未知项 |
-| 下一步验证 | 用真实 PostgreSQL 副本补逐表映射；用 wire/故障注入测试证明一个低成本 Provider 的 prepare → UNKNOWN → reconcile → settle 闭环 |
+| 基线 | `research` 分支，当前 checkout `e1e3bf1e`；证据以当前 checkout 和真实环境核验结果为准 |
+| 当前唯一进行中步骤 | M0：补齐逐 endpoint/逐表/逐 Provider/逐环境清单，并清零或明确阻断关键未知项；画布专项同步推进 M1 前置合同缺口 |
+| 下一步验证 | 画布分享资源本地 CDN/object-store 成功/GET 故障/恢复已加入基线；下一步补 `core` updated-at 并列排序、项目关联 persistence/revision failure injection、资源预留到期/协调恢复；全局迁移再用真实 PostgreSQL 副本补逐表映射，并用 wire/故障注入测试证明一个低成本 Provider 的 prepare → UNKNOWN → reconcile → settle 闭环 |
 | 阻塞项 | tenant/RLS 是否启用、archived/purge 删除例外、Provider callback inventory、真实数据水位和回滚窗口 |
 
 完成一项 M0 决策后，先更新本节的当前步骤、证据和阻塞项，再进入下一阶段；不要另建第二份迁移状态表。
@@ -143,7 +154,7 @@ OpenAPI 是清单起点，不是完整语义证明。需要补上 SSE、上传�
 | 视频执行期限与 Provider polling 默认约一小时 | `CURRENT FACT` | `FACT` | [`runtime_policy_test.go`](../../backend/internal/app/runtime_policy_test.go) | 只证明当前默认值，不证明所有 Provider SLA |
 | 生产部署需要 PostgreSQL、Redis 和远程 Agent | `CURRENT FACT` | `CORROBORATED` | [`docker-compose.deploy.yml`](../../docker-compose.deploy.yml)、[`coordination.go`](../../backend/internal/platform/coordination.go)、[`runtime.go`](../../backend/internal/agent/runtime/runtime.go) | Redis/Agent 继续作为 adapter；不把它们升格为事实源 |
 | 当前没有覆盖所有领域的统一 Transactional Outbox | `CURRENT FACT` | `CORROBORATED` | [`backend-architecture-review.md`](backend-architecture-review.md)、[资源删除作业](../../backend/internal/repository/repository_storage_resources.go) | Java 目标按副作用逐 operation 引入 outbox，不把当前 Go 机制描述成已存在的统一能力 |
-| archived/purge 删除路径与仓库删除规范冲突 | `CURRENT FACT` | `FACT` | [删除实现](../../backend/internal/app/resource_delete.go)、[回归测试](../../backend/internal/app/resource_delete_test.go)、[AGENTS.md](../../AGENTS.md) | M0 必须选择 KEEP 例外或 OVERTURN |
+| archived/purge 删除路径与仓库删除规范冲突 | `CURRENT FACT` | `CORROBORATED` | [删除实现](../../backend/internal/app/resource_delete.go)、[回归测试](../../backend/internal/app/resource_delete_test.go)、[独立 HTTP 基线](../../tests/canvas-contract/README.md)、[AGENTS.md](../../AGENTS.md) | HTTP DELETE/批量删除的 purge 可制造引用断链；已验证普通保存拒绝、显式修复保留损坏 preimage、旧历史恢复拒绝。M0 仍须选择 KEEP 例外或 OVERTURN，不自动批准当前行为 |
 | 当前系统是否有可直接迁移的 tenant 合同 | `UNKNOWN` | `UNKNOWN` | 本轮未找到独立 tenant/membership/RLS 合同 | 安全默认只按已验证的 user/owner scope；不把 userId 改名为 tenantId |
 
 ## 3. Architecture principles
@@ -340,6 +351,8 @@ Provider callback 先验签、校验时间窗/nonce/replay，再按已绑定的 
 先从 [HTTP API 合同](../../docs/content/docs/backend/http-api.mdx) 和 [嵌入 OpenAPI](../../backend/internal/handler/openapi.yaml)生成 endpoint matrix，再逐项补目前规范没有覆盖的真实行为。
 
 Java 新增 API 使用显式 DTO、唯一 `operationId`、OpenAPI schema、权限、幂等和 wire test，不暴露 Entity 或动态 Map。长操作的 Java 原生新接口优先返回 `202 + status resource`；为保持现有 Web UI 兼容的路径可以暂时保留当前响应信封和状态码，但必须把差异写入 operation catalog，不得让“兼容”变成永久的隐式合同。若未来要引入 RFC 9457 Problem Details，应通过版本化 API 或前端改造切换，不能在同一 endpoint 混用两种错误格式。
+
+[黑盒套件的 `v1-observed` 响应 schema](../../tests/canvas-contract/README.md#versioned-response-shapes) 已绑定 66 条 Required 路由，并在原始 HTTP 响应解包前校验；这是协议观测，不是 Java Entity 或 Spring 模块生成模板，也不是已批准合同。实测发现 Go 项目画布分页漏选 revision，返回 0（D-11），而文档 revision 为正；Java 应采用经过裁决的显式 DTO，不复制该查询缺陷或用分页值做 CAS。单元创建/导入重复 POST 会产生新 ID（D-12），自动重试前必须先明确稳定请求身份。二进制/304/416 与 JSON 的 wire 证据分开统计；请求 schema、业务不变量和行为审批仍需独立门禁，不能由响应 schema 绿色代替。
 
 ### 8.2 用户身份、会话和对象归属
 
@@ -684,6 +697,10 @@ Java 写出的新数据如果 Go 不能读，切换就是 `forward-only`；不�
 
 - Spring Boot 模块结构、统一错误映射、request/trace ID、认证上下文、运行角色和健康探针；启用 ArchUnit/Spring Modulith 依赖规则。
 - 只冻结合同、不改变 schema 的兼容层：DTO、operationId、错误、权限、幂等、SSE cursor 和 wire tests。
+- 先执行[画布 Java HTTP 合同测试计划](canvas-java-http-contract-test-plan.md)中 manifest 登记的 10 个 Required profile：`core`、`share-public`、`project-integration`、`project-workbench-core`、`resource-integrity`、`import`、`legacy-assets`、`public-resource`、`restart-recovery`、`generation-boundary`；使用独立的[`tests/canvas-contract`](../../tests/canvas-contract/README.md) runner 固定 Go 基线，再把同一套场景用于 Java 和混合路由。当前已登记 84 个 Required operation、108 个 HTTP 场景；最新证据目录 `20261013-014859-36513` 已完成两轮：第一轮清单内 observed/wire 为 14088/14087，第二轮为 14082/14081；每轮 66 条映射并执行路由、67 条实际触达路由、65 条非错误路由、5 条受控故障、3 条响应丢失、3 条 incomplete 和 0 条未分类中断。另行完成 6 个真实浏览器场景，两轮均为 171 条页面响应头观测。`generation-boundary` 只验证任务/creation-run/Agent 的认证、只读隔离和 missing-ID 安全边界，不启动模型、不扣费、不执行画布写回。响应丢失专项覆盖文档/资源/上传完成提交后的丢 ACK、重启、CAS 和幂等重放，但不覆盖在途事务 crash；分享资源场景现已验证本地 CDN redirect 与 object-store 成功/GET 故障/恢复，但生产远端存储/CDN、TTL/条件缓存、完整 UI 缓存/冲突和 Java 切流仍未验收。Resource–Asset–Canvas 的当前 HTTP 顺序是持久化前置条件证据，不要求 Java 复制 Go 的表结构、service 别名或锁；Java 必须显式选择事实 owner、短事务与外部下载/存储的 outbox/恢复协议。工作台非核心及任务/Agent 写回按 manifest 保持 deferred/separate-suite。远端对象存储 Range/交付、生产 CDN、TTL/条件缓存不能由本地 fixture 绿灯隐式覆盖。
+- 真实前端 companion 的 6 个场景已与 HTTP 基线一起双轮通过；账号切换后的 owner 文档不变性由独立重新认证的 owner audit API 会话验证。该结果仍不代表完整浏览器用户旅程、多标签并发写入、任务/Agent durable writeback、远端存储或 Java/混合网关已通过。最新版本和剩余矩阵以专项计划为准，不能因测试构造而要求 Java 复制 Go 内部进程、表结构或内存会话。
+- 两类执行器及保留前端的条件见[运行边界与阅读入口](#迁移验收运行边界与阅读入口)。M1 交付必须列明目标 API/网关、身份和资源提供者、隔离 fixture；启用浏览器验收时再列明真实 Web 与同源代理。当前 browser setup 的 admin/user 合同也须满足，或先显式改造 fixture；`--implementation=java` 只是报告标签，不补齐依赖、不启动服务。连接配置、源码证据和合同变更处理以[前端配合条件](../../tests/canvas-contract/README.md#web-前端与-java-的配合条件)为准；Go 基线启动器不是 Java 验收入口。
+- 关联合同登记 D-26（返回未持久化 ID）、D-27（角色超长失败部分推进）和 D-28（首次同 key 竞争的 internal 也推进 canvas revision），并扩充 D-03 的跨项目残留链接证据。当前 108 场景版已全量双轮验证角色、三种同项目竞争、跨项目争用、完整正文/历史、投影和解除/显式恢复及分享到期恢复，不借旧版证明；起跑屏障不控制数据库交错。Java 应通过公开 owner port 编排关联，明确权威身份、冲突/重放语义和原子提交边界，不越过 Canvas owner 写表，不复制 Go 非事务顺序、生成响应 ID 或数据库报错文案。目标预算、revision 与错误合同仍须批准。
 - 共存期登录态桥接：沿用现有数据库时，Java 能校验 Go 签发的 Cookie/session；改用新 schema 时，受保护 Java 路由上线前先完成显式 session 迁移，或保留经过验证的 Go 认证入口，不接受客户端自报 userId。
 - 读取 OpenAPI/固定 fixture 的兼容测试。
 - `spring.jpa.open-in-view=false`、事务外 I/O 检查、统一 dispatcher 和日志脱敏基线。
@@ -735,7 +752,7 @@ Java 写出的新数据如果 Go 不能读，切换就是 `forward-only`；不�
 | --- | --- |
 | Domain 单测 | 状态转换、route/能力、配额、模型报价、终态互斥、金额精度 |
 | Architecture test | ArchUnit/Spring Modulith 依赖方向、模块间不访问 Entity/Repository、shared 不吞业务 |
-| API 合同测试 | 路径、Cookie、JSON field/null、错误 status/code/reason、分页和 SSE 游标 |
+| API 合同测试 | 路径、Cookie、JSON field/null、错误 status/code/reason、分页和 SSE 游标；画布专项见[HTTP 黑盒合同测试计划](canvas-java-http-contract-test-plan.md) |
 | Operation catalog test | 每个高成本 operation 的 `operationId`、幂等键、fingerprint、fence、receipt、ambiguity policy 和 retry budget 完整 |
 | Repository 集成测试 | PostgreSQL 真实 dialect 下唯一约束、claim CAS、租约 fencing、事务回滚 |
 | Transaction boundary test | `open-in-view=false`、外部 client 无活跃事务、短事务提交点、CAS/bulk 后 reload |
@@ -753,6 +770,8 @@ Java 写出的新数据如果 Go 不能读，切换就是 `forward-only`；不�
 | Cutover test | 单 writer marker、旧幂等键、在途状态接管、forward-only、回切/向前修复和备份恢复 |
 
 关键并发测试应使用 PostgreSQL Testcontainers 或专用集成数据库。H2 的锁与 SQL 行为不能证明 PostgreSQL 正确。
+
+画布专项已建立完整 operation catalog、profile/场景映射、独立响应 schema 与隔离 Go HTTP 基线；创建/更新、故障/恢复和重复请求不重复计为新端点。完整单元正文逐一 GET，资源描述/派生授权、请求体预算、排序及成员变化按多请求状态流验收，不用摘要或起跑同步代替业务证据。最新 108 场景双轮证据已合并分享到期 fixture，并补入本地 CDN/object-store 的分享资源 redirect、成功读取、GET 故障与恢复；但 `core` updated-at 并列排序、受控 persistence/revision failure injection、资源预留到期/协调恢复、生产远端对象存储/CDN、TTL/条件缓存等仍是明确缺口。独立签名撤权、解码器未消费尾部、分页零 revision、非幂等 POST、并发内部错误等现状均进入待裁决账本；deferred/out-of-scope 和 Required 缺口不能被绿色覆盖。Java 继续遵循本 SKILL 的事实 owner、模块依赖、副作用恢复和撤权时限设计，不复制 Go Entity、聚合、错误、超时、签名、解码器或锁序。最新计数、源码版本/运行证据和剩余路径唯一维护于[画布合同计划](canvas-java-http-contract-test-plan.md#当前进度)；合同批准及远端门禁未闭合前，Gate 0 不通过。
 
 ### 14.2 必须进行的真实环境验收
 
@@ -827,9 +846,9 @@ Java 写出的新数据如果 Go 不能读，切换就是 `forward-only`；不�
 | 轮次 | 检查范围 | 结果 |
 | --- | --- | --- |
 | 第一轮：事实与缺口 | 当前实现、证据等级、capability profile、owner、operation catalog、存量资产与在途映射 | 已补入文档；tenant/RLS、Provider callback inventory、真实部署合同仍为 `UNKNOWN/DEFERRED` |
-| 第二轮：失败、安全与资金 | `UNKNOWN`、重复 create、回调 replay、owner scope、对象删除、settle、日志和恢复 | 已补 failure matrix、资源删除决策、billing/settlement 与安全默认；真实 PostgreSQL/故障注入未执行 |
+| 第二轮：失败、安全与资金 | `UNKNOWN`、重复 create、回调 replay、owner scope、对象删除、settle、日志和恢复 | 已补 failure matrix、删除决策、billing/settlement 与安全默认；后续画布 HTTP/PG 基线已执行，不替代 Provider/资金/对象存储故障验收 |
 | 第三轮：术语、链接、测试与交付 | SKILL 术语、相对链接、测试入口、迁移阶段、回滚/forward-only | 已完成相对链接核对和测试入口补齐；文档构建、Java wire test、真实环境验收未执行 |
-| 第四轮：空杯复审 | 当前事实与目标约束是否混写；任务 fencing 是否过度断言；回调分类；同 key replay 例外；M0 出口；Go 在途状态映射 | 已收紧上述边界；尾随空白、代码围栏和相对链接检查通过；真实 PostgreSQL、Java wire test、Provider/Agent 运行和文档站构建仍未执行 |
+| 第四轮：空杯复审 | 当前事实与目标约束是否混写；任务 fencing 是否过度断言；回调分类；同 key replay 例外；M0 出口；Go 在途状态映射 | 已收紧上述边界；画布合同 runner 的 10-profile 全量基线已在隔离 PostgreSQL 18 + Go HTTP 服务完成两轮，包含重启恢复、受控 URL/固定 HTTPS 导入和 `generation-boundary` 只读安全边界，并登记 D-25。新增项目功能门控、跨项目重关联及配额/限流专项 HTTP 证据。三轮 review 都发现并修改了问题，不能记作连续 clean-review；画布合同计划的连续完整 clean-review 仍为 `0/3`。Java wire test、Provider/Agent 写回运行和文档站构建仍未执行，Required 剩余路径、行为审批和完整套件目标持续推进 |
 
 ### 17.2 最终结论
 
@@ -842,6 +861,6 @@ Java 写出的新数据如果 Go 不能读，切换就是 `forward-only`；不�
 
 会改变相应默认政策的证据包括：已验证的多租户/合规隔离要求、Provider 官方稳定幂等合同，以及真实切换演练证明旧 Go writer 能安全读取 Java 新格式；会推翻模块化单体与 PostgreSQL 状态机默认的证据，则必须是不可由 PostgreSQL + outbox + reconciler 满足的故障域、吞吐或隔离要求，并附 replacement test、观测触发器和回滚成本。
 
-本轮完成了文档与架构语义审阅、源码/测试静态核对、相对链接/尾随空白/代码围栏检查；没有启动真实后端或 Java 项目，没有连接开发/生产数据库，没有执行模型生成、对象存储、跨实例锁竞争、跨设备同步、真实 Agent 运行、文档站构建或生产负载测试。此文档提出的是有源码依据的迁移路线和待验收合同，不是 Java 实施已完成或迁移可无停机的结论。
+本轮完成文档与架构语义审阅、源码/测试静态核对，并在隔离 PostgreSQL 18 与 Go HTTP 服务上完成 `20261013-014859-36513` 的画布合同 runner 84 个 Required operation 对应的 108 场景/10-profile 全量两轮，包含实际崩溃/优雅重启；同一证据目录的真实浏览器 companion 也完成 6 个场景两轮。第一轮清单内完整请求/wire 为 14088/14087，第二轮为 14082/14081，67 条实际触达路由、65 条至少返回过非错误响应的路由；浏览器两轮均为 171 条页面响应头观测。分享到期 fixture 的过期/恢复及分享资源本地 CDN/object-store 的 redirect、成功读取、GET 故障与恢复已纳入全量。并发关联新增 D-28，跨项目残留与角色 ACK 身份分别扩充 D-03/D-26；完整正文、拒绝后状态和显式恢复已执行，但不证明受控数据库交错或任意失败回滚。`generation-boundary` 只验证任务/creation-run/Agent 的认证、只读隔离和 missing-ID 安全边界，不验证写回。固定 HTTPS 导入替身、loopback 资源、本地 TTL/条件缓存、配额/分片并发与 90 秒下载超时、资源/public origin 对象存储失败恢复均有选定路径证据；不代表生产平台、远端对象存储/CDN、Java 或完整浏览器用户旅程通过。没有运行 Java、生产数据库、真实模型调用、远端对象存储/CDN 故障注入、跨设备同步、真实 Agent 写回或生产负载测试。当前 checkout 没有 `docs/package.json`，未虚构文档站 build/types 命令。Go 的 foreign 删除/列举差异、missing task logs 空结果、purge 断链、内存上传会话、分片覆盖/超时及关联部分提交仍待裁决。此文档不是 Java 实施完成、套件完整目标完成或无停机结论；最新版本/报告和完整 Required 缺口以[画布合同计划](canvas-java-http-contract-test-plan.md#验证记录)为准。
 
 迁移开始前应先补齐逐 endpoint、逐表、逐 Provider 和逐环境的清单，并使用真实数据副本完成至少一次迁移与回滚演练。

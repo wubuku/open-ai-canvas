@@ -15,7 +15,8 @@
 - [技能广场与 Skill 运行机制调研](drafts/skills-usage-and-runtime-research.md)：说明产品技能目录、创作者如何加入和选用技能，以及两类生成入口怎样加载技能文本和受实际工具合同约束。
 - [画布系统深度调研报告](drafts/canvas-deep-research.md)：面向准备自建 AI 视频创作画布的开发者，梳理可借鉴的架构、七层状态模型、并发合并、生成回写和渲染性能设计。
 - [预演台系统深度调研报告](drafts/previs-workbench-deep-research.md)：面向设计 3D 预演能力的开发者，梳理场景模型、动画语义、保存同步、Three.js 导出回写、Agent 合同与实现边界。
-- [画布 Java 迁移前置条件：HTTP 黑盒合同验证方案](drafts/canvas-java-http-contract-test-plan.md)：为画布 Java 移植前建立 Go HTTP 基线、wire 合同和可复用状态流验收门禁。
+- [Go 后端迁移到 Java Spring Boot 指引](drafts/go-to-spring-boot-migration-guide.md)：全后端 Java 重建的事实 owner、模块边界、失败恢复、分阶段切流和验收护栏；开始联调前先读[迁移验收运行边界与阅读入口](drafts/go-to-spring-boot-migration-guide.md#迁移验收运行边界与阅读入口)。
+- [画布 Java 迁移前置条件：HTTP 黑盒合同验证方案](drafts/canvas-java-http-contract-test-plan.md)：为画布 Java 移植前建立 Go HTTP 基线、wire 合同和可复用状态流验收门禁；[独立运行边界](drafts/canvas-java-http-contract-test-plan.md#http-与浏览器的独立运行边界)区分无需前端的 HTTP 主套件和需要真实 Web 的浏览器补充验收。
 - [自动化回归测试与核心功能验收现状调研](drafts/test-regression-and-ci-research.md)：说明当前测试层次、PR/发布检查、预演台浏览器 E2E 的边界，以及改动后的验证建议。
 - [研究草稿入口](drafts/README.md)：查看尚未稳定或尚未真实验收的调研结论。
 

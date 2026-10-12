@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://canvas-contract.invalid/schemas/legacy.v1.schema.json",
+  "title": "Observed v1 legacy asset/folder DTOs; target approval pending",
+  "$defs": {
+    "asset": {"type": "object", "required": ["id", "kind", "title"], "properties": {"id": {"$ref": "common.v1.schema.json#/$defs/id"}, "kind": {"type": "string"}, "title": {"type": "string"}, "folderId": {"type": "string"}, "tags": {"type": ["array", "null"], "items": {"type": "string"}}}, "additionalProperties": true},
+    "single": {"type": "object", "required": ["asset"], "properties": {"asset": {"$ref": "#/$defs/asset"}}, "additionalProperties": true},
+    "summary-write": {"type": "object", "required": ["asset"], "properties": {"asset": {"type": "object", "required": ["id", "title", "createdAt", "updatedAt"], "properties": {"id": {"$ref": "common.v1.schema.json#/$defs/id"}, "title": {"type": "string"}, "createdAt": {"$ref": "common.v1.schema.json#/$defs/timestamp"}, "updatedAt": {"$ref": "common.v1.schema.json#/$defs/timestamp"}}, "additionalProperties": true}}, "additionalProperties": true},
+    "list": {"allOf": [{"$ref": "common.v1.schema.json#/$defs/pagination"}, {"type": "object", "required": ["assets"], "properties": {"assets": {"type": ["array", "null"], "items": {"$ref": "#/$defs/asset"}}}, "additionalProperties": true}]},
+    "folder": {"type": "object", "required": ["id", "name", "position", "createdAt", "updatedAt"], "properties": {"id": {"$ref": "common.v1.schema.json#/$defs/id"}, "name": {"type": "string"}, "position": {"type": "integer"}, "createdAt": {"$ref": "common.v1.schema.json#/$defs/timestamp"}, "updatedAt": {"$ref": "common.v1.schema.json#/$defs/timestamp"}}, "additionalProperties": true},
+    "folder-list": {"type": "object", "required": ["folders"], "properties": {"folders": {"type": ["array", "null"], "items": {"$ref": "#/$defs/folder"}}}, "additionalProperties": true},
+    "folder-single": {"type": "object", "required": ["folder"], "properties": {"folder": {"$ref": "#/$defs/folder"}}, "additionalProperties": true},
+    "batch-delete": {"type": "object", "required": ["ids"], "properties": {"ids": {"type": ["array", "null"], "items": {"$ref": "common.v1.schema.json#/$defs/id"}}}, "additionalProperties": true},
+    "identities": {"type": "object", "required": ["assetIds", "folderId"], "properties": {"assetIds": {"type": ["array", "null"], "items": {"$ref": "common.v1.schema.json#/$defs/id"}}, "folderId": {"type": "string"}}, "additionalProperties": true},
+    "snapshot": {"type": "object", "required": ["assets", "projects"], "properties": {"assets": {"type": ["array", "null"], "items": {"$ref": "#/$defs/asset"}}, "projects": {"type": ["array", "null"], "items": {"$ref": "canvas.v1.schema.json#/$defs/document"}}}, "additionalProperties": true}
+  }
+}

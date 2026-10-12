@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://canvas-contract.invalid/schemas/resource.v1.schema.json",
+  "title": "Observed v1 resource, access and upload response shapes; target approval pending",
+  "$defs": {
+    "resource": {
+      "type": "object", "required": ["id", "kind", "status", "mimeType", "size", "width", "height", "durationMs", "createdAt", "updatedAt"], "additionalProperties": true,
+      "properties": {"id": {"$ref": "common.v1.schema.json#/$defs/id"}, "kind": {"type": "string"}, "status": {"type": "string"}, "mimeType": {"type": "string"}, "size": {"$ref": "common.v1.schema.json#/$defs/count"}, "width": {"$ref": "common.v1.schema.json#/$defs/count"}, "height": {"$ref": "common.v1.schema.json#/$defs/count"}, "durationMs": {"$ref": "common.v1.schema.json#/$defs/count"}, "createdAt": {"$ref": "common.v1.schema.json#/$defs/timestamp"}, "updatedAt": {"$ref": "common.v1.schema.json#/$defs/timestamp"}}
+    },
+    "single": {"type": "object", "required": ["resource"], "properties": {"resource": {"$ref": "#/$defs/resource"}}, "additionalProperties": true},
+    "list": {"type": "object", "required": ["resources"], "properties": {"resources": {"type": ["array", "null"], "items": {"$ref": "#/$defs/resource"}}}, "additionalProperties": true},
+    "usage": {"type": "object", "required": ["usage"], "properties": {"usage": {"type": "object", "required": ["usedBytes", "totalBytes"], "properties": {"usedBytes": {"$ref": "common.v1.schema.json#/$defs/count"}, "totalBytes": {"$ref": "common.v1.schema.json#/$defs/count"}}, "additionalProperties": true}}, "additionalProperties": true},
+    "access": {
+      "type": "object", "required": ["resourceId", "requestedVariant", "actualVariant", "url", "delivery", "issuedAt", "expiresAt", "refreshAt", "revision"], "additionalProperties": true,
+      "properties": {"resourceId": {"$ref": "common.v1.schema.json#/$defs/id"}, "requestedVariant": {"type": "string"}, "actualVariant": {"type": "string"}, "url": {"type": "string", "minLength": 1}, "delivery": {"type": "string"}, "issuedAt": {"$ref": "common.v1.schema.json#/$defs/timestamp"}, "expiresAt": {"anyOf": [{"$ref": "common.v1.schema.json#/$defs/timestamp"}, {"type": "null"}]}, "refreshAt": {"$ref": "common.v1.schema.json#/$defs/timestamp"}, "revision": {"type": "string"}}
+    },
+    "access-result": {"type": "object", "required": ["resourceId"], "properties": {"resourceId": {"$ref": "common.v1.schema.json#/$defs/id"}, "access": {"$ref": "#/$defs/access"}, "error": {"type": "object", "required": ["code", "reason", "msg"], "properties": {"code": {"type": "integer", "not": {"const": 0}}, "reason": {"type": "string", "minLength": 1}, "msg": {"type": "string"}}, "additionalProperties": true}}, "oneOf": [{"required": ["access"], "not": {"required": ["error"]}}, {"required": ["error"], "not": {"required": ["access"]}}], "additionalProperties": true},
+    "access-single": {"type": "object", "required": ["access"], "properties": {"access": {"$ref": "#/$defs/access"}}, "additionalProperties": true},
+    "access-batch": {"type": "object", "required": ["items"], "properties": {"items": {"type": "array", "items": {"$ref": "#/$defs/access-result"}}}, "additionalProperties": true},
+    "upload-session": {"type": "object", "required": ["uploadId", "chunkSize", "chunkCount"], "properties": {"uploadId": {"$ref": "common.v1.schema.json#/$defs/id"}, "chunkSize": {"type": "integer", "minimum": 1}, "chunkCount": {"type": "integer", "minimum": 1}}, "additionalProperties": true},
+    "chunk": {"type": "object", "required": ["index"], "properties": {"index": {"$ref": "common.v1.schema.json#/$defs/count"}}, "additionalProperties": true}
+  }
+}

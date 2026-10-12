@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://canvas-contract.invalid/schemas/canvas.v1.schema.json",
+  "title": "Observed v1 private canvas documents and history; target approval pending",
+  "$defs": {
+    "node": {"type": "object", "required": ["id"], "properties": {"id": {"$ref": "common.v1.schema.json#/$defs/id"}, "type": {"type": "string"}, "title": {"type": "string"}, "content": {"type": "string"}, "x": {"type": "number"}, "y": {"type": "number"}}, "additionalProperties": true},
+    "connection": {"type": "object", "required": ["id", "fromNodeId", "toNodeId"], "properties": {"id": {"$ref": "common.v1.schema.json#/$defs/id"}, "fromNodeId": {"$ref": "common.v1.schema.json#/$defs/id"}, "toNodeId": {"$ref": "common.v1.schema.json#/$defs/id"}}, "additionalProperties": true},
+    "document": {
+      "type": "object", "required": ["id", "title", "revision", "nodes", "connections", "createdAt", "updatedAt"], "additionalProperties": true,
+      "properties": {"id": {"$ref": "common.v1.schema.json#/$defs/id"}, "title": {"type": "string"}, "projectId": {"type": "string"}, "revision": {"$ref": "common.v1.schema.json#/$defs/revision"}, "nodes": {"type": "array", "items": {"$ref": "#/$defs/node"}}, "connections": {"type": "array", "items": {"$ref": "#/$defs/connection"}}, "createdAt": {"$ref": "common.v1.schema.json#/$defs/timestamp"}, "updatedAt": {"$ref": "common.v1.schema.json#/$defs/timestamp"}}
+    },
+    "summary": {
+      "type": "object", "required": ["id", "title", "revision", "createdAt", "updatedAt"], "additionalProperties": true,
+      "properties": {"id": {"$ref": "common.v1.schema.json#/$defs/id"}, "title": {"type": "string"}, "revision": {"$ref": "common.v1.schema.json#/$defs/revision"}, "createdAt": {"$ref": "common.v1.schema.json#/$defs/timestamp"}, "updatedAt": {"$ref": "common.v1.schema.json#/$defs/timestamp"}, "nodeCount": {"$ref": "common.v1.schema.json#/$defs/count"}, "previewNodes": {"type": "array", "items": {"$ref": "#/$defs/node"}}}
+    },
+    "read": {"type": "object", "required": ["project"], "properties": {"project": {"$ref": "#/$defs/document"}}, "additionalProperties": true},
+    "write": {"type": "object", "required": ["project"], "properties": {"project": {"$ref": "#/$defs/summary"}}, "additionalProperties": true},
+    "library": {"allOf": [{"$ref": "common.v1.schema.json#/$defs/pagination"}, {"type": "object", "required": ["projects"], "properties": {"projects": {"type": ["array", "null"], "items": {"$ref": "#/$defs/summary"}}}, "additionalProperties": true}]},
+    "snapshot": {
+      "type": "object", "required": ["id", "canvasId", "revision", "title", "nodeCount", "connectionCount", "payloadBytes", "reason", "contentUpdatedAt", "createdAt"], "additionalProperties": true,
+      "properties": {"id": {"$ref": "common.v1.schema.json#/$defs/id"}, "canvasId": {"$ref": "common.v1.schema.json#/$defs/id"}, "revision": {"$ref": "common.v1.schema.json#/$defs/revision"}, "title": {"type": "string"}, "nodeCount": {"$ref": "common.v1.schema.json#/$defs/count"}, "connectionCount": {"$ref": "common.v1.schema.json#/$defs/count"}, "payloadBytes": {"$ref": "common.v1.schema.json#/$defs/count"}, "reason": {"type": "string"}, "contentUpdatedAt": {"$ref": "common.v1.schema.json#/$defs/timestamp"}, "createdAt": {"$ref": "common.v1.schema.json#/$defs/timestamp"}}
+    },
+    "history": {"type": "object", "required": ["snapshots", "currentRevision"], "properties": {"snapshots": {"type": ["array", "null"], "items": {"$ref": "#/$defs/snapshot"}}, "currentRevision": {"$ref": "common.v1.schema.json#/$defs/revision"}}, "additionalProperties": true},
+    "history-read": {"type": "object", "required": ["snapshot", "project"], "properties": {"snapshot": {"$ref": "#/$defs/snapshot"}, "project": {"$ref": "#/$defs/document"}}, "additionalProperties": true}
+  }
+}

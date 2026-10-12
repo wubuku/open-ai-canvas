@@ -1,0 +1,25 @@
+{
+  "version": "v1-observed",
+  "approval": "pending",
+  "surface": "real-react-vite-ui-with-cookie-authenticated-http",
+  "blocked_decorations": [
+    {"id": "default-auth-background-video", "url": "https://boss-shjd.biliapi.net/updream/aniforge/video/video_bbcb00bd-650d-4249-9346-5cd21fd2484c_m1hc-u0-1pu13x-3v1s.mp4", "resource_types": ["media"]},
+    {"id": "default-auth-background-poster", "url": "https://i0.hdslb.com/bfs/aitool/aniforge/image/02933f26-5f1b-49ff-a811-b7f95ee5e5b8_m1hc-u0-sau.jpg", "resource_types": ["image"]}
+  ],
+  "scenarios": [
+    {"id": "browser.auth.login-failure-and-owner-session", "required_ui_routes": ["POST /api/auth/login", "GET /api/auth/session"]},
+    {"id": "browser.canvas.create-rename-reopen", "required_ui_routes": ["PUT /api/canvas-projects/{id}", "GET /api/canvas-projects/{id}"]},
+    {"id": "browser.canvas.text-edit-media-and-topology", "required_ui_routes": ["GET /api/canvas-projects/{id}", "PUT /api/canvas-projects/{id}", "POST /api/resources/access", "GET /api/public/resources/{id}/file"]},
+    {"id": "browser.share.anonymous-read-and-revocation", "required_ui_routes": ["POST /api/canvas-projects/{id}/share", "GET /api/public/canvas-shares/{token}", "DELETE /api/canvas-projects/{id}/share"]},
+    {"id": "browser.auth.foreign-library-isolation", "required_ui_routes": ["POST /api/auth/login", "GET /api/canvas-projects"]},
+    {"id": "browser.auth.same-context-switch-and-peer-reload", "required_ui_routes": ["POST /api/auth/logout", "POST /api/auth/login", "GET /api/auth/session", "GET /api/canvas-projects", "GET /api/canvas-projects/{id}"]}
+  ],
+  "remaining_paths": [
+    "pointer activation of text editor is intercepted by text content in the observed fixture; keyboard Enter is verified separately",
+    "live cross-tab account-switch notification and concurrent local cache writes; same-context switch and explicit peer reload execute",
+    "CAS conflict UI, local-only save failure feedback and network recovery",
+    "history restore, import dialogs, project association and chunked upload UI",
+    "task/Agent SSE, approval/undo and asynchronous minimal writeback",
+    "Java direct and mixed gateway same-writer target; real object storage and provider paths"
+  ]
+}

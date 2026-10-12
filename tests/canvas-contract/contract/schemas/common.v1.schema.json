@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://canvas-contract.invalid/schemas/common.v1.schema.json",
+  "title": "Observed v1 response envelope; target approval pending",
+  "$ref": "#/$defs/envelope",
+  "$defs": {
+    "id": {"type": "string", "minLength": 1},
+    "count": {"type": "integer", "minimum": 0},
+    "revision": {"type": "integer", "minimum": 1, "maximum": 9007199254740991},
+    "timestamp": {"type": "string", "format": "date-time"},
+    "envelope": {
+      "type": "object", "required": ["code", "data", "msg"], "additionalProperties": true,
+      "properties": {"code": {"type": "integer"}, "data": {}, "msg": {"type": "string"}, "reason": {"type": "string"}},
+      "if": {"properties": {"code": {"not": {"const": 0}}}, "required": ["code"]},
+      "then": {"required": ["reason"], "properties": {"reason": {"minLength": 1}}}
+    },
+    "error-envelope": {"allOf": [{"$ref": "#/$defs/envelope"}, {"properties": {"code": {"not": {"const": 0}}}}]},
+    "identity": {"type": "object", "required": ["id"], "properties": {"id": {"$ref": "#/$defs/id"}}, "additionalProperties": true},
+    "pagination": {
+      "type": "object",
+      "properties": {"page": {"type": "integer", "minimum": 1}, "pageSize": {"type": "integer", "minimum": 1}, "total": {"$ref": "#/$defs/count"}, "hasMore": {"type": "boolean"}},
+      "dependentRequired": {"page": ["pageSize", "total", "hasMore"], "pageSize": ["page", "total", "hasMore"], "total": ["page", "pageSize", "hasMore"], "hasMore": ["page", "pageSize", "total"]},
+      "additionalProperties": true
+    },
+    "page": {"allOf": [{"$ref": "#/$defs/pagination"}, {"required": ["page", "pageSize", "total", "hasMore"]}]}
+  }
+}

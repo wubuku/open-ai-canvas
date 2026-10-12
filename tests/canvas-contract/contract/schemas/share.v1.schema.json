@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://canvas-contract.invalid/schemas/share.v1.schema.json",
+  "title": "Observed v1 share management and public projection; target approval pending",
+  "$defs": {
+    "status": {"type": "object", "required": ["enabled"], "properties": {"enabled": {"type": "boolean"}, "token": {"$ref": "common.v1.schema.json#/$defs/id"}, "expiresAt": {"anyOf": [{"$ref": "common.v1.schema.json#/$defs/timestamp"}, {"type": "null"}]}, "createdAt": {"anyOf": [{"$ref": "common.v1.schema.json#/$defs/timestamp"}, {"type": "null"}]}}, "if": {"properties": {"enabled": {"const": true}}}, "then": {"required": ["token", "createdAt"]}, "additionalProperties": true},
+    "management": {"type": "object", "required": ["share"], "properties": {"share": {"$ref": "#/$defs/status"}}, "additionalProperties": true},
+    "public-document": {"type": "object", "required": ["id", "title", "nodes", "connections"], "properties": {"id": {"$ref": "common.v1.schema.json#/$defs/id"}, "title": {"type": "string"}, "nodes": {"type": "array", "items": {"$ref": "canvas.v1.schema.json#/$defs/node"}}, "connections": {"type": "array", "items": {"$ref": "canvas.v1.schema.json#/$defs/connection"}}}, "additionalProperties": true},
+    "public": {"type": "object", "required": ["project"], "properties": {"project": {"$ref": "#/$defs/public-document"}, "expiresAt": {"anyOf": [{"$ref": "common.v1.schema.json#/$defs/timestamp"}, {"type": "null"}]}}, "additionalProperties": true}
+  }
+}

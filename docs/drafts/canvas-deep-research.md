@@ -13,7 +13,7 @@ audience: 计划自行实现或重构 AI 视频创作画布的开发者与 Agent
 >
 > **当你要把「剧本 → 分镜 → 图片 → 视频 → 成片」这条链路做成一块可无限扩展的二维画布时，这块画布内部应该长成什么形状，以及哪些设计决策是必须在写第一行代码之前就定下来的。**
 >
-> 全部结论来自当前仓库源码、配置与测试的静态阅读。本轮没有启动前后端服务、没有真实模型调用、没有跨设备同步和浏览器刷新验收。文中「已实现」指源码中存在完整调用路径或有针对性测试；需要真实环境才能确认的行为单独标注为「待验证」。
+> 原调研以当前仓库源码、配置与测试的静态阅读为依据。后续迁移工作在隔离 Go HTTP/PostgreSQL 环境执行了选定画布合同路径，证据与缺口统一见[HTTP 合同测试计划](canvas-java-http-contract-test-plan.md#验证记录)，不外推为本文所有架构结论已实测。没有真实模型调用、跨设备同步或浏览器刷新验收；文中「已实现」仍指源码存在完整调用路径或针对性测试，需要真实环境才能确认的行为标注为「待验证」。
 
 ## 0. 先读这一节
 
@@ -811,6 +811,8 @@ LOD 决策考虑三个因素：是否在视野内、是否在进入缓冲区，�
 
 **给重做者的建议**：为你的合并算法和异步回写写这类「替换掉 I/O 但保留全部逻辑」的集成测试。它比单元测试更能捕获真正的数据丢失。
 
+如果目标是把画布 HTTP API 迁移到 Java，不要只复用这里的前端/合并测试；还要先阅读[画布 Java HTTP 合同测试计划](canvas-java-http-contract-test-plan.md)，把 revision、ETag、历史、资源引用和用户 scope 变成独立 HTTP 状态流，并与[Spring Boot 迁移总指引](go-to-spring-boot-migration-guide.md)的 owner、单 writer 和切流门禁对齐。
+
 ## 14. 排障路径
 
 这一节是给接手这套系统的人（和 Agent）的实用索引。
@@ -969,7 +971,14 @@ LOD 决策考虑三个因素：是否在视野内、是否在进入缓冲区，�
 
 诚实标注本轮调研的局限：
 
-- 没有启动服务、没有真实模型调用、没有浏览器刷新或跨设备同步的端到端验收。
+- 选定 Go HTTP 合同路径已有隔离环境基线；另有[真实浏览器伴随套件](../../tests/canvas-contract/README.md#real-browser-companion)验证基础登录、编辑/冷重开、资源显示与分享撤销。最新完整版本 `20261013-014859-36513` 的 HTTP runner 已完成 10 个 profile、108 个场景两轮；浏览器 companion 也完成 6 个场景两轮，均为 171 条页面响应头观测。它不等于七层同步模型、多标签或跨设备合并、真实模型调用、Agent durable writeback 或 Java 实现已端到端验收。
+- 本文自身仍是架构研究稿；独立的 [`tests/canvas-contract`](../../tests/canvas-contract/README.md) 已在隔离 PostgreSQL 18 + Go HTTP 服务上完成 10 个 Required profile 的两轮全量基线。新增的 `generation-boundary` 只覆盖任务/creation-run/Agent 的未认证、owner 只读、missing-ID 和 foreign creation-run read，不覆盖任务写入、SSE、Agent event/approval/undo 或画布 durable writeback；响应丢失专项也只覆盖提交成功后的丢 ACK、重启、CAS 与幂等重放，不覆盖在途事务 crash。该结果属于[画布 Java HTTP 合同测试计划](canvas-java-http-contract-test-plan.md)，不能反向证明本文列出的七层状态、浏览器同步或生成回写已经端到端通过。
+- 后续导入强化专项以真实 PNG/WAV/MP4 与固定 HTTPS 替身验证选定拓扑/参数/数量边界，以及资源导入 → 素材登记 → 画布保存/重开/CAS/跨用户拒绝；导入端点自身仍为纯转换，不自动落盘。Resource-only 写入被拒绝证明持久化有前置约束，不证明前端导入、缓存降级或故障重启恢复已验收，也不规定 Java 的实体/事务拆分。最新版本和 Required 缺口仍以[合同测试计划的当前进度](canvas-java-http-contract-test-plan.md#当前进度)为准。
+- 独立合同 catalog、profile 与真实 Go 运行已建立；operation、唯一 method/path、场景和请求是不同分母，不重复计故障/恢复为 endpoint。完整正文、资源描述/撤权、请求体/解码预算、排序及成员写竞争已有选定路径证据；起跑同步不证明数据库交错，重定向单测不证明远端交付。分享撤销不撤销此前派生签名、解码器不消费剩余字节和内部并发错误属于待裁决 Go 观测，不要求 Java 复制内部实现。任务/Agent/Ark、完整媒体/拓扑、受控失败/级联、生产 CDN 与远端 TTL/条件缓存仍缺；分享资源已通过本地 CDN/object-store fixture 验证 redirect、成功读取、GET 故障与恢复，但不代表生产远端交付。唯一的当前计数、版本化证据和剩余矩阵见[合同规划进度](canvas-java-http-contract-test-plan.md#当前进度)。
+- 响应 wire schema 观测到项目画布分页 `revision: 0`，源码是查询漏选列（D-11）。这个派生摘要不得替代单画布 GET 的权威 revision 或成为 CAS 基准；observed schema 使用独立 page DTO，不放宽正文版本。schema 不生成 Java 内部架构，也不批准 Go 的缺陷。
+- 当前 Go 的权限差异也不能抽象成一条“foreign 一律 404”规则：foreign 画布 DELETE 是 `200` 空操作，foreign project DELETE 是 `404`，foreign project units list 和 project canvas list 是 `500/internal`；这些行为必须在合同评审中逐端点裁决。
+- 项目关联证实 D-26（更新 ACK 的 link ID 不是持久身份）、D-27（角色超长 500 后画布已推进）和 D-28（首次同 key 竞争的失败请求也推进 canvas revision）。当前 108 场景版已全量双轮执行角色/重放、同键/已有 link/不同 unit/跨项目竞争、完整正文/历史、投影、解除及旧链接显式恢复。跨项目两个成功 ACK 仍残留两份 full-detail link，只有权威项目分页包含画布，扩充 D-03；不能按 ACK 完成顺序推断归属。它们是异常后的可观察状态，不证明受控数据库交错或 Go 事务原子性，也不是 Java 必须照搬的规则。目的与裁决见[角色合同](../../tests/canvas-contract/project_link_roles_contract_test.go)、[并发关联合同](../../tests/canvas-contract/project_link_race_contract_test.go)及专项计划。
+- 当前 Go 的素材 DELETE/批量删除是显式 purge，可令画布及历史资源断链；HTTP 基线将“替换已有引用时拒绝”和“purge 后保存失败、显式修复、旧快照恢复失败”分开验证。Java 是否保留 purge 例外应按迁移总指引决策，不能把当前路径写成自动引用保护。
 - 多标签页并发写入的合并算法有单元测试和存储集成测试，但真实浏览器多标签场景未做端到端验证。
 - 极端场景（千节点同屏、长时间生成、频繁切标签页）下的性能未做实测。
 - 本轮没有验证被旧快照覆盖的历史节点能否自动重建；重做时应明确这类数据是从历史画布、任务上下文还是其他恢复材料重建。
@@ -992,5 +1001,7 @@ LOD 决策考虑三个因素：是否在视野内、是否在进入缓冲区，�
 - [画布开发导航](../content/docs/canvas/canvas-development.mdx)：本仓库画布代码入口。
 - [前后端技术栈与架构总览](../content/docs/overview/architecture.mdx)：系统级边界。
 - [云端 Agent 深度调研报告](cloud-agent-deep-research.md)：Agent 架构。
+- [画布 Java HTTP 合同测试计划](canvas-java-http-contract-test-plan.md)：画布 Java 迁移前的 Go 基线、wire 合同和状态流门禁。
+- [Spring Boot 迁移总指引](go-to-spring-boot-migration-guide.md)：全后端迁移的事实 owner、失败恢复、分阶段切流和测试护栏。
 - [画布批量生成一致性治理](../design/canvas-consistency-repair.mdx)：一致性问题根因与修复。
 - [代码功能地图](../content/docs/backend/code-map.mdx)：从功能定位代码。

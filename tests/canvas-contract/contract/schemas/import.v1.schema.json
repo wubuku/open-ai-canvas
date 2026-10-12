@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://canvas-contract.invalid/schemas/import.v1.schema.json",
+  "title": "Observed v1 conversion result, not persisted document; target approval pending",
+  "type": "object", "required": ["batchId", "batchCreatedAt", "nodes", "connections", "importedNodeCount", "importedConnectionCount", "skippedNodes", "skippedConnections", "warnings"], "additionalProperties": true,
+  "properties": {
+    "batchId": {"$ref": "common.v1.schema.json#/$defs/id"}, "batchCreatedAt": {"$ref": "common.v1.schema.json#/$defs/timestamp"},
+    "nodes": {"type": "array", "items": {"allOf": [{"$ref": "canvas.v1.schema.json#/$defs/node"}, {"required": ["type", "title", "content", "x", "y", "width", "height"], "properties": {"width": {"type": "number"}, "height": {"type": "number"}}}]}},
+    "connections": {"type": ["array", "null"], "items": {"$ref": "canvas.v1.schema.json#/$defs/connection"}},
+    "importedNodeCount": {"$ref": "common.v1.schema.json#/$defs/count"}, "importedConnectionCount": {"$ref": "common.v1.schema.json#/$defs/count"},
+    "skippedNodes": {"type": ["array", "null"], "items": {"type": "object"}}, "skippedConnections": {"type": ["array", "null"], "items": {"type": "object"}}, "warnings": {"type": ["array", "null"], "items": {"type": "object"}}
+  }
+}

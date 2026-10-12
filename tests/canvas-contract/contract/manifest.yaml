@@ -1,0 +1,2201 @@
+version: 1
+name: canvas-http-contract
+description: >-
+  Implementation-independent HTTP black-box contract suite for the canvas
+  document, sharing, imports, project/workbench links, resource integrity,
+  asset compatibility, and their explicitly separated task/Agent dependencies.
+suite:
+  root: tests/canvas-contract
+  runner: canvas_contract_test.go
+  command: go test ./... -count=1 -v
+  wire_schema:
+    version: v1-observed
+    registry: tests/canvas-contract/contract/schemas/bindings.v1.json
+    approval: pending
+
+# This manifest is the migration coverage index. Observed wire schemas do not
+# approve current Go defects or replace the incomplete published OpenAPI.
+# Java and Go do not get separate scenario or assertion definitions.
+coverage_policy:
+  unit: method-path-plus-branch-and-state-flow
+  direct_canvas_routes: 14
+  direct_canvas_route_breakdown:
+    core_document: 7
+    share_public: 5
+    import: 2
+  dependency_route_families:
+    project_workbench: cataloged-separately
+    resource_and_asset_library: cataloged-separately
+    generation_and_agent_writeback: separate-suite
+  dependency_kind: fixture-and-cross-suite-gate-not-java-module-import
+  compatibility_default: UNKNOWN
+  current_writer_default: go
+  target_writer_default: UNASSIGNED_BEFORE_CONTRACT_APPROVAL
+  route_prefixes:
+    - /api/canvas-projects
+    - /api/public/canvas-shares
+    - /api/projects
+    - /api/characters
+    - /api/voice-profiles
+    - /api/resources
+    - /api/public/resources
+    - /api/assets
+    - /api/asset-folders
+    - /api/user-data/snapshot
+    - /api/tasks
+    - /api/creation-runs
+    - /api/agent
+  catalog_rule: >-
+    Every route family discovered in the current handler registration is either
+    mapped to an executable scenario, marked DEFERRED with a blocker, or marked
+    OUT_OF_SCOPE with an owning suite. A green profile never implies that an
+    unexecuted dependency family is covered.
+  rule: >-
+    A profile is not covered because its route is listed here. It is covered
+    only when its mapped scenario is implemented and executed against the
+    target. Deferred and out-of-scope operations remain visible in reports.
+controlled_faults:
+  - id: upload-body-half-close
+    kind: request-body-half-close
+    profile: resource-integrity
+    scenario: canvas.resource.upload.interrupted-chunk-recovery
+    method: PUT
+    path: /api/resources/uploads/{id}/chunks/{index}
+    declared_body_bytes: 13
+    sent_body_bytes: 6
+    expected_status: 400
+    requests_per_scenario: 2
+    evidence: [tests/canvas-contract/runner/interrupted_upload.go, tests/canvas-contract/resource_transport_contract_test.go]
+  - id: document-response-loss
+    kind: response-loss-after-commit
+    profile: restart-recovery
+    scenario: canvas.recovery.response-loss-and-restart
+    method: PUT
+    path: /api/canvas-projects/{id}
+    expected_status: 0
+    target_status: 200
+    requests_per_scenario: 1
+    recovery_operations: [canvas.recovery.document, canvas.recovery.history]
+    recovery_restart: {mode: crash, generation: 4}
+    evidence: [tests/canvas-contract/runner/response_loss.go, tests/canvas-contract/response_loss_contract_test.go]
+  - id: resource-create-response-loss
+    kind: response-loss-after-commit
+    profile: restart-recovery
+    scenario: canvas.recovery.response-loss-and-restart
+    method: POST
+    path: /api/resources
+    expected_status: 0
+    target_status: 200
+    requests_per_scenario: 1
+    recovery_operations: [canvas.recovery.resource-create, canvas.recovery.resource, canvas.recovery.resource-usage]
+    recovery_restart: {mode: crash, generation: 4}
+    evidence: [tests/canvas-contract/runner/response_loss.go, tests/canvas-contract/response_loss_contract_test.go]
+  - id: upload-complete-response-loss
+    kind: response-loss-after-commit
+    profile: restart-recovery
+    scenario: canvas.recovery.response-loss-and-restart
+    method: POST
+    path: /api/resources/uploads/{id}/complete
+    expected_status: 0
+    target_status: 200
+    requests_per_scenario: 1
+    recovery_operations: [canvas.recovery.resource-create, canvas.recovery.resource, canvas.recovery.resource-usage]
+    recovery_restart: {mode: crash, generation: 4}
+    evidence: [tests/canvas-contract/runner/response_loss.go, tests/canvas-contract/response_loss_contract_test.go]
+behavior_decisions:
+  - id: D-01
+    classification: UNKNOWN
+    proposal: KNOWN_BUG
+    approval: pending
+    operations: [canvas.authz.foreign-delete, canvas.delete]
+    go_observation: Foreign DELETE returns success but leaves the owner's document intact.
+    proposed_target: Uniform owner-scoped denial without an existence oracle; exact status still needs approval.
+    evidence: [backend/internal/canvas/user_data.go, tests/canvas-contract/canvas_contract_test.go]
+  - id: D-02
+    classification: UNKNOWN
+    proposal: KNOWN_BUG
+    approval: pending
+    operations: [project.canvas.list, project.overview, project.unit.list, project.unit.workspace, canvas.import.libtv, canvas.import.tapnow]
+    go_observation: These selected foreign/missing-resource paths currently return 500/internal rather than an authorization/not-found facet.
+    proposed_target: Owner-scoped errors with stable status/code/reason and no task/resource existence oracle.
+    evidence: [tests/canvas-contract/canvas_contract_test.go, tests/canvas-contract/fixed_import_contract_test.go]
+  - id: D-03
+    classification: UNKNOWN
+    proposal: KNOWN_BUG
+    approval: pending
+    operations: [project.canvas.link, project.canvas.list, project.canvas.unlink, project.canvas.unlink-unit]
+    go_observation: Sequential reassociation changes the canvas project/revision but leaves an old full-detail unit link; the old project's paged canvases are empty and old-project unlink returns 400. Selected concurrent cross-project trials acknowledge both links, advance the canvas twice and each project once, and retain both full-detail links while only the authoritative project's page includes the canvas. Old-project unit/project unlink and stale CAS reject without changing either project's complete units or canvas/history. Detaching the current project leaves the old link; explicit reassociation then detach repairs it. The winning project is read from authoritative canvas state, never inferred from response completion order. These are HTTP settlement observations, not controlled database interleaving.
+    proposed_target: Decide reject-versus-atomic-move semantics; do not require Java to preserve a stale relationship or the Go transaction boundaries.
+    evidence: [backend/internal/app/project.go, backend/internal/repository/repository_projects.go, tests/canvas-contract/project_matrix_contract_test.go, tests/canvas-contract/project_link_race_contract_test.go]
+  - id: D-04
+    classification: UNKNOWN
+    proposal: APPROVED_CHANGE
+    approval: pending
+    operations: [canvas.resource.create, canvas.resource.import]
+    go_observation: Ready-upload replay compares kind/MIME/size, not a content fingerprint; URL replay downloads again and can fail before returning the existing resource.
+    proposed_target: Explicit user-scoped idempotency and content identity; decide whether replay must contact the upstream, without copying Go storage state.
+    evidence: [backend/internal/app/resource_store.go, tests/canvas-contract/resource_import_contract_test.go]
+  - id: D-05
+    classification: UNKNOWN
+    proposal: APPROVED_CHANGE
+    approval: pending
+    operations: [canvas.recovery.upload-session, canvas.resource.upload.create, canvas.resource.upload.chunk, canvas.resource.upload.complete]
+    go_observation: Go process restart invalidates the in-memory upload session; a new session is needed while committed resources remain readable.
+    proposed_target: Decide durable-versus-volatile session recovery and cleanup policy; Java must not inherit Go's in-memory architecture by default.
+    evidence: [tests/canvas-contract/restart_contract_test.go, backend/internal/handler/resource_upload_session.go]
+  - id: D-06
+    classification: UNKNOWN
+    proposal: APPROVED_CHANGE
+    approval: pending
+    operations: [canvas.legacy-asset.batch-delete, canvas.legacy-asset.delete, canvas.history.restore]
+    go_observation: Explicit purge can leave document references broken; later repair removes missing references and old-history restore is rejected.
+    proposed_target: Decide reference protection, purge authorization and physical-delete recovery independently of current Go behavior.
+    evidence: [tests/canvas-contract/canvas_contract_test.go, backend/internal/app/resource_delete.go]
+  - id: D-07
+    classification: UNKNOWN
+    proposal: KNOWN_BUG
+    approval: pending
+    operations: [canvas.resource.import]
+    go_observation: Direct unsafe URLs return 400; denied redirect, immediate upstream failure and truncated body currently return 500/internal.
+    proposed_target: Stable failure facets distinguishing invalid input, SSRF rejection, upstream failure and ambiguous transport state; preserve outbound safety.
+    evidence: [tests/canvas-contract/resource_import_contract_test.go, backend/internal/app/resource_generated.go]
+  - id: D-08
+    classification: UNKNOWN
+    proposal: APPROVED_CHANGE
+    approval: pending
+    operations: [canvas.import.libtv, canvas.import.tapnow]
+    go_observation: Fixed-origin import errors, empty convertible canvas and the 20-second upstream deadline currently return 500/internal.
+    proposed_target: Explicit timeout/error/empty-conversion contracts; no paid or non-idempotent upstream retry is implied by a timeout.
+    evidence: [tests/canvas-contract/fixed_import_contract_test.go, backend/internal/auth/libtv.go, backend/internal/auth/tapnow.go]
+  - id: D-09
+    classification: UNKNOWN
+    proposal: MUST_KEEP
+    approval: pending
+    operations: [canvas.import.libtv, canvas.import.tapnow]
+    go_observation: Each successful conversion allocates new batch/node/connection identities and returns a converted graph; it does not persist canvas/history/resources.
+    proposed_target: Retain the conversion-versus-persistence boundary and internal edge-to-node identity consistency; approve replay identity semantics separately.
+    evidence: [tests/canvas-contract/fixed_import_contract_test.go, backend/internal/handler/user_data.go]
+  - id: D-10
+    classification: UNKNOWN
+    proposal: MUST_KEEP
+    approval: pending
+    operations: [canvas.resource.create, canvas.resource.import, canvas.resource.upload.create]
+    go_observation: Single-file, daily and stored-byte reservation limits are exclusive; exact limits reject. Ready replay is not charged twice; concurrent daily reservations prevent overshoot. Active upload slots are scoped per user and released on completion. Upload/session intake share a user frequency bucket, import has a separate bucket; slot-cap 429 has no frequency Retry-After.
+    proposed_target: Approve limit inclusivity and rate-bucket identity, retain per-user isolation and rollback; Java may use a different reservation/coordinator implementation.
+    evidence: [tests/canvas-contract/resource_limits_contract_test.go, backend/internal/app/upload_quota.go, backend/internal/handler/user_data.go]
+  - id: D-11
+    classification: UNKNOWN
+    proposal: KNOWN_BUG
+    approval: pending
+    operations: [project.canvas.list]
+    go_observation: Paginated project canvas summaries return revision zero because the query omits the revision column; document and full project detail return the committed revision.
+    proposed_target: Return an authoritative positive revision or omit a non-authoritative field explicitly; never use the current page projection as a CAS precondition.
+    evidence: [backend/internal/repository/project_workbench_read.go, tests/canvas-contract/contract/schemas/project.v1.schema.json, tests/canvas-contract/canvas_contract_test.go]
+  - id: D-12
+    classification: UNKNOWN
+    proposal: MUST_KEEP
+    approval: pending
+    operations: [project.create, project.unit.create, project.unit.import]
+    go_observation: Same-user duplicate project names return 409/project_name_conflict, names are independent across users, and unit create/import replays append fresh IDs and advance revision once per request.
+    proposed_target: Keep owner-scoped name uniqueness and explicit non-idempotent POST semantics without a stable request identity; any automatic retry or deduplication needs a separately approved idempotency contract.
+    evidence: [backend/internal/app/project.go, tests/canvas-contract/project_workbench_matrix_contract_test.go]
+  - id: D-13
+    classification: UNKNOWN
+    proposal: MUST_KEEP
+    approval: pending
+    operations: [canvas.resource.access, canvas.public-resource.file]
+    go_observation: Local display access aligns signatures to TTL/4 windows; remaining lifetime is greater than three quarters and at most the configured TTL. Last-Modified conditional reads return 304 only after valid signature authorization. An expired signature is forbidden even with If-Modified-Since; renewing access does not mutate resource revision or stored bytes.
+    proposed_target: Approve signing-window and refresh semantics separately; retain authorization-before-cache-revalidation and immutable resource identity across access renewal without prescribing Java storage internals.
+    evidence: [tests/canvas-contract/resource_cache_contract_test.go, backend/internal/assets/access.go, backend/internal/handler/resource_delivery.go]
+  - id: D-14
+    classification: UNKNOWN
+    proposal: APPROVED_CHANGE
+    approval: pending
+    operations: [canvas.resource.import]
+    go_observation: A controlled resource URL with no response headers times out server-side after 90 seconds with HTTP 500/internal, cancels one upstream request, and leaves resource IDs and byte usage unchanged; an explicit retry can use the same idempotency key after this proven download failure.
+    proposed_target: Retain bounded cancellable outbound reads and no automatic retry; approve the timeout budget and machine-readable error independently rather than requiring Java to copy Go client defaults.
+    evidence: [tests/canvas-contract/resource_import_contract_test.go, tests/canvas-contract/harness/resource_fixture.go, backend/internal/app/resource_generated.go]
+  - id: D-15
+    classification: UNKNOWN
+    proposal: APPROVED_CHANGE
+    approval: pending
+    operations: [canvas.resource.upload.chunk, canvas.resource.upload.complete]
+    go_observation: Concurrent different-index chunks both succeed; same-index writes of different equal-length bytes both succeed and the final bytes are one complete candidate. Concurrent completion creates one resource and rejects the other closed-session requests with 404, charging stored bytes once.
+    proposed_target: Retain atomic completion and per-user isolation; decide content-fingerprint conflict semantics for same-index replay explicitly instead of equating last-writer replacement with content idempotency.
+    evidence: [tests/canvas-contract/resource_concurrency_contract_test.go, backend/internal/handler/resource_upload_session.go]
+  - id: D-16
+    classification: UNKNOWN
+    proposal: MUST_KEEP
+    approval: pending
+    operations: [canvas.history.list, canvas.history.read, canvas.history.restore]
+    go_observation: Rapid ordinary content writes coalesce snapshots; every forced restore, including the same content, advances revision and captures its complete preimage. The latest twenty snapshots remain readable in descending revision order; an evicted snapshot returns 404, while a stale restore revision is rejected before lookup without mutation.
+    proposed_target: Retain owner-scoped CAS, atomic preimage capture and non-addressable evicted identities; approve capture windows and retention budgets separately rather than hardcoding Go policy into Java architecture.
+    evidence: [tests/canvas-contract/history_retention_contract_test.go, backend/internal/canvas/canvas_history.go, backend/internal/repository/canvas_history.go]
+  - id: D-17
+    classification: UNKNOWN
+    proposal: MUST_KEEP
+    approval: pending
+    operations: [project.unit.import]
+    go_observation: Unit import accepts up to 2500 rows per request and a trimmed 240-Unicode-code-point title; 2501 rows, empty/null batches and a 241-code-point final title reject without changing existing units or project revision. A successful maximum batch appends unique owned units and advances revision once. Both list and import acknowledgements clear sourceText; complete per-unit reads retain the imported body.
+    proposed_target: Retain all-or-nothing validation, ownership, source-text persistence and one batch revision; approve numeric limits and Unicode normalization separately instead of binding Java to Go batching internals.
+    evidence: [tests/canvas-contract/project_workbench_matrix_contract_test.go, backend/internal/app/project.go, backend/internal/repository/repository_projects.go]
+  - id: D-18
+    classification: UNKNOWN
+    proposal: KNOWN_BUG
+    approval: pending
+    operations: [canvas.share.resource-read, canvas.share.revoke, canvas.resource.file, canvas.public-resource.file, canvas.public-resource.file-named]
+    go_observation: File access=1 returns a typed private no-store descriptor instead of bytes, ignores byte-range/conditional headers, and preserves metadata, usage and content. Shared descriptors mint an independent public resource signature bounded by the share expiry. Revoking the share rejects its byte and descriptor paths, but the previously issued independent resource signature still reads the bytes until its own expiry.
+    proposed_target: Retain explicit representation and authorization validation; decide the scope and maximum latency of revocation for derived bearer capabilities. Do not silently preserve this revocation gap in Java or require Go signing/storage internals. Remote delivery and redirect runtime evidence remain separate gates.
+    evidence: [tests/canvas-contract/resource_description_contract_test.go, tests/canvas-contract/contract/file_variants_test.go, backend/internal/handler/resource_delivery.go, backend/internal/canvas/canvas_share.go, backend/internal/app/resource_access.go]
+  - id: D-19
+    classification: UNKNOWN
+    proposal: KNOWN_BUG
+    approval: pending
+    operations: [project.unit.import, project.unit.read, project.core]
+    go_observation: An exactly 32 MiB JSON document containing four real chapter sources is accepted atomically, each full per-unit read preserves its source and the project revision advances once. A JSON document whose closing framing is one byte over the budget returns 400 without any mutation. However, a small complete JSON document followed by whitespace bringing the transmitted body to 32 MiB plus one byte is accepted because the decoder does not consume the remainder; this is not an absolute transmitted-body limit.
+    proposed_target: Retain atomic source persistence and reject malformed/over-budget JSON without effects; separately approve the byte budget, ownership/error precedence and trailing-document policy. Enforce the chosen full-body budget at an explicit HTTP boundary rather than copying Go decoder behavior into Java architecture.
+    evidence: [tests/canvas-contract/project_import_body_contract_test.go, backend/internal/handler/project_unit_routes.go, backend/internal/app/project.go]
+  - id: D-20
+    classification: UNKNOWN
+    proposal: KNOWN_BUG
+    approval: pending
+    operations: [project.unit.reorder, project.unit.read, project.core]
+    go_observation: Two start-barrier requests send opposite complete permutations with different leading units. In each of six trials in two isolated Go runs, one request returns 200 and one returns a complete 500/internal envelope. Only successful requests advance project revision; the final complete unit DTOs match a successful permutation without partial writes or foreign changes. These HTTP outcomes and the source update order suggest contention but do not prove a specific database deadlock.
+    proposed_target: Retain atomic complete permutations and failure rollback; decide the externally visible contention classification and bounded retry/idempotency policy. Do not require Java to expose Go internal errors or use Go row-update/lock order. Controlled failure injection and membership-write competition remain separate paths.
+    evidence: [tests/canvas-contract/project_reorder_race_contract_test.go, backend/internal/app/project.go, backend/internal/repository/repository_projects.go]
+  - id: D-21
+    classification: UNKNOWN
+    proposal: MUST_KEEP
+    approval: pending
+    operations: [project.unit.create, project.unit.delete, project.unit.import, project.unit.reorder, project.unit.read, project.core]
+    go_observation: Start-barrier races pair complete reorder with creation, deletion or a two-unit import. In two preliminary runs all nine pairs return two 200 responses; postconditions preserve complete existing/new sources and identities, the surviving permutation, isolated foreign state, and one revision per acknowledged commit. Strengthened scenarios also reject the old complete identity set after an acknowledged membership change without effects. This does not prove a controlled database interleaving, every error branch, workflow cascade or atomicity under injected create/revision failure.
+    proposed_target: Preserve membership ownership and atomic acknowledged effects with approved contention/error semantics; use deterministic failure/interleaving fixtures for missing paths. Neither request start timing nor Go default positions define the Java aggregate, transaction or lock architecture.
+    evidence: [tests/canvas-contract/project_membership_race_contract_test.go, backend/internal/app/project.go, backend/internal/repository/repository_projects.go]
+  - id: D-22
+    classification: UNKNOWN
+    proposal: KNOWN_BUG
+    approval: pending
+    operations: [canvas.resource.upload.chunk, canvas.resource.upload.complete, canvas.resource.list, canvas.resource.usage, canvas.resource.read, canvas.resource.file]
+    go_observation: After two chunks have been acknowledged, a short or long replacement of the last chunk returns 400 and a subsequent completion also returns 400 because the earlier acknowledged staged chunk was removed. Re-uploading that chunk permits completion. Start-barrier races cover a missing last chunk or valid/invalid replacement versus completion; acknowledged success determines exact published bytes, quota advances once, closed sessions and foreign access return 404, and metadata remains unchanged on replay. Two isolated runs also declare 13 bytes, send six and half-close the real HTTP write stream; both missing and previously acknowledged chunks return a complete 400 error response, completion returns 400, and explicit replacement recovers exact bytes with one quota charge. This is not proof of every race outcome, controlled interleaving, abrupt connection reset, response loss or physical staging cleanup.
+    proposed_target: Approve whether failed replacement must preserve the previously acknowledged staged chunk, and define recoverable failure and completion linearization semantics. A failure must not silently publish partial bytes or double-charge quota. Do not require Java to copy destructive Go file truncation, in-memory sessions or mutex architecture. Abrupt disconnect/response loss, reservation expiry and remote storage remain separate gates.
+    evidence: [tests/canvas-contract/resource_completion_race_contract_test.go, tests/canvas-contract/resource_transport_contract_test.go, tests/canvas-contract/runner/interrupted_upload.go, backend/internal/handler/resource_upload_session.go]
+  - id: D-23
+    classification: UNKNOWN
+    proposal: KNOWN_BUG
+    approval: pending
+    operations: [canvas.legacy-asset.update, canvas.legacy-asset.read, canvas.legacy-asset.list, canvas.legacy-asset.folder-update, canvas.legacy-asset.folder-delete, canvas.legacy-asset.folder-move, canvas.legacy-asset.delete, canvas.legacy-asset.batch-delete]
+    go_observation: Valid foreign asset upsert returns a complete 500/internal envelope rather than an explicit ownership/not-found response. Foreign folder update/delete and cross-owner move return 400, while foreign purge and mixed own/foreign/missing-ID batch purge return 404. Both user directions and anonymous writes are exercised; complete assets/folders/resource metadata, exact fixture bytes and quota remain unchanged after every failure, including both identity orders and root/owned-folder move destinations. This does not prove physical deletion failure, task/project reference sources or concurrent reference creation.
+    proposed_target: Preserve cross-user isolation and all-or-nothing mixed ownership mutations, but approve explicit machine-readable ownership/error semantics without copying Go duplicate-key/internal errors into Java. Do not use frontend hiding or globally unique primary-key conflicts as authorization. Storage-side failures and reference races remain separate required paths.
+    evidence: [tests/canvas-contract/legacy_ownership_contract_test.go, backend/internal/canvas/user_data.go, backend/internal/app/asset_library.go, backend/internal/app/resource_delete.go, backend/internal/repository/repository_assets_canvases.go]
+  - id: D-24
+    classification: UNKNOWN
+    proposal: KNOWN_BUG
+    approval: pending
+    operations: [canvas.share.read, canvas.share.create, canvas.share.revoke, canvas.share.public-read]
+    go_observation: Two owner POST requests racing to create the first share for a canvas publish one enabled token; the loser may return a complete 500/internal response from the unique owner/project constraint. The current token is the only public token accepted, the foreign management read is 404, and no duplicate enabled share is visible. This is a start-barrier observation, not proof of every database interleaving, retry behavior, or multi-instance settlement.
+    proposed_target: Preserve one authoritative share per owner and canvas with a defined idempotency/concurrency outcome. Prefer an explicit conflict or safe retry policy over leaking a database uniqueness error, but do not require Java to copy Go ORM timing, unique-index error text, or in-memory sequencing. Expiry/rotation/revoke settlement remains separate.
+    evidence: [tests/canvas-contract/share_matrix_contract_test.go, backend/internal/canvas/canvas_share.go, backend/internal/model/models_project.go]
+  - id: D-25
+    classification: UNKNOWN
+    proposal: MUST_KEEP
+    approval: pending
+    operations: [canvas.task.logs]
+    go_observation: An authenticated owner request for a missing task log returns a complete 200 response with an empty result rather than a not-found error. The unauthenticated request is rejected before task lookup. This is a selected missing-ID observation, not proof of foreign-task behavior, populated logs, pagination or task existence leakage across every task route.
+    proposed_target: Define one owner-scoped policy for missing and foreign task reads. A 200 empty projection can avoid an existence oracle, but Java must make the choice explicit and test populated, missing and foreign records without using the Go handler or repository shape as the design.
+    evidence: [tests/canvas-contract/generation_boundary_contract_test.go, backend/internal/handler/routes.go]
+  - id: D-26
+    classification: UNKNOWN
+    proposal: KNOWN_BUG
+    approval: pending
+    operations: [project.canvas.link, project.canvas.list]
+    go_observation: Sequential multi-unit associations normalize trimmed identities and roles, default omitted/blank/null roles to storyboard, and retain one persisted link per project/canvas/unit. Updating or replaying a role returns a fresh link ID while full-detail and paged GET retain the original ID and creation metadata. Every successful link request advances both canvas and project revisions, including identical replay. Selected concurrent existing-role updates and different-unit links both return 200, advancing the canvas and project twice; the final role is one acknowledged complete candidate, and existing identity/creation metadata persist despite generated response IDs. Complete unit bodies, canvas content and history are protected in both user directions; the trials do not prove controlled internal interleaving or all role policies.
+    proposed_target: Define one authoritative association identity and return its persisted DTO on update/replay; explicitly approve whether an identical replay advances revisions and which normalized roles are allowed. Keep uniqueness and ownership without requiring Java to copy Go row-update or generated-response-ID behavior. The proposed fix is not an approved wire/behavior change.
+    evidence: [tests/canvas-contract/project_link_roles_contract_test.go, tests/canvas-contract/project_link_race_contract_test.go, backend/internal/app/project.go, backend/internal/repository/repository_projects.go]
+  - id: D-27
+    classification: UNKNOWN
+    proposal: KNOWN_BUG
+    approval: pending
+    operations: [project.canvas.link, project.canvas.list, project.canvas.unlink]
+    go_observation: In isolated PostgreSQL 18, a 32-character Unicode role succeeds, but a 33-character role returns a complete 500/internal after canvas assignment and revision advancement. First-time failure leaves the canvas assigned with no unit link and no project revision change; retry advances the canvas again. Overflow updating an existing link retains its role/identity/creation metadata but still advances the canvas. Canvas content, snapshots, full unit bodies and foreign project remain intact. Old-revision canvas PUT is rejected with 409 after the failed link. Valid role recovery and project detach execute through HTTP; no SQL rollback or arbitrary injected failure is proven.
+    proposed_target: Approve the role budget and machine-readable validation error before mutation. Commit association, canvas ownership/revision and project revision as an atomic short transaction owned by the target module, with failure/replay/recovery tests. Reject input without durable partial state; do not copy Go non-transactional repository sequencing or SQL error text into Java. Post-commit response ambiguity remains distinct from pre-commit validation failure.
+    evidence: [tests/canvas-contract/project_link_roles_contract_test.go, backend/internal/app/project.go, backend/internal/repository/repository_projects.go, backend/internal/model/models_project.go]
+  - id: D-28
+    classification: UNKNOWN
+    proposal: KNOWN_BUG
+    approval: pending
+    operations: [project.canvas.link, project.canvas.list, project.canvas.unlink-unit, project.canvas.unlink]
+    go_observation: In selected isolated PostgreSQL trials, two first-time same-key link requests produce one complete 200 and one complete 500/internal. Both requests advance the canvas revision, but only the successful request advances the project revision. Exactly one persisted association survives with the successful role and identity; full units, canvas content and history remain intact. Existing-role and different-unit competition instead acknowledge both requests. Foreign writes and old-revision PUT reject without additional mutation; per-unit removal and project detach settle the observed state. A start barrier does not control database interleaving or prove a particular constraint-error mechanism; a serialized two-success same-key outcome is also source-supported but not claimed as exercised unless logs show it.
+    proposed_target: Approve same-key conflict/replay and machine-readable error semantics, then commit authoritative association identity, canvas assignment/revision and project revision atomically through the owning module's public port. Distinguish database uniqueness arbitration from request idempotency, preserve user isolation and complete acknowledged state, and test both controlled overlap and serialized replay. Do not require Java to return internal errors, advance the canvas on rejected insertion or copy Go non-transactional steps; the proposal is not an approved contract change.
+    evidence: [tests/canvas-contract/project_link_race_contract_test.go, backend/internal/app/project.go, backend/internal/repository/repository_projects.go, backend/internal/model/models_project.go]
+profiles:
+  core:
+    status: REQUIRED
+    surface: core-document
+    authorization: authenticated-canvas-owner
+    effects: canvas-revision-history-and-resource-reference-write
+    dependencies: [resource-integrity, project-integration]
+    implementation: implemented-and-executed
+    target: 100% of 7 unique method/path routes plus branch and state-flow matrix
+    remaining_paths:
+      - updated-at sort ties
+      - transport timeout and timed ordinary-history capture interval; forced-restore retention/eviction is executable and restart-recovery is the companion gate
+    operations:
+      - canvas.list
+      - canvas.create
+      - canvas.read
+      - canvas.update
+      - canvas.history.list
+      - canvas.history.read
+      - canvas.history.restore
+      - canvas.delete
+      - canvas.authz
+      - canvas.authz.foreign-delete
+      - canvas.conditional-read
+      - canvas.compression
+      - canvas.update.repair-missing-resources
+  share-public:
+    status: REQUIRED
+    authorization: owner-for-management-share-token-and-resource-allowlist-for-public-read
+    effects: share-token-write-and-public-resource-delivery
+    dependencies: [core, resource-integrity]
+    implementation: implemented-and-executed
+    target: 100% of 5 concrete routes
+    remaining_paths:
+      - remote CDN delivery, remote TTL-boundary and conditional-cache behavior; concurrent first-time creation, rotation/revoke settlement and local Range are executable
+    operations:
+      - canvas.share.read
+      - canvas.share.create
+      - canvas.share.revoke
+      - canvas.share.public-read
+      - canvas.share.resource-read
+  project-integration:
+    status: REQUIRED
+    authorization: feature-enabled-and-project-canvas-unit-owner
+    effects: project-canvas-link-and-canvas-metadata-write
+    dependencies: [core, project-workbench-core]
+    implementation: implemented-and-executed
+    target: 100% of 4 concrete routes
+    remaining_paths:
+      - controlled cross-project contention and persistence/revision failure injection; same-key/existing-link/different-unit and cross-project HTTP settlement, detach and explicit recovery are executable, not proof of controlled database interleaving
+      - arbitrary persistence/revision rollback and in-flight crash; selected PostgreSQL role-overflow and first-insertion-race partial states/recovery are executable, not proof that every failed request rolls back
+    operations:
+      - project.canvas.list
+      - project.canvas.link
+      - project.canvas.unlink-unit
+      - project.canvas.unlink
+  project-workbench-core:
+    status: REQUIRED
+    authorization: authenticated-owned-project-and-unit
+    effects: project-and-unit-lifecycle-write
+    dependencies: [core, resource-integrity]
+    implementation: implemented-and-executed
+    target: 100% of 15 project and unit routes plus owner/foreign/unauthenticated matrix
+    remaining_paths:
+      - workflow-initialization failure rollback; sequential/concurrent same-user name conflicts and cross-user names are executable
+      - controlled contention/membership-invalidation and create/revision failure injection; same-leading/opposite-leading reorder and reorder-versus-create/delete/import scenarios do not prove a start barrier controls database interleaving
+      - active-task rejection and populated workflow/shot/asset cascades via companion suites; unit/link detach and canvas/history/share/resource retention are executable
+      - body-budget decoder framing approval; exact 32 MiB source import and over-budget rejection have an executable scenario, trailing-data policy requires a decision
+    operations:
+      - project.list
+      - project.create
+      - project.read
+      - project.core
+      - project.overview
+      - project.update
+      - project.delete
+      - project.unit.create
+      - project.unit.list
+      - project.unit.read
+      - project.unit.workspace
+      - project.unit.import
+      - project.unit.reorder
+      - project.unit.update
+      - project.unit.delete
+  resource-integrity:
+    status: REQUIRED
+    authorization: authenticated-resource-owner
+    effects: metadata-object-upload-and-explicit-purge-repair
+    dependencies: [core, legacy-assets]
+    implementation: implemented-and-executed
+    target: required resource access, metadata, file, upload, import and usage paths
+    remaining_paths:
+      - reservation expiry/reconciliation; controlled URL import slow-timeout and concurrent session-slot admission now have executable scenarios
+      - forced race interleaving and abrupt chunk-upload connection reset; HTTP request-body half-close with complete 400 and selected chunk-versus-complete/failed-overwrite recovery execute; resource-create and upload-complete response loss after commit plus restart/idempotent retry execute in restart-recovery
+      - remote object-store Range/delivery-mode matrix; local object-storage failure/retry and restart-recovery persistence are executable companion gates, but do not prove every remote provider or CDN behavior
+    operations:
+      - canvas.resource.access
+      - canvas.resource.list
+      - canvas.resource.usage
+      - canvas.resource.create
+      - canvas.resource.import
+      - canvas.resource.read
+      - canvas.resource.file
+      - canvas.resource.upload.create
+      - canvas.resource.upload.chunk
+      - canvas.resource.upload.complete
+      - canvas.resource.reference-validation
+  import:
+    status: REQUIRED
+    authorization: authenticated-canvas-owner
+    effects: fixed-upstream-read-and-conversion-response; no automatic canvas or resource persistence
+    dependencies: [core, resource-integrity]
+    implementation: partial-controlled-upstream
+    target: 100% of 2 concrete routes with controlled upstreams
+    remaining_paths:
+      - rich conversion limits and selected partial media failure recovery execute; resource-create/upload-complete response loss and restart execute in the companion restart-recovery profile, but imported-media-specific response loss and remote object-storage failures remain unverified
+    operations:
+      - canvas.import.libtv
+      - canvas.import.tapnow
+  legacy-assets:
+    status: REQUIRED
+    authorization: authenticated-asset-folder-owner
+    effects: asset-folder-write-and-explicit-purge-job
+    dependencies: [resource-integrity, core]
+    implementation: implemented-and-executed
+    remaining_paths:
+      - project/task reference sources; selected anonymous/all-object foreign writes and mixed owner/foreign/missing-ID rollback now execute in both user directions
+      - physical deletion failure and concurrent reference creation
+    reason: >-
+      The legacy asset/folder HTTP lifecycle is executable independently with
+      uploaded fixtures. Public signed resource delivery remains a separate
+      profile with executable local signed-link paths and explicitly remaining
+      remote origin, cache and expiry matrices.
+    operations:
+      - canvas.legacy-asset.list
+      - canvas.legacy-asset.batch-read
+      - canvas.legacy-asset.batch-delete
+      - canvas.legacy-asset.folder-list
+      - canvas.legacy-asset.folder-create
+      - canvas.legacy-asset.folder-update
+      - canvas.legacy-asset.folder-delete
+      - canvas.legacy-asset.folder-move
+      - canvas.legacy-asset.read
+      - canvas.legacy-asset.update
+      - canvas.legacy-asset.delete
+      - canvas.legacy-user-data.snapshot
+  public-resource:
+    status: REQUIRED
+    authorization: signed-resource-token
+    effects: public-resource-delivery
+    dependencies: [resource-integrity]
+    implementation: implemented-and-executed-local-http-fixture
+    remaining_paths:
+      - CDN delivery, remote-origin TTL boundaries, and conditional requests/cache revalidation against a remote origin
+    operations:
+      - canvas.public-resource.file
+      - canvas.public-resource.file-named
+  restart-recovery:
+    status: REQUIRED
+    authorization: original-owner-session-foreign-isolation-and-private-process-control
+    effects: owned-target-crash-and-graceful-restart-with-persistent-state-validation
+    dependencies: [core, share-public, project-integration, resource-integrity]
+    implementation: implemented-and-executed
+    target: crash and graceful restart retain committed facts, original sessions and resource bytes
+    remaining_paths:
+      - crash during an in-flight write or object operation, not only after committed HTTP writes
+      - interrupted upload quota reservation expiry/reconciliation and multi-instance session behavior
+    operations:
+      - canvas.recovery.document
+      - canvas.recovery.history
+      - canvas.recovery.share
+      - canvas.recovery.resource
+      - canvas.recovery.project
+      - canvas.recovery.upload-session
+      - canvas.recovery.deleted-state
+      - canvas.recovery.write
+      - canvas.recovery.resource-create
+      - canvas.recovery.upload-complete
+      - canvas.recovery.resource-usage
+  project-workbench:
+    status: DEFERRED
+    authorization: feature-enabled-and-owned-project-unit-asset-character
+    effects: project-workbench-lifecycle-write
+    dependencies: [legacy-assets, resource-integrity]
+    implementation: catalog-only
+    reason: >-
+      The project/unit core lifecycle is executable in the separate
+      project-workbench-core profile. This extended profile remains deferred
+      until project assets, folders, shots, workflows, candidates, voice
+      profiles and characters have controlled fixtures and full ownership/
+      rollback assertions.
+    operations:
+      - project.asset.list
+      - project.asset.folder-list
+      - project.asset.folder-create
+      - project.asset.folder-update
+      - project.asset.folder-delete
+      - project.asset.link
+      - project.asset.unlink
+      - project.asset.update
+      - project.asset.version-create
+      - project.shot.create
+      - project.shot.replace
+      - project.shot.revision-create
+      - project.shot.delete
+      - project.shot.asset-link
+      - project.shot.asset-unlink
+      - project.asset-candidate.create
+      - project.asset-candidate.list
+      - project.asset-candidate.confirm
+      - project.workflow.create
+      - project.workflow.step-update
+      - project.workflow.step-output
+      - project.voice-profile.list
+      - character.list
+      - character.create
+      - character.read
+      - character.update
+      - character.representations.update
+      - character.voice.update
+      - character.voice.delete
+      - project.character.link
+      - project.character.read
+      - project.character.update
+      - project.character.representations.update
+      - project.character.voice.update
+      - project.character.voice.delete
+  provider-resource:
+    status: OUT_OF_SCOPE
+    authorization: resource-owner-and-provider-policy
+    effects: external-provider-private-asset-submission
+    dependencies: [resource-integrity, generation-writeback]
+    implementation: separate-suite
+    reason: >-
+      Ark private-asset synchronization has an external Provider side effect;
+      it requires the Provider submission/receipt/recovery suite, not CRUD replay.
+    operations:
+      - canvas.resource.ark-private-asset
+  agent-canvas:
+    status: OUT_OF_SCOPE
+    authorization: authenticated-agent-scope-owner
+    effects: agent-profile-memory-write
+    dependencies: [core, generation-writeback]
+    implementation: separate-suite
+    reason: >-
+      Agent profile and memory writes have their own durable, approval and
+      compaction contracts. Read-only capability/profile usage is covered by
+      generation-boundary; the remaining Agent write and memory contracts must
+      be tested by the Agent suite and joined here by an explicit cross-suite gate.
+    operations:
+      - canvas.agent.profile.update
+      - canvas.agent.memory.list
+      - canvas.agent.memory.create
+      - canvas.agent.memory.export
+      - canvas.agent.memory.import
+      - canvas.agent.memory.settings-read
+      - canvas.agent.memory.settings-update
+      - canvas.agent.memory.compact
+      - canvas.agent.memory.update
+      - canvas.agent.memory.decide
+      - canvas.agent.memory.delete
+  generation-boundary:
+    status: REQUIRED
+    authorization: authenticated-user-scoped-read-only
+    effects: task-creation-run-agent-read-boundary-without-external-side-effect
+    dependencies: [core, project-integration]
+    implementation: implemented-and-executed-read-only-boundary
+    target: >-
+      Explicitly exercise unauthenticated rejection, owner read-only access,
+      missing-ID denial and cross-user creation-run isolation without starting
+      a model, charging credits or mutating a canvas.
+    remaining_paths:
+      - existing task and Agent run owner reads need deterministic local fixtures that do not start a provider runtime
+      - task SSE cursor/replay, task mutation/recovery, creation-run lease/submission/canvas commit, and Agent event/approval/undo flows remain separate suites
+      - foreign task and Agent run records require durable fixtures before their exact not-found policy can be asserted
+    operations:
+      - canvas.task.list
+      - canvas.task.read
+      - canvas.task.logs
+      - canvas.creation-run.list
+      - canvas.creation-run.read
+      - canvas.agent.capabilities
+      - canvas.agent.run.read
+      - canvas.agent.skills-usage
+      - canvas.agent.profile.read
+  generation-writeback:
+    status: OUT_OF_SCOPE
+    authorization: authenticated-task-run-owner-and-approved-action
+    effects: external-generation-agent-and-durable-result-writeback
+    dependencies: [core, resource-integrity, agent-canvas]
+    implementation: separate-suite
+    reason: >-
+      Task mutations, creation-run state machines and Agent run/event writes
+      have their own durable facts, leases, approvals and recovery contracts.
+      This suite covers only a read-only HTTP security boundary; all external
+      generation and durable writeback flows must be tested by their own suite
+      before Java cutover.
+    operations:
+      - canvas.task.create
+      - canvas.task.text-delta-create
+      - canvas.task.text-delta-list
+      - canvas.task.events
+      - canvas.task.retry
+      - canvas.task.recover-media
+      - canvas.task.query-provider
+      - canvas.task.cancel
+      - canvas.task.text-replay-complete
+      - canvas.creation-run.create
+      - canvas.creation-run.update
+      - canvas.creation-run.claim
+      - canvas.creation-run.heartbeat
+      - canvas.creation-run.release
+      - canvas.creation-run.proposal-approve
+      - canvas.creation-run.proposal-invalidate
+      - canvas.creation-run.submission-prepare
+      - canvas.creation-run.submission-approve
+      - canvas.creation-run.submission-refresh
+      - canvas.creation-run.execute
+      - canvas.creation-run.canvas-create
+      - canvas.creation-run.canvas-snapshot
+      - canvas.creation-run.canvas-commit
+      - canvas.agent.run.create
+      - canvas.agent.run.message
+      - canvas.agent.run.interjection
+      - canvas.agent.run.cancel
+      - canvas.agent.run.undo
+      - canvas.agent.run.approval
+      - canvas.agent.run.events
+
+operations:
+  - id: canvas.recovery.document
+    profile: restart-recovery
+    scenario: "canvas.recovery.document-and-history, canvas.recovery.graceful-and-write, canvas.recovery.response-loss-and-restart"
+    method: GET
+    path: /api/canvas-projects/{id}
+    owner: canvas-document
+    replay: original-session-and-etag-retained-after-owned-process-restart
+    evidence: [backend/internal/handler/user_data.go, tests/canvas-contract/restart_contract_test.go]
+  - id: canvas.recovery.history
+    profile: restart-recovery
+    scenario: "canvas.recovery.document-and-history, canvas.recovery.graceful-and-write, canvas.recovery.response-loss-and-restart"
+    method: GET
+    path: /api/canvas-projects/{id}/history
+    owner: canvas-history
+    replay: committed-history-retained-after-owned-process-restart
+    evidence: [backend/internal/handler/user_data.go, tests/canvas-contract/restart_contract_test.go]
+  - id: canvas.recovery.share
+    profile: restart-recovery
+    scenario: canvas.recovery.share-and-resource
+    method: GET
+    path: /api/public/canvas-shares/{token}
+    owner: canvas-share
+    replay: existing-share-token-retained-after-owned-process-restart
+    evidence: [backend/internal/handler/canvas_share.go, tests/canvas-contract/restart_contract_test.go]
+  - id: canvas.recovery.resource
+    profile: restart-recovery
+    scenario: "canvas.recovery.share-and-resource, canvas.recovery.response-loss-and-restart"
+    method: GET
+    path: /api/resources/{id}/file
+    owner: resource-object
+    replay: committed-bytes-retained-after-owned-process-restart
+    evidence: [backend/internal/handler/user_data.go, tests/canvas-contract/restart_contract_test.go]
+  - id: canvas.recovery.project
+    profile: restart-recovery
+    scenario: canvas.recovery.project-links
+    method: GET
+    path: /api/projects/{id}/canvases
+    owner: project-canvas-link
+    replay: committed-project-unit-and-link-retained-after-owned-process-restart
+    evidence: [backend/internal/handler/project_unit_routes.go, tests/canvas-contract/restart_contract_test.go]
+  - id: canvas.recovery.upload-session
+    profile: restart-recovery
+    scenario: canvas.recovery.upload-session-loss
+    compatibility: CURRENT-FACT-REVIEW-REQUIRED
+    method: PUT
+    path: /api/resources/uploads/{id}/chunks/{index}
+    owner: resource-upload
+    replay: go-in-memory-session-lost-after-crash-then-new-session-completes
+    evidence: [backend/internal/handler/resource_upload_session.go, tests/canvas-contract/restart_contract_test.go]
+  - id: canvas.recovery.deleted-state
+    profile: restart-recovery
+    scenario: canvas.recovery.deleted-state
+    method: GET
+    path: /api/canvas-projects/{id}
+    owner: canvas-document
+    replay: deleted-document-not-readable-after-owned-process-restart
+    evidence: [backend/internal/handler/user_data.go, tests/canvas-contract/restart_contract_test.go]
+  - id: canvas.recovery.write
+    profile: restart-recovery
+    scenario: "canvas.recovery.graceful-and-write, canvas.recovery.response-loss-and-restart"
+    method: PUT
+    path: /api/canvas-projects/{id}
+    owner: canvas-document
+    replay: cas-write-from-persisted-revision-after-two-restarts
+    evidence: [backend/internal/handler/user_data.go, tests/canvas-contract/restart_contract_test.go]
+  - id: canvas.recovery.resource-create
+    profile: restart-recovery
+    scenario: canvas.recovery.response-loss-and-restart
+    method: POST
+    path: /api/resources
+    owner: resource-object
+    replay: same-key-whole-file-retry-resolves-lost-acknowledgement-without-new-identity-or-byte-charge
+    evidence: [backend/internal/handler/user_data.go, tests/canvas-contract/response_loss_contract_test.go]
+  - id: canvas.recovery.upload-complete
+    profile: restart-recovery
+    scenario: canvas.recovery.response-loss-and-restart
+    method: POST
+    path: /api/resources/uploads/{id}/complete
+    owner: resource-upload
+    replay: lost-completion-ack-resolved-through-persisted-resource-key-after-session-loss
+    evidence: [backend/internal/handler/resource_upload_session.go, tests/canvas-contract/response_loss_contract_test.go]
+  - id: canvas.recovery.resource-usage
+    profile: restart-recovery
+    scenario: canvas.recovery.response-loss-and-restart
+    method: GET
+    path: /api/resources/storage-usage
+    owner: resource-storage-accounting
+    replay: committed-byte-usage-survives-loss-crash-and-same-key-recovery
+    evidence: [backend/internal/handler/user_data.go, tests/canvas-contract/response_loss_contract_test.go]
+  - id: canvas.list
+    profile: core
+    scenario: "canvas.list, canvas.list.pagination"
+    method: GET
+    path: /api/canvas-projects
+    owner: canvas-summary
+    replay: read-only
+    evidence:
+      - backend/internal/handler/user_data.go
+      - web/src/services/api/user-data.ts
+  - id: canvas.create
+    profile: core
+    scenario: canvas.create.read, canvas.history.retention-and-forced-preimage
+    method: PUT
+    path: /api/canvas-projects/{id}
+    owner: canvas-document
+    replay: revision-0-create-only
+    evidence:
+      - backend/internal/handler/user_data.go
+      - backend/internal/canvas/canvas_revision_test.go
+  - id: canvas.read
+    profile: core
+    scenario: canvas.create.read, canvas.history.retention-and-forced-preimage
+    method: GET
+    path: /api/canvas-projects/{id}
+    owner: canvas-document
+    replay: read-only
+    evidence:
+      - backend/internal/handler/user_data.go
+      - web/src/services/api/user-data.ts
+  - id: canvas.update
+    profile: core
+    scenario: "canvas.update.cas, canvas.concurrent-cas, canvas.write.invalid-input, canvas.history.retention-and-forced-preimage"
+    method: PUT
+    path: /api/canvas-projects/{id}
+    owner: canvas-document
+    replay: compare-and-swap-by-revision
+    evidence:
+      - backend/internal/handler/user_data.go
+      - backend/internal/canvas/canvas_revision_test.go
+  - id: canvas.history.list
+    profile: core
+    scenario: canvas.history.lifecycle, canvas.history.retention-and-forced-preimage
+    method: GET
+    path: /api/canvas-projects/{id}/history
+    owner: canvas-history
+    replay: read-only
+    evidence:
+      - backend/internal/handler/user_data.go
+      - backend/internal/canvas/canvas_history_test.go
+  - id: canvas.history.read
+    profile: core
+    scenario: canvas.history.lifecycle, canvas.history.retention-and-forced-preimage
+    method: GET
+    path: /api/canvas-projects/{id}/history/{snapshotId}
+    owner: canvas-history
+    replay: read-only
+    evidence:
+      - backend/internal/handler/user_data.go
+      - backend/internal/canvas/canvas_history_test.go
+  - id: canvas.history.restore
+    profile: core
+    scenario: canvas.history.lifecycle, canvas.history.retention-and-forced-preimage
+    method: POST
+    path: /api/canvas-projects/{id}/history/{snapshotId}/restore
+    owner: canvas-document-and-history
+    replay: current-revision-required
+    evidence:
+      - backend/internal/handler/user_data.go
+      - backend/internal/canvas/canvas_history_test.go
+  - id: canvas.delete
+    profile: core
+    scenario: canvas.delete.lifecycle, canvas.history.retention-and-forced-preimage
+    method: DELETE
+    path: /api/canvas-projects/{id}
+    owner: canvas-document-and-history
+    replay: delete-once
+    evidence:
+      - backend/internal/handler/user_data.go
+  - id: canvas.authz
+    profile: core
+    scenario: "canvas.authz.unauthenticated, canvas.authz.foreign-user, canvas.authz.logout"
+    method: GET
+    path: /api/canvas-projects/{id}
+    owner: user-scope
+    replay: read-only
+    evidence:
+      - backend/internal/handler/user_data.go
+      - backend/internal/canvas/canvas_revision_test.go
+  - id: canvas.authz.foreign-delete
+    profile: core
+    scenario: canvas.authz.foreign-delete
+    method: DELETE
+    path: /api/canvas-projects/{id}
+    owner: user-scope
+    replay: current-go-idempotent-no-op
+    compatibility: CURRENT-FACT-REVIEW-REQUIRED
+    evidence:
+      - backend/internal/handler/user_data.go
+      - backend/internal/canvas/user_data.go
+      - backend/internal/repository/repository_assets_canvases.go
+  - id: canvas.conditional-read
+    profile: core
+    scenario: canvas.conditional-read
+    method: GET
+    path: /api/canvas-projects/{id}
+    owner: canvas-document
+    replay: read-only
+    evidence:
+      - backend/internal/handler/user_data.go
+      - backend/internal/handler/user_data_page_test.go
+  - id: canvas.compression
+    profile: core
+    scenario: canvas.compression
+    method: GET
+    path: /api/canvas-projects/{id}
+    owner: canvas-document
+    replay: read-only
+    evidence:
+      - backend/internal/handler/user_data.go
+      - backend/internal/handler/user_data_page_test.go
+
+  - id: canvas.update.repair-missing-resources
+    profile: core
+    scenario: canvas.update.repair-missing-resources
+    implementation: partial-valid-preimage-only
+    method: PUT
+    path: /api/canvas-projects/{id}
+    owner: canvas-document-and-resource-reference
+    replay: explicit-user-repair-only
+    evidence:
+      - backend/internal/handler/user_data.go
+      - backend/internal/canvas/repair_resources.go
+      - web/src/services/api/user-data.ts
+
+  - id: canvas.share.read
+    profile: share-public
+    scenario: "canvas.share.lifecycle, canvas.share.authz, canvas.share.invalid-input-and-replay, canvas.share.concurrent-rotate-and-revoke, canvas.share.concurrent-first-create, canvas.share.expiry-and-recovery"
+    implementation: implemented-and-executed
+    method: GET
+    path: /api/canvas-projects/{id}/share
+    owner: canvas-share
+    replay: read-only
+    evidence:
+      - backend/internal/handler/canvas_share.go
+      - web/src/services/api/canvas-share.ts
+  - id: canvas.share.create
+    profile: share-public
+    scenario: "canvas.share.lifecycle, canvas.share.authz, canvas.share.invalid-input-and-replay, canvas.share.resource-allowlist-and-live-document, canvas.share.concurrent-rotate-and-revoke, canvas.share.concurrent-first-create, canvas.share.expiry-and-recovery"
+    compatibility: CURRENT-FACT-REVIEW-REQUIRED
+    implementation: implemented-and-executed
+    method: POST
+    path: /api/canvas-projects/{id}/share
+    owner: canvas-share
+    replay: rotate-or-reuse-explicitly
+    evidence:
+      - backend/internal/handler/canvas_share.go
+      - backend/internal/canvas/canvas_share.go
+      - web/src/services/api/canvas-share.ts
+  - id: canvas.share.revoke
+    profile: share-public
+    scenario: "canvas.share.lifecycle, canvas.share.authz, canvas.share.invalid-input-and-replay, canvas.share.concurrent-rotate-and-revoke, canvas.share.concurrent-first-create"
+    compatibility: CURRENT-FACT-REVIEW-REQUIRED
+    implementation: implemented-and-executed
+    method: DELETE
+    path: /api/canvas-projects/{id}/share
+    owner: canvas-share
+    replay: idempotency-to-be-frozen
+    evidence:
+      - backend/internal/handler/canvas_share.go
+      - web/src/services/api/canvas-share.ts
+  - id: canvas.share.public-read
+    profile: share-public
+    scenario: "canvas.share.lifecycle, canvas.share.invalid-token, canvas.share.invalid-input-and-replay, canvas.share.resource-allowlist-and-live-document, canvas.share.concurrent-rotate-and-revoke, canvas.share.concurrent-first-create, canvas.share.expiry-and-recovery"
+    implementation: implemented-and-executed
+    method: GET
+    path: /api/public/canvas-shares/{token}
+    owner: canvas-share
+    replay: read-only-no-store
+    evidence:
+      - backend/internal/handler/canvas_share.go
+      - backend/internal/canvas/canvas_share.go
+      - web/src/services/api/canvas-share.ts
+  - id: canvas.share.resource-read
+    profile: share-public
+    scenario: "canvas.share.lifecycle, canvas.share.resource-allowlist-and-live-document, canvas.share.resource-description-and-revocation, canvas.share.resource-object-storage-failure"
+    implementation: implemented-and-executed
+    method: GET
+    path: /api/public/canvas-shares/{token}/resources/{resourceId}/file
+    owner: canvas-share-and-resource-delivery
+    replay: range-read-only
+    evidence:
+      - backend/internal/handler/canvas_share.go
+      - backend/internal/handler/resource_delivery.go
+
+  - id: project.canvas.list
+    profile: project-integration
+    scenario: "project.canvas.lifecycle, project.canvas.foreign, project.canvas.validation, project.canvas.feature-gate, project.canvas.cross-project-and-reassociation, project.canvas.multi-unit-roles-and-replay, project.canvas.role-overflow-partial-state, project.canvas.concurrent-link-settlement, project.canvas.concurrent-cross-project-reassociation"
+    compatibility: CURRENT-FACT-REVIEW-REQUIRED
+    implementation: implemented-and-executed
+    method: GET
+    path: /api/projects/{id}/canvases
+    owner: project-canvas-link
+    replay: read-only
+    evidence:
+      - backend/internal/handler/project_unit_routes.go
+      - web/src/services/api/projects.ts
+  - id: project.canvas.link
+    profile: project-integration
+    scenario: "project.canvas.lifecycle, project.canvas.validation, project.canvas.feature-gate, project.canvas.cross-project-and-reassociation, project.canvas.multi-unit-roles-and-replay, project.canvas.role-overflow-partial-state, project.canvas.concurrent-link-settlement, project.canvas.concurrent-cross-project-reassociation"
+    implementation: implemented-and-executed
+    method: POST
+    path: /api/projects/{id}/canvas-links
+    owner: project-canvas-link
+    replay: duplicate-link-must-be-frozen
+    evidence:
+      - backend/internal/handler/project_unit_routes.go
+      - web/src/services/api/projects.ts
+  - id: project.canvas.unlink-unit
+    profile: project-integration
+    scenario: "project.canvas.lifecycle, project.canvas.validation, project.canvas.feature-gate, project.canvas.cross-project-and-reassociation, project.canvas.multi-unit-roles-and-replay, project.canvas.concurrent-link-settlement, project.canvas.concurrent-cross-project-reassociation"
+    implementation: implemented-and-executed
+    method: DELETE
+    path: /api/projects/{id}/canvas-links/{canvasId}/units/{unitId}
+    owner: project-canvas-link
+    replay: idempotency-to-be-frozen
+    evidence:
+      - backend/internal/handler/project_unit_routes.go
+      - web/src/services/api/projects.ts
+  - id: project.canvas.unlink
+    profile: project-integration
+    scenario: "project.canvas.lifecycle, project.canvas.validation, project.canvas.feature-gate, project.canvas.cross-project-and-reassociation, project.canvas.multi-unit-roles-and-replay, project.canvas.role-overflow-partial-state, project.canvas.concurrent-link-settlement, project.canvas.concurrent-cross-project-reassociation"
+    implementation: implemented-and-executed
+    method: DELETE
+    path: /api/projects/{id}/canvases/{canvasId}
+    owner: project-canvas-link
+    replay: idempotency-to-be-frozen
+    evidence:
+      - backend/internal/handler/project_unit_routes.go
+      - web/src/services/api/projects.ts
+
+  - id: canvas.resource.access
+    profile: resource-integrity
+    scenario: canvas.resource.metadata-and-access, canvas.resource.delivery.real-expiry-and-conditional-cache
+    implementation: implemented-and-executed
+    method: POST
+    path: /api/resources/access
+    owner: resource-access
+    replay: read-only-batch
+    evidence:
+      - backend/internal/handler/user_data.go
+      - web/src/services/api/resources.ts
+  - id: canvas.resource.list
+    profile: resource-integrity
+    scenario: "canvas.resource.metadata-and-access, canvas.resource.unauthenticated, canvas.resource.limits.single-file, canvas.resource.limits.daily-replay-and-concurrency, canvas.resource.limits.rate-and-scope, canvas.resource.limits.stored-reservations, canvas.resource.limits.session-slots, canvas.resource.delivery.real-expiry-and-conditional-cache, canvas.resource.limits.concurrent-slot-admission, canvas.resource.upload.concurrent-chunks-and-completion, canvas.resource.import.slow-timeout, canvas.resource.upload.chunk-versus-completion, canvas.resource.upload.invalid-overwrite-recovery, canvas.resource.upload.interrupted-chunk-recovery"
+    implementation: implemented-and-executed
+    method: GET
+    path: /api/resources
+    owner: resource-metadata
+    replay: read-only
+    evidence:
+      - backend/internal/handler/user_data.go
+      - web/src/services/api/resources.ts
+  - id: canvas.resource.usage
+    profile: resource-integrity
+    scenario: "canvas.resource.metadata-and-access, canvas.resource.limits.single-file, canvas.resource.limits.daily-replay-and-concurrency, canvas.resource.limits.rate-and-scope, canvas.resource.limits.stored-reservations, canvas.resource.limits.session-slots, canvas.resource.delivery.real-expiry-and-conditional-cache, canvas.resource.limits.concurrent-slot-admission, canvas.resource.upload.concurrent-chunks-and-completion, canvas.resource.import.slow-timeout, canvas.resource.upload.chunk-versus-completion, canvas.resource.upload.invalid-overwrite-recovery, canvas.resource.upload.interrupted-chunk-recovery"
+    implementation: implemented-and-executed
+    method: GET
+    path: /api/resources/storage-usage
+    owner: resource-usage
+    replay: read-only
+    evidence:
+      - backend/internal/handler/user_data.go
+      - web/src/services/api/resources.ts
+  - id: canvas.resource.create
+    profile: resource-integrity
+    scenario: "canvas.resource.metadata-and-access, canvas.resource.limits.single-file, canvas.resource.limits.daily-replay-and-concurrency, canvas.resource.limits.rate-and-scope, canvas.resource.limits.stored-reservations, canvas.resource.delivery.real-expiry-and-conditional-cache, canvas.resource.object-storage-http-origin"
+    implementation: implemented-and-executed
+    method: POST
+    path: /api/resources
+    owner: resource-metadata-and-object
+    replay: idempotency-to-be-frozen
+    evidence:
+      - backend/internal/handler/user_data.go
+      - web/src/services/api/resources.ts
+  - id: canvas.resource.import
+    profile: resource-integrity
+    scenario: "canvas.resource.import.invalid-input, canvas.resource.import.success, canvas.resource.import.replay, canvas.resource.import.failure-and-ssrf, canvas.resource.limits.single-file, canvas.resource.limits.rate-and-scope, canvas.resource.import.slow-timeout"
+    implementation: implemented-and-executed
+    method: POST
+    path: /api/resources/import
+    owner: resource-metadata-and-object
+    replay: explicit-idempotency-required
+    evidence:
+      - backend/internal/handler/user_data.go
+      - web/src/services/api/resources.ts
+  - id: canvas.resource.read
+    profile: resource-integrity
+    scenario: "canvas.resource.metadata-and-access, canvas.resource.foreign-access, canvas.resource.delivery.real-expiry-and-conditional-cache, canvas.resource.upload.chunk-versus-completion, canvas.resource.upload.invalid-overwrite-recovery, canvas.resource.upload.interrupted-chunk-recovery, canvas.resource.object-storage-http-origin"
+    implementation: implemented-and-executed
+    method: GET
+    path: /api/resources/{id}
+    owner: resource-metadata
+    replay: read-only
+    evidence:
+      - backend/internal/handler/user_data.go
+      - web/src/services/api/resources.ts
+  - id: canvas.resource.file
+    profile: resource-integrity
+    scenario: "canvas.resource.metadata-and-access, canvas.resource.limits.single-file, canvas.resource.limits.daily-replay-and-concurrency, canvas.resource.limits.rate-and-scope, canvas.resource.limits.session-slots, canvas.resource.limits.concurrent-slot-admission, canvas.resource.upload.concurrent-chunks-and-completion, canvas.resource.import.slow-timeout, canvas.resource.file.access-description, canvas.resource.upload.chunk-versus-completion, canvas.resource.upload.invalid-overwrite-recovery, canvas.resource.upload.interrupted-chunk-recovery, canvas.resource.object-storage-http-origin"
+    implementation: implemented-and-executed
+    method: GET
+    path: /api/resources/{id}/file
+    owner: resource-delivery
+    replay: range-read-only
+    evidence:
+      - backend/internal/handler/user_data.go
+      - backend/internal/handler/resource_delivery.go
+      - web/src/services/api/resources.ts
+  - id: canvas.resource.upload.create
+    profile: resource-integrity
+    scenario: "canvas.resource.chunked-upload, canvas.resource.chunk-validation, canvas.resource.multichunk-replay, canvas.resource.limits.single-file, canvas.resource.limits.daily-replay-and-concurrency, canvas.resource.limits.rate-and-scope, canvas.resource.limits.stored-reservations, canvas.resource.limits.session-slots, canvas.resource.limits.concurrent-slot-admission, canvas.resource.upload.concurrent-chunks-and-completion, canvas.resource.upload.chunk-versus-completion, canvas.resource.upload.invalid-overwrite-recovery, canvas.resource.upload.interrupted-chunk-recovery"
+    implementation: implemented-and-executed
+    method: POST
+    path: /api/resources/uploads
+    owner: resource-upload
+    replay: upload-id-scoped
+    evidence:
+      - backend/internal/handler/resource_upload_session.go
+      - web/src/services/api/resources.ts
+  - id: canvas.resource.upload.chunk
+    profile: resource-integrity
+    scenario: "canvas.resource.chunked-upload, canvas.resource.chunk-validation, canvas.resource.multichunk-replay, canvas.resource.limits.rate-and-scope, canvas.resource.limits.session-slots, canvas.resource.limits.concurrent-slot-admission, canvas.resource.upload.concurrent-chunks-and-completion, canvas.resource.upload.chunk-versus-completion, canvas.resource.upload.invalid-overwrite-recovery, canvas.resource.upload.interrupted-chunk-recovery"
+    implementation: implemented-and-executed
+    method: PUT
+    path: /api/resources/uploads/{id}/chunks/{index}
+    owner: resource-upload
+    replay: chunk-index-idempotency-to-be-frozen
+    evidence:
+      - backend/internal/handler/resource_upload_session.go
+      - web/src/services/api/resources.ts
+  - id: canvas.resource.upload.complete
+    profile: resource-integrity
+    scenario: "canvas.resource.chunked-upload, canvas.resource.chunk-validation, canvas.resource.multichunk-replay, canvas.resource.limits.rate-and-scope, canvas.resource.limits.stored-reservations, canvas.resource.limits.session-slots, canvas.resource.limits.concurrent-slot-admission, canvas.resource.upload.concurrent-chunks-and-completion, canvas.resource.upload.chunk-versus-completion, canvas.resource.upload.invalid-overwrite-recovery, canvas.resource.upload.interrupted-chunk-recovery"
+    implementation: implemented-and-executed
+    method: POST
+    path: /api/resources/uploads/{id}/complete
+    owner: resource-upload-and-object
+    replay: complete-once
+    evidence:
+      - backend/internal/handler/resource_upload_session.go
+      - web/src/services/api/resources.ts
+  - id: canvas.resource.reference-validation
+    profile: resource-integrity
+    scenario: canvas.resource.reference-validation
+    implementation: implemented-and-executed
+    method: PUT
+    path: /api/canvas-projects/{id}
+    owner: canvas-document-and-resource-reference
+    replay: compare-and-swap-by-revision
+    compatibility: CURRENT-FACT-REVIEW-REQUIRED
+    evidence:
+      - backend/internal/handler/user_data.go
+      - backend/internal/canvas/canvas_asset_guard.go
+      - backend/internal/canvas/canvas_history_test.go
+
+  - id: canvas.import.libtv
+    profile: import
+    scenario: "canvas.import.invalid-input, canvas.import.scope-and-feature-gate, canvas.import.success-and-replay, canvas.import.media-topology, canvas.import.resource-save-and-isolation, canvas.import.upstream-failures, canvas.import.upstream-timeout"
+    implementation: partial-controlled-upstream
+    method: POST
+    path: /api/canvas-projects/{id}/import/libtv
+    owner: canvas-import
+    replay: pure-conversion-new-batch-without-automatic-persistence; approval-pending
+    evidence:
+      - backend/internal/handler/libtv.go
+      - web/src/services/api/libtv.ts
+  - id: canvas.import.tapnow
+    profile: import
+    scenario: "canvas.import.invalid-input, canvas.import.scope-and-feature-gate, canvas.import.success-and-replay, canvas.import.media-topology, canvas.import.conversion-limits, canvas.import.resource-save-and-isolation, canvas.import.upstream-failures, canvas.import.upstream-timeout"
+    implementation: partial-controlled-upstream
+    method: POST
+    path: /api/canvas-projects/{id}/import/tapnow
+    owner: canvas-import
+    replay: pure-conversion-new-batch-without-automatic-persistence; approval-pending
+    evidence:
+      - backend/internal/handler/tapnow.go
+      - web/src/services/api/tapnow.ts
+
+  - id: canvas.legacy-asset.list
+    profile: legacy-assets
+    scenario: "canvas.legacy-asset.read-update-batch, canvas.legacy-asset.unauthenticated, canvas.legacy-asset.foreign-write-matrix, canvas.legacy-asset.mixed-owner-rollback"
+    implementation: implemented-and-executed
+    method: GET
+    path: /api/assets
+    owner: legacy-asset-library
+    replay: read-only
+    evidence:
+      - backend/internal/handler/user_data.go
+      - web/src/services/api/user-data.ts
+  - id: canvas.legacy-asset.batch-read
+    profile: legacy-assets
+    scenario: "canvas.legacy-asset.read-update-batch"
+    implementation: implemented-and-executed
+    method: POST
+    path: /api/assets/batch
+    owner: legacy-asset-library
+    replay: read-only-batch
+    evidence:
+      - backend/internal/handler/user_data.go
+      - web/src/services/api/user-data.ts
+  - id: canvas.legacy-asset.batch-delete
+    profile: legacy-assets
+    scenario: "canvas.legacy-asset.delete, canvas.legacy-asset.foreign-write-matrix, canvas.legacy-asset.mixed-owner-rollback"
+    implementation: implemented-and-executed
+    method: POST
+    path: /api/assets/batch-delete
+    owner: legacy-asset-library
+    replay: explicit-current-go-purge-with-dangling-reference
+    compatibility: CURRENT-FACT-REVIEW-REQUIRED
+    evidence:
+      - backend/internal/handler/user_data.go
+      - backend/internal/app/resource_delete.go
+  - id: canvas.legacy-asset.folder-list
+    profile: legacy-assets
+    scenario: "canvas.legacy-asset.folder-lifecycle, canvas.legacy-asset.foreign-write-matrix, canvas.legacy-asset.mixed-owner-rollback"
+    implementation: implemented-and-executed
+    method: GET
+    path: /api/asset-folders
+    owner: legacy-asset-library
+    replay: read-only
+    evidence:
+      - backend/internal/handler/user_data.go
+  - id: canvas.legacy-asset.folder-create
+    profile: legacy-assets
+    scenario: "canvas.legacy-asset.folder-lifecycle, canvas.legacy-asset.foreign-write-matrix, canvas.legacy-asset.mixed-owner-rollback"
+    implementation: implemented-and-executed
+    method: POST
+    path: /api/asset-folders
+    owner: legacy-asset-library
+    replay: idempotency-to-be-frozen
+    evidence:
+      - backend/internal/handler/user_data.go
+  - id: canvas.legacy-asset.folder-update
+    profile: legacy-assets
+    scenario: "canvas.legacy-asset.folder-lifecycle, canvas.legacy-asset.foreign-write-matrix"
+    implementation: implemented-and-executed
+    method: PATCH
+    path: /api/asset-folders/{id}
+    owner: legacy-asset-library
+    replay: update-once
+    evidence:
+      - backend/internal/handler/user_data.go
+  - id: canvas.legacy-asset.folder-delete
+    profile: legacy-assets
+    scenario: "canvas.legacy-asset.folder-lifecycle, canvas.legacy-asset.foreign-write-matrix"
+    implementation: implemented-and-executed
+    method: DELETE
+    path: /api/asset-folders/{id}
+    owner: legacy-asset-library
+    replay: delete-once
+    evidence:
+      - backend/internal/handler/user_data.go
+  - id: canvas.legacy-asset.folder-move
+    profile: legacy-assets
+    scenario: "canvas.legacy-asset.folder-lifecycle, canvas.legacy-asset.foreign-write-matrix, canvas.legacy-asset.mixed-owner-rollback"
+    implementation: implemented-and-executed
+    method: PATCH
+    path: /api/assets/folder
+    owner: legacy-asset-library
+    replay: idempotent-set
+    evidence:
+      - backend/internal/handler/user_data.go
+  - id: canvas.legacy-asset.read
+    profile: legacy-assets
+    scenario: "canvas.legacy-asset.read-update-batch, canvas.legacy-asset.foreign-write-matrix, canvas.legacy-asset.mixed-owner-rollback"
+    implementation: implemented-and-executed
+    method: GET
+    path: /api/assets/{id}
+    owner: legacy-asset-library
+    replay: read-only
+    evidence:
+      - backend/internal/handler/user_data.go
+  - id: canvas.legacy-asset.update
+    profile: legacy-assets
+    scenario: "canvas.legacy-asset.read-update-batch, canvas.legacy-asset.foreign-write-matrix"
+    implementation: implemented-and-executed
+    method: PUT
+    path: /api/assets/{id}
+    owner: legacy-asset-library
+    replay: document-upsert
+    evidence:
+      - backend/internal/handler/user_data.go
+      - backend/internal/canvas/user_asset_document.go
+  - id: canvas.legacy-asset.delete
+    profile: legacy-assets
+    scenario: "canvas.legacy-asset.delete, canvas.legacy-asset.foreign-write-matrix"
+    implementation: implemented-and-executed
+    method: DELETE
+    path: /api/assets/{id}
+    owner: legacy-asset-library
+    replay: explicit-current-go-purge-with-dangling-reference
+    compatibility: CURRENT-FACT-REVIEW-REQUIRED
+    evidence:
+      - backend/internal/handler/user_data.go
+      - backend/internal/app/resource_delete.go
+  - id: canvas.legacy-user-data.snapshot
+    profile: legacy-assets
+    scenario: canvas.legacy-user-data.snapshot
+    implementation: implemented-and-executed
+    method: GET
+    path: /api/user-data/snapshot
+    owner: legacy-user-data
+    replay: read-only-snapshot
+    evidence:
+      - backend/internal/handler/user_data.go
+      - web/src/services/api/user-data.ts
+  - id: canvas.public-resource.file
+    profile: public-resource
+    scenario: canvas.public-resource.delivery, canvas.public-resource.range, canvas.public-resource.invalid-signature, canvas.public-resource.missing-and-expired-signature, canvas.public-resource.resource-binding, canvas.public-resource.access-description, canvas.public-resource.remote-origin-http-failure
+    implementation: implemented-and-executed-local-http-fixture
+    method: GET
+    path: /api/public/resources/{id}/file
+    owner: public-resource-delivery
+    replay: signed-range-read
+    evidence:
+      - backend/internal/handler/user_data.go
+      - backend/internal/handler/resource_delivery.go
+  - id: canvas.public-resource.file-named
+    profile: public-resource
+    scenario: canvas.public-resource.named-file, canvas.public-resource.access-description
+    implementation: implemented-and-executed-local-http-fixture
+    method: GET
+    path: /api/public/resources/{id}/file/{filename}
+    owner: public-resource-delivery
+    replay: signed-range-read
+    evidence:
+      - backend/internal/handler/user_data.go
+      - backend/internal/handler/resource_delivery.go
+
+  - id: project.list
+    profile: project-workbench-core
+    scenario: project.workbench.lifecycle, project.workbench.authz, project.workbench.feature-gate, project.workbench.duplicate-creation-and-replay
+    implementation: implemented-and-executed
+    method: GET
+    path: /api/projects
+    owner: project-workbench
+    replay: read-only
+    evidence: [backend/internal/handler/project_core_routes.go]
+  - id: project.create
+    profile: project-workbench-core
+    scenario: project.workbench.lifecycle, project.workbench.authz, project.workbench.feature-gate, project.workbench.duplicate-creation-and-replay, project.workbench.bulk-import-boundaries
+    implementation: implemented-and-executed
+    method: POST
+    path: /api/projects
+    owner: project-workbench
+    replay: idempotency-to-be-frozen
+    evidence: [backend/internal/handler/project_core_routes.go]
+  - id: project.read
+    profile: project-workbench-core
+    scenario: project.workbench.lifecycle, project.workbench.authz, project.workbench.feature-gate, project.workbench.deletion-cascade
+    implementation: implemented-and-executed
+    method: GET
+    path: /api/projects/{id}
+    owner: project-workbench
+    replay: read-only
+    evidence: [backend/internal/handler/project_core_routes.go]
+  - id: project.core
+    profile: project-workbench-core
+    scenario: project.workbench.lifecycle, project.workbench.authz, project.workbench.feature-gate, project.workbench.invalid-mutations, project.workbench.duplicate-creation-and-replay, project.workbench.cross-project-units, project.workbench.concurrent-reorder, project.workbench.deletion-cascade, project.workbench.bulk-import-boundaries
+    implementation: implemented-and-executed
+    method: GET
+    path: /api/projects/{id}/core
+    owner: project-workbench
+    replay: read-only
+    evidence: [backend/internal/handler/project_core_routes.go]
+  - id: project.overview
+    profile: project-workbench-core
+    scenario: project.workbench.lifecycle, project.workbench.authz, project.workbench.feature-gate
+    implementation: implemented-and-executed
+    method: GET
+    path: /api/projects/{id}/overview
+    owner: project-workbench
+    replay: read-only
+    evidence: [backend/internal/handler/project_core_routes.go]
+  - id: project.update
+    profile: project-workbench-core
+    scenario: project.workbench.lifecycle, project.workbench.authz, project.workbench.feature-gate, project.workbench.invalid-mutations
+    implementation: implemented-and-executed
+    method: PATCH
+    path: /api/projects/{id}
+    owner: project-workbench
+    replay: revision-or-last-write-to-be-frozen
+    evidence: [backend/internal/handler/project_core_routes.go]
+  - id: project.delete
+    profile: project-workbench-core
+    scenario: project.workbench.delete, project.workbench.authz, project.workbench.feature-gate, project.workbench.deletion-cascade
+    implementation: implemented-and-executed
+    method: DELETE
+    path: /api/projects/{id}
+    owner: project-workbench
+    replay: delete-with-canvas-retention-rules
+    evidence: [backend/internal/handler/project_core_routes.go]
+  - id: project.unit.create
+    profile: project-workbench-core
+    scenario: project.workbench.lifecycle, project.workbench.authz, project.workbench.feature-gate, project.workbench.duplicate-creation-and-replay, project.workbench.deletion-cascade, project.workbench.bulk-import-boundaries, project.workbench.reorder-versus-create
+    implementation: implemented-and-executed
+    method: POST
+    path: /api/projects/{id}/units
+    owner: project-unit
+    replay: idempotency-to-be-frozen
+    evidence: [backend/internal/handler/project_unit_routes.go]
+  - id: project.unit.list
+    profile: project-workbench-core
+    scenario: project.workbench.lifecycle, project.workbench.authz, project.workbench.feature-gate, project.workbench.invalid-mutations, project.workbench.duplicate-creation-and-replay, project.workbench.cross-project-units, project.workbench.concurrent-reorder, project.workbench.bulk-import-boundaries
+    implementation: implemented-and-executed
+    method: GET
+    path: /api/projects/{id}/units
+    owner: project-unit
+    replay: read-only
+    evidence: [backend/internal/handler/project_unit_routes.go]
+  - id: project.unit.read
+    profile: project-workbench-core
+    scenario: project.workbench.lifecycle, project.workbench.authz, project.workbench.feature-gate, project.workbench.duplicate-creation-and-replay, project.workbench.cross-project-units, project.workbench.deletion-cascade, project.workbench.bulk-import-boundaries
+    implementation: implemented-and-executed
+    method: GET
+    path: /api/projects/{id}/units/{unitId}
+    owner: project-unit
+    replay: read-only
+    evidence: [backend/internal/handler/project_unit_routes.go]
+  - id: project.unit.workspace
+    profile: project-workbench-core
+    scenario: project.workbench.lifecycle, project.workbench.authz, project.workbench.feature-gate, project.workbench.cross-project-units
+    implementation: implemented-and-executed
+    method: GET
+    path: /api/projects/{id}/units/{unitId}/workspace
+    owner: project-workbench
+    replay: read-only-aggregate
+    evidence: [backend/internal/handler/project_unit_routes.go]
+  - id: project.unit.import
+    profile: project-workbench-core
+    scenario: project.workbench.lifecycle, project.workbench.authz, project.workbench.feature-gate, project.workbench.invalid-mutations, project.workbench.duplicate-creation-and-replay, project.workbench.cross-project-units, project.workbench.bulk-import-boundaries, project.workbench.import-body-budget-and-framing, project.workbench.reorder-versus-import
+    implementation: implemented-and-executed
+    method: POST
+    path: /api/projects/{id}/units/import
+    owner: project-unit
+    replay: append-fresh-unit-identities-observed-under-D-12; no safe automatic retry
+    evidence: [backend/internal/handler/project_unit_routes.go]
+  - id: project.unit.reorder
+    profile: project-workbench-core
+    scenario: project.workbench.lifecycle, project.workbench.authz, project.workbench.feature-gate, project.workbench.invalid-mutations, project.workbench.cross-project-units, project.workbench.concurrent-reorder, project.workbench.concurrent-opposite-order, project.workbench.reorder-versus-create, project.workbench.reorder-versus-delete, project.workbench.reorder-versus-import
+    implementation: implemented-and-executed
+    method: PATCH
+    path: /api/projects/{id}/units/reorder
+    owner: project-unit
+    replay: idempotent-set
+    evidence: [backend/internal/handler/project_unit_routes.go]
+  - id: project.unit.update
+    profile: project-workbench-core
+    scenario: project.workbench.lifecycle, project.workbench.authz, project.workbench.feature-gate, project.workbench.cross-project-units
+    implementation: implemented-and-executed
+    method: PATCH
+    path: /api/projects/{id}/units/{unitId}
+    owner: project-unit
+    replay: update-once
+    evidence: [backend/internal/handler/project_unit_routes.go]
+  - id: project.unit.delete
+    profile: project-workbench-core
+    scenario: project.workbench.lifecycle, project.workbench.authz, project.workbench.feature-gate, project.workbench.cross-project-units, project.workbench.deletion-cascade, project.workbench.reorder-versus-delete
+    implementation: implemented-and-executed
+    method: DELETE
+    path: /api/projects/{id}/units/{unitId}
+    owner: project-unit
+    replay: delete-once
+    evidence: [backend/internal/handler/project_unit_routes.go]
+  - id: project.asset.list
+    profile: project-workbench
+    scenario: deferred.project-assets
+    implementation: catalog-only
+    method: GET
+    path: /api/projects/{id}/assets
+    owner: project-asset
+    replay: read-only-filtered
+    evidence: [backend/internal/handler/project_asset_routes.go]
+  - id: project.asset.folder-list
+    profile: project-workbench
+    scenario: deferred.project-assets
+    implementation: catalog-only
+    method: GET
+    path: /api/projects/{id}/asset-folders
+    owner: project-asset
+    replay: read-only
+    evidence: [backend/internal/handler/project_asset_routes.go]
+  - id: project.asset.folder-create
+    profile: project-workbench
+    scenario: deferred.project-assets
+    implementation: catalog-only
+    method: POST
+    path: /api/projects/{id}/asset-folders
+    owner: project-asset
+    replay: idempotency-to-be-frozen
+    evidence: [backend/internal/handler/project_asset_routes.go]
+  - id: project.asset.folder-update
+    profile: project-workbench
+    scenario: deferred.project-assets
+    implementation: catalog-only
+    method: PATCH
+    path: /api/projects/{id}/asset-folders/{folderId}
+    owner: project-asset
+    replay: update-once
+    evidence: [backend/internal/handler/project_asset_routes.go]
+  - id: project.asset.folder-delete
+    profile: project-workbench
+    scenario: deferred.project-assets
+    implementation: catalog-only
+    method: DELETE
+    path: /api/projects/{id}/asset-folders/{folderId}
+    owner: project-asset
+    replay: delete-with-reference-rules
+    evidence: [backend/internal/handler/project_asset_routes.go]
+  - id: project.asset.link
+    profile: project-workbench
+    scenario: deferred.project-assets
+    implementation: catalog-only
+    method: POST
+    path: /api/projects/{id}/assets
+    owner: project-asset
+    replay: idempotent-link
+    evidence: [backend/internal/handler/project_asset_routes.go]
+  - id: project.asset.unlink
+    profile: project-workbench
+    scenario: deferred.project-assets
+    implementation: catalog-only
+    method: DELETE
+    path: /api/projects/{id}/assets/{assetId}
+    owner: project-asset
+    replay: unlink-with-canvas-reference-rules
+    evidence: [backend/internal/handler/project_asset_routes.go]
+  - id: project.asset.update
+    profile: project-workbench
+    scenario: deferred.project-assets
+    implementation: catalog-only
+    method: PATCH
+    path: /api/projects/{id}/assets/{assetId}
+    owner: project-asset
+    replay: update-with-reference-guard
+    evidence: [backend/internal/handler/project_asset_routes.go]
+  - id: project.asset.version-create
+    profile: project-workbench
+    scenario: deferred.project-assets
+    implementation: catalog-only
+    method: POST
+    path: /api/projects/{id}/assets/{assetId}/versions
+    owner: project-asset
+    replay: append-version-once
+    evidence: [backend/internal/handler/project_asset_routes.go]
+  - id: project.shot.create
+    profile: project-workbench
+    scenario: deferred.project-workbench
+    implementation: catalog-only
+    method: POST
+    path: /api/projects/{id}/shots
+    owner: project-shot
+    replay: create-once
+    evidence: [backend/internal/handler/project_workflow_routes.go]
+  - id: project.shot.replace
+    profile: project-workbench
+    scenario: deferred.project-workbench
+    implementation: catalog-only
+    method: PUT
+    path: /api/projects/{id}/units/{unitId}/shots
+    owner: project-shot
+    replay: replace-set
+    evidence: [backend/internal/handler/project_workflow_routes.go]
+  - id: project.shot.revision-create
+    profile: project-workbench
+    scenario: deferred.project-workbench
+    implementation: catalog-only
+    method: POST
+    path: /api/projects/{id}/shots/{shotId}/revisions
+    owner: project-shot
+    replay: append-revision-once
+    evidence: [backend/internal/handler/project_workflow_routes.go]
+  - id: project.shot.delete
+    profile: project-workbench
+    scenario: deferred.project-workbench
+    implementation: catalog-only
+    method: DELETE
+    path: /api/projects/{id}/shots/{shotId}
+    owner: project-shot
+    replay: delete-once
+    evidence: [backend/internal/handler/project_workflow_routes.go]
+  - id: project.shot.asset-link
+    profile: project-workbench
+    scenario: deferred.project-workbench
+    implementation: catalog-only
+    method: POST
+    path: /api/projects/{id}/shots/{shotId}/assets
+    owner: project-shot
+    replay: idempotent-link
+    evidence: [backend/internal/handler/project_workflow_routes.go]
+  - id: project.shot.asset-unlink
+    profile: project-workbench
+    scenario: deferred.project-workbench
+    implementation: catalog-only
+    method: DELETE
+    path: /api/projects/{id}/shots/{shotId}/assets/{referenceId}
+    owner: project-shot
+    replay: unlink-once
+    evidence: [backend/internal/handler/project_workflow_routes.go]
+  - id: project.asset-candidate.create
+    profile: project-workbench
+    scenario: deferred.project-assets
+    implementation: catalog-only
+    method: POST
+    path: /api/projects/{id}/asset-candidates
+    owner: project-asset-candidate
+    replay: idempotency-to-be-frozen
+    evidence: [backend/internal/handler/project_workflow_routes.go]
+  - id: project.asset-candidate.list
+    profile: project-workbench
+    scenario: deferred.project-assets
+    implementation: catalog-only
+    method: GET
+    path: /api/projects/{id}/asset-candidates
+    owner: project-asset-candidate
+    replay: read-only-filtered
+    evidence: [backend/internal/handler/project_workflow_routes.go]
+  - id: project.asset-candidate.confirm
+    profile: project-workbench
+    scenario: deferred.project-assets
+    implementation: catalog-only
+    method: POST
+    path: /api/projects/{id}/asset-candidates/{candidateId}/confirm
+    owner: project-asset-candidate
+    replay: confirm-once
+    evidence: [backend/internal/handler/project_workflow_routes.go]
+  - id: project.workflow.create
+    profile: project-workbench
+    scenario: deferred.project-workflow
+    implementation: catalog-only
+    method: POST
+    path: /api/projects/{id}/workflows
+    owner: project-workflow
+    replay: idempotency-to-be-frozen
+    evidence: [backend/internal/handler/project_workflow_routes.go]
+  - id: project.workflow.step-update
+    profile: project-workbench
+    scenario: deferred.project-workflow
+    implementation: catalog-only
+    method: PATCH
+    path: /api/projects/{id}/workflow-steps/{stepId}
+    owner: project-workflow
+    replay: update-once
+    evidence: [backend/internal/handler/project_workflow_routes.go]
+  - id: project.workflow.step-output
+    profile: project-workbench
+    scenario: deferred.project-workflow
+    implementation: catalog-only
+    method: POST
+    path: /api/projects/{id}/workflow-steps/{stepId}/task-output
+    owner: project-workflow
+    replay: event-or-output-idempotency
+    evidence: [backend/internal/handler/project_workflow_routes.go]
+  - id: project.voice-profile.list
+    profile: project-workbench
+    scenario: deferred.project-workbench
+    implementation: catalog-only
+    method: GET
+    path: /api/voice-profiles
+    owner: project-voice
+    replay: read-only
+    evidence: [backend/internal/handler/project.go]
+
+  - id: character.list
+    profile: project-workbench
+    scenario: deferred.project-characters
+    implementation: catalog-only
+    method: GET
+    path: /api/characters
+    owner: character-library
+    replay: read-only
+    evidence: [backend/internal/handler/project_asset_routes.go]
+  - id: character.create
+    profile: project-workbench
+    scenario: deferred.project-characters
+    implementation: catalog-only
+    method: POST
+    path: /api/characters
+    owner: character-library
+    replay: idempotency-to-be-frozen
+    evidence: [backend/internal/handler/project_asset_routes.go]
+  - id: character.read
+    profile: project-workbench
+    scenario: deferred.project-characters
+    implementation: catalog-only
+    method: GET
+    path: /api/characters/{assetId}
+    owner: character-library
+    replay: read-only
+    evidence: [backend/internal/handler/project_asset_routes.go]
+  - id: character.update
+    profile: project-workbench
+    scenario: deferred.project-characters
+    implementation: catalog-only
+    method: PATCH
+    path: /api/characters/{assetId}
+    owner: character-library
+    replay: update-once
+    evidence: [backend/internal/handler/project_asset_routes.go]
+  - id: character.representations.update
+    profile: project-workbench
+    scenario: deferred.project-characters
+    implementation: catalog-only
+    method: PUT
+    path: /api/characters/{assetId}/representations
+    owner: character-library
+    replay: replace-representations
+    evidence: [backend/internal/handler/project_asset_routes.go]
+  - id: character.voice.update
+    profile: project-workbench
+    scenario: deferred.project-characters
+    implementation: catalog-only
+    method: PUT
+    path: /api/characters/{assetId}/voice
+    owner: character-library
+    replay: replace-voice-binding
+    evidence: [backend/internal/handler/project_asset_routes.go]
+  - id: character.voice.delete
+    profile: project-workbench
+    scenario: deferred.project-characters
+    implementation: catalog-only
+    method: DELETE
+    path: /api/characters/{assetId}/voice
+    owner: character-library
+    replay: delete-once
+    evidence: [backend/internal/handler/project_asset_routes.go]
+  - id: project.character.link
+    profile: project-workbench
+    scenario: deferred.project-characters
+    implementation: catalog-only
+    method: POST
+    path: /api/projects/{id}/characters
+    owner: project-character
+    replay: link-idempotency-to-be-frozen
+    evidence: [backend/internal/handler/project_asset_routes.go]
+  - id: project.character.read
+    profile: project-workbench
+    scenario: deferred.project-characters
+    implementation: catalog-only
+    method: GET
+    path: /api/projects/{id}/characters/{assetId}
+    owner: project-character
+    replay: read-only
+    evidence: [backend/internal/handler/project_asset_routes.go]
+  - id: project.character.update
+    profile: project-workbench
+    scenario: deferred.project-characters
+    implementation: catalog-only
+    method: PATCH
+    path: /api/projects/{id}/characters/{assetId}
+    owner: project-character
+    replay: update-once
+    evidence: [backend/internal/handler/project_asset_routes.go]
+  - id: project.character.representations.update
+    profile: project-workbench
+    scenario: deferred.project-characters
+    implementation: catalog-only
+    method: PUT
+    path: /api/projects/{id}/characters/{assetId}/representations
+    owner: project-character
+    replay: replace-representations
+    evidence: [backend/internal/handler/project_asset_routes.go]
+  - id: project.character.voice.update
+    profile: project-workbench
+    scenario: deferred.project-characters
+    implementation: catalog-only
+    method: PUT
+    path: /api/projects/{id}/characters/{assetId}/voice
+    owner: project-character
+    replay: replace-voice-binding
+    evidence: [backend/internal/handler/project_asset_routes.go]
+  - id: project.character.voice.delete
+    profile: project-workbench
+    scenario: deferred.project-characters
+    implementation: catalog-only
+    method: DELETE
+    path: /api/projects/{id}/characters/{assetId}/voice
+    owner: project-character
+    replay: delete-once
+    evidence: [backend/internal/handler/project_asset_routes.go]
+
+  - id: canvas.resource.ark-private-asset
+    profile: provider-resource
+    scenario: separate.provider-resource-suite
+    implementation: separate-suite
+    method: POST
+    path: /api/resources/{id}/ark-private-asset
+    owner: provider-private-asset-receipt
+    replay: provider-submission-policy-required
+    evidence: [backend/internal/handler/user_data.go]
+
+  - id: canvas.task.create
+    profile: generation-writeback
+    scenario: separate.canvas-task-suite
+    implementation: separate-suite
+    method: POST
+    path: /api/tasks
+    owner: task-runtime
+    replay: idempotency-key-and-effect-key
+    evidence: [backend/internal/handler/routes.go]
+  - id: canvas.task.list
+    profile: generation-boundary
+    scenario: generation.boundary.unauthenticated, generation.boundary.owner-read-only
+    implementation: implemented-and-executed-read-only-boundary
+    method: GET
+    path: /api/tasks
+    owner: task-runtime
+    replay: read-only-filtered
+    evidence: [backend/internal/handler/routes.go]
+  - id: canvas.task.read
+    profile: generation-boundary
+    scenario: generation.boundary.unauthenticated, generation.boundary.owner-read-only
+    implementation: implemented-and-executed-read-only-boundary
+    method: GET
+    path: /api/tasks/{id}
+    owner: task-runtime
+    replay: read-only
+    evidence: [backend/internal/handler/routes.go]
+  - id: canvas.task.text-delta-create
+    profile: generation-writeback
+    scenario: separate.canvas-task-suite
+    implementation: separate-suite
+    method: POST
+    path: /api/tasks/{id}/text-deltas
+    owner: text-task-events
+    replay: sequence-idempotency
+    evidence: [backend/internal/handler/routes.go]
+  - id: canvas.task.text-delta-list
+    profile: generation-writeback
+    scenario: separate.canvas-task-suite
+    implementation: separate-suite
+    method: GET
+    path: /api/tasks/{id}/text-deltas
+    owner: text-task-events
+    replay: cursor-after
+    evidence: [backend/internal/handler/routes.go]
+  - id: canvas.task.events
+    profile: generation-writeback
+    scenario: separate.canvas-task-suite
+    implementation: separate-suite
+    method: GET
+    path: /api/tasks/{id}/text-events
+    owner: text-task-events
+    replay: sse-cursor-after
+    evidence: [backend/internal/handler/routes.go]
+  - id: canvas.task.retry
+    profile: generation-writeback
+    scenario: separate.canvas-task-suite
+    implementation: separate-suite
+    method: POST
+    path: /api/tasks/{id}/retry
+    owner: task-runtime
+    replay: retry-transition
+    evidence: [backend/internal/handler/routes.go]
+  - id: canvas.task.recover-media
+    profile: generation-writeback
+    scenario: separate.canvas-task-suite
+    implementation: separate-suite
+    method: POST
+    path: /api/tasks/{id}/recover-media
+    owner: task-media-recovery
+    replay: recovery-idempotency
+    evidence: [backend/internal/handler/routes.go]
+  - id: canvas.task.query-provider
+    profile: generation-writeback
+    scenario: separate.canvas-task-suite
+    implementation: separate-suite
+    method: POST
+    path: /api/tasks/{id}/query-provider
+    owner: task-provider-query
+    replay: query-read-only-or-provider-idempotency
+    evidence: [backend/internal/handler/routes.go]
+  - id: canvas.task.cancel
+    profile: generation-writeback
+    scenario: separate.canvas-task-suite
+    implementation: separate-suite
+    method: POST
+    path: /api/tasks/{id}/cancel
+    owner: task-runtime
+    replay: cancel-idempotency
+    evidence: [backend/internal/handler/routes.go]
+  - id: canvas.task.text-replay-complete
+    profile: generation-writeback
+    scenario: separate.canvas-task-suite
+    implementation: separate-suite
+    method: POST
+    path: /api/tasks/{id}/text-replay-complete
+    owner: text-task-events
+    replay: completion-idempotency
+    evidence: [backend/internal/handler/routes.go]
+  - id: canvas.task.logs
+    profile: generation-boundary
+    scenario: generation.boundary.unauthenticated, generation.boundary.owner-read-only
+    implementation: implemented-and-executed-read-only-boundary
+    method: GET
+    path: /api/tasks/{id}/logs
+    owner: task-observability
+    replay: read-only
+    evidence: [backend/internal/handler/routes.go]
+  - id: canvas.creation-run.list
+    profile: generation-boundary
+    scenario: generation.boundary.unauthenticated, generation.boundary.owner-read-only
+    implementation: implemented-and-executed-read-only-boundary
+    method: GET
+    path: /api/creation-runs
+    owner: creation-run
+    replay: read-only
+    evidence: [backend/internal/handler/creation.go]
+  - id: canvas.creation-run.create
+    profile: generation-writeback
+    scenario: separate.canvas-creation-suite
+    implementation: separate-suite
+    method: POST
+    path: /api/creation-runs
+    owner: creation-run
+    replay: idempotency-to-be-frozen
+    evidence: [backend/internal/handler/creation.go]
+  - id: canvas.creation-run.read
+    profile: generation-boundary
+    scenario: generation.boundary.unauthenticated, generation.boundary.owner-read-only, generation.boundary.cross-user-creation-read
+    implementation: implemented-and-executed-read-only-boundary
+    method: GET
+    path: /api/creation-runs/{id}
+    owner: creation-run
+    replay: read-only
+    evidence: [backend/internal/handler/creation.go]
+  - id: canvas.creation-run.update
+    profile: generation-writeback
+    scenario: separate.canvas-creation-suite
+    implementation: separate-suite
+    method: PATCH
+    path: /api/creation-runs/{id}
+    owner: creation-run
+    replay: state-version-or-last-write-to-be-frozen
+    evidence: [backend/internal/handler/creation.go]
+  - id: canvas.creation-run.claim
+    profile: generation-writeback
+    scenario: separate.canvas-creation-suite
+    implementation: separate-suite
+    method: POST
+    path: /api/creation-runs/{id}/claim
+    owner: creation-run
+    replay: lease-idempotency
+    evidence: [backend/internal/handler/creation.go]
+  - id: canvas.creation-run.heartbeat
+    profile: generation-writeback
+    scenario: separate.canvas-creation-suite
+    implementation: separate-suite
+    method: POST
+    path: /api/creation-runs/{id}/heartbeat
+    owner: creation-run
+    replay: lease-renewal
+    evidence: [backend/internal/handler/creation.go]
+  - id: canvas.creation-run.release
+    profile: generation-writeback
+    scenario: separate.canvas-creation-suite
+    implementation: separate-suite
+    method: POST
+    path: /api/creation-runs/{id}/release
+    owner: creation-run
+    replay: lease-release
+    evidence: [backend/internal/handler/creation.go]
+  - id: canvas.creation-run.proposal-approve
+    profile: generation-writeback
+    scenario: separate.canvas-creation-suite
+    implementation: separate-suite
+    method: POST
+    path: /api/creation-runs/{id}/proposal-approve
+    owner: creation-run
+    replay: approval-idempotency
+    evidence: [backend/internal/handler/creation.go]
+  - id: canvas.creation-run.proposal-invalidate
+    profile: generation-writeback
+    scenario: separate.canvas-creation-suite
+    implementation: separate-suite
+    method: POST
+    path: /api/creation-runs/{id}/proposal-invalidate
+    owner: creation-run
+    replay: invalidation-idempotency
+    evidence: [backend/internal/handler/creation.go]
+  - id: canvas.creation-run.submission-prepare
+    profile: generation-writeback
+    scenario: separate.canvas-creation-suite
+    implementation: separate-suite
+    method: POST
+    path: /api/creation-runs/{id}/submissions/prepare
+    owner: creation-run
+    replay: quote-idempotency
+    evidence: [backend/internal/handler/creation.go]
+  - id: canvas.creation-run.submission-approve
+    profile: generation-writeback
+    scenario: separate.canvas-creation-suite
+    implementation: separate-suite
+    method: POST
+    path: /api/creation-runs/{id}/submissions/approve
+    owner: creation-run
+    replay: approval-idempotency
+    evidence: [backend/internal/handler/creation.go]
+  - id: canvas.creation-run.submission-refresh
+    profile: generation-writeback
+    scenario: separate.canvas-creation-suite
+    implementation: separate-suite
+    method: POST
+    path: /api/creation-runs/{id}/submissions/refresh
+    owner: creation-run
+    replay: quote-refresh
+    evidence: [backend/internal/handler/creation.go]
+  - id: canvas.creation-run.execute
+    profile: generation-writeback
+    scenario: separate.canvas-creation-suite
+    implementation: separate-suite
+    method: POST
+    path: /api/creation-runs/{id}/execute
+    owner: creation-run
+    replay: execution-effect-key
+    evidence: [backend/internal/handler/creation.go]
+  - id: canvas.creation-run.canvas-create
+    profile: generation-writeback
+    scenario: separate.canvas-creation-suite
+    implementation: separate-suite
+    method: POST
+    path: /api/creation-runs/{id}/canvas
+    owner: creation-canvas
+    replay: create-once
+    evidence: [backend/internal/handler/creation.go]
+  - id: canvas.creation-run.canvas-snapshot
+    profile: generation-writeback
+    scenario: separate.canvas-creation-suite
+    implementation: separate-suite
+    method: GET
+    path: /api/creation-runs/{id}/canvas-snapshot
+    owner: creation-canvas
+    replay: read-only
+    evidence: [backend/internal/handler/creation.go]
+  - id: canvas.creation-run.canvas-commit
+    profile: generation-writeback
+    scenario: separate.canvas-creation-suite
+    implementation: separate-suite
+    method: POST
+    path: /api/creation-runs/{id}/canvas-commit
+    owner: creation-canvas
+    replay: commit-effect-key
+    evidence: [backend/internal/handler/creation.go]
+
+  - id: canvas.agent.capabilities
+    profile: generation-boundary
+    scenario: generation.boundary.unauthenticated, generation.boundary.owner-read-only
+    implementation: implemented-and-executed-read-only-boundary
+    method: GET
+    path: /api/agent/capabilities
+    owner: agent-capability-registry
+    replay: read-only
+    evidence: [backend/internal/handler/agent.go]
+  - id: canvas.agent.run.create
+    profile: generation-writeback
+    scenario: separate.canvas-agent-suite
+    implementation: separate-suite
+    method: POST
+    path: /api/agent/runs
+    owner: agent-run
+    replay: request-id-and-message-id
+    evidence: [backend/internal/handler/agent.go]
+  - id: canvas.agent.run.message
+    profile: generation-writeback
+    scenario: separate.canvas-agent-suite
+    implementation: separate-suite
+    method: POST
+    path: /api/agent/runs/{id}/messages
+    owner: agent-run
+    replay: immutable-turn-id
+    evidence: [backend/internal/handler/agent.go]
+  - id: canvas.agent.run.interjection
+    profile: generation-writeback
+    scenario: separate.canvas-agent-suite
+    implementation: separate-suite
+    method: POST
+    path: /api/agent/runs/{id}/interjections
+    owner: agent-run
+    replay: pending-interjection-idempotency
+    evidence: [backend/internal/handler/agent.go]
+  - id: canvas.agent.run.read
+    profile: generation-boundary
+    scenario: generation.boundary.unauthenticated, generation.boundary.owner-read-only
+    implementation: implemented-and-executed-read-only-boundary
+    method: GET
+    path: /api/agent/runs/{id}
+    owner: agent-run
+    replay: read-only-with-event-page
+    evidence: [backend/internal/handler/agent.go]
+  - id: canvas.agent.run.cancel
+    profile: generation-writeback
+    scenario: separate.canvas-agent-suite
+    implementation: separate-suite
+    method: POST
+    path: /api/agent/runs/{id}/cancel
+    owner: agent-run
+    replay: cancel-idempotency
+    evidence: [backend/internal/handler/agent.go]
+  - id: canvas.agent.run.undo
+    profile: generation-writeback
+    scenario: separate.canvas-agent-suite
+    implementation: separate-suite
+    method: POST
+    path: /api/agent/runs/{id}/undo
+    owner: agent-canvas-undo
+    replay: snapshot-hash-and-step-id
+    evidence: [backend/internal/handler/agent.go]
+  - id: canvas.agent.run.approval
+    profile: generation-writeback
+    scenario: separate.canvas-agent-suite
+    implementation: separate-suite
+    method: POST
+    path: /api/agent/runs/{id}/approvals/{approvalId}/decision
+    owner: agent-approval
+    replay: call-hash-and-decision-idempotency
+    evidence: [backend/internal/handler/agent.go]
+  - id: canvas.agent.run.events
+    profile: generation-writeback
+    scenario: separate.canvas-agent-suite
+    implementation: separate-suite
+    method: GET
+    path: /api/agent/runs/{id}/events
+    owner: agent-events
+    replay: sse-seq-after
+    evidence: [backend/internal/handler/agent.go]
+  - id: canvas.agent.skills-usage
+    profile: generation-boundary
+    scenario: generation.boundary.unauthenticated, generation.boundary.owner-read-only
+    implementation: implemented-and-executed-read-only-boundary
+    method: GET
+    path: /api/agent/skills/usage
+    owner: agent-skill-journal
+    replay: read-only
+    evidence: [backend/internal/handler/agent.go]
+  - id: canvas.agent.profile.read
+    profile: generation-boundary
+    scenario: generation.boundary.unauthenticated, generation.boundary.owner-read-only
+    implementation: implemented-and-executed-read-only-boundary
+    method: GET
+    path: /api/agent/profile
+    owner: agent-profile
+    replay: read-only-scoped
+    evidence: [backend/internal/handler/agent.go]
+  - id: canvas.agent.profile.update
+    profile: agent-canvas
+    scenario: separate.canvas-agent-suite
+    implementation: separate-suite
+    method: PATCH
+    path: /api/agent/profile
+    owner: agent-profile
+    replay: scoped-update
+    evidence: [backend/internal/handler/agent.go]
+  - id: canvas.agent.memory.list
+    profile: agent-canvas
+    scenario: separate.canvas-agent-suite
+    implementation: separate-suite
+    method: GET
+    path: /api/agent/memories
+    owner: agent-memory
+    replay: read-only-user-scoped
+    evidence: [backend/internal/handler/agent_lesson.go]
+  - id: canvas.agent.memory.create
+    profile: agent-canvas
+    scenario: separate.canvas-agent-suite
+    implementation: separate-suite
+    method: POST
+    path: /api/agent/memories
+    owner: agent-memory
+    replay: create-once
+    evidence: [backend/internal/handler/agent_lesson.go]
+  - id: canvas.agent.memory.export
+    profile: agent-canvas
+    scenario: separate.canvas-agent-suite
+    implementation: separate-suite
+    method: GET
+    path: /api/agent/memories/export
+    owner: agent-memory
+    replay: snapshot-export
+    evidence: [backend/internal/handler/agent_lesson.go]
+  - id: canvas.agent.memory.import
+    profile: agent-canvas
+    scenario: separate.canvas-agent-suite
+    implementation: separate-suite
+    method: POST
+    path: /api/agent/memories/import
+    owner: agent-memory
+    replay: import-idempotency
+    evidence: [backend/internal/handler/agent_lesson.go]
+  - id: canvas.agent.memory.settings-read
+    profile: agent-canvas
+    scenario: separate.canvas-agent-suite
+    implementation: separate-suite
+    method: GET
+    path: /api/agent/memories/settings
+    owner: agent-memory
+    replay: read-only-user-scoped
+    evidence: [backend/internal/handler/agent_lesson.go]
+  - id: canvas.agent.memory.settings-update
+    profile: agent-canvas
+    scenario: separate.canvas-agent-suite
+    implementation: separate-suite
+    method: PATCH
+    path: /api/agent/memories/settings
+    owner: agent-memory
+    replay: scoped-update
+    evidence: [backend/internal/handler/agent_lesson.go]
+  - id: canvas.agent.memory.compact
+    profile: agent-canvas
+    scenario: separate.canvas-agent-suite
+    implementation: separate-suite
+    method: POST
+    path: /api/agent/memories/compact
+    owner: agent-memory
+    replay: task-idempotency
+    evidence: [backend/internal/handler/agent_lesson.go]
+  - id: canvas.agent.memory.update
+    profile: agent-canvas
+    scenario: separate.canvas-agent-suite
+    implementation: separate-suite
+    method: PATCH
+    path: /api/agent/memories/{id}
+    owner: agent-memory
+    replay: update-once
+    evidence: [backend/internal/handler/agent_lesson.go]
+  - id: canvas.agent.memory.decide
+    profile: agent-canvas
+    scenario: separate.canvas-agent-suite
+    implementation: separate-suite
+    method: POST
+    path: /api/agent/memories/{id}/decide
+    owner: agent-memory
+    replay: decision-idempotency
+    evidence: [backend/internal/handler/agent_lesson.go]
+  - id: canvas.agent.memory.delete
+    profile: agent-canvas
+    scenario: separate.canvas-agent-suite
+    implementation: separate-suite
+    method: DELETE
+    path: /api/agent/memories/{id}
+    owner: agent-memory
+    replay: delete-once
+    evidence: [backend/internal/handler/agent_lesson.go]

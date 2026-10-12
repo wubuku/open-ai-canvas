@@ -33,8 +33,8 @@
 - [预演台系统深度调研报告](previs-workbench-deep-research.md)：研究嵌入画布的 3D 预演工作台，覆盖场景 schema、动画语义、本地草稿与画布同步、Three.js 截帧录制、输出物化和 Agent 执行边界。
 - [当前数据模型综述与导航](data-model-overview-and-navigation.md)：汇总浏览器状态、后端持久化、JSON 文档与物理资源的模型边界，按领域导航到源码和专题，并记录 schema 版本差异。
 - [后端架构考古与 Spring Boot 移植评估](backend-architecture-review.md)：从当前 Go 源码与测试归纳后端架构得失，区分可迁移原则、项目特定选择和待验证范围。
-- [Go 后端迁移到 Java Spring Boot 指引](go-to-spring-boot-migration-guide.md)：面向保留现有 Web UI 的 Java 重建，覆盖模块结构、数据与 API 兼容、异步生成、视频等待超时、资源、Agent、分阶段切换和验收。
-- [画布 Java 迁移前置条件：HTTP 黑盒合同验证方案](canvas-java-http-contract-test-plan.md)：规定如何冻结画布端点/wire 合同、建立 Go 基线并用同一套独立 HTTP 状态流测试验收 Java 与混合路由切流。
+- [Go 后端迁移到 Java Spring Boot 指引](go-to-spring-boot-migration-guide.md)：面向保留现有 Web UI 的 Java 重建，覆盖模块结构、数据与 API 兼容、异步生成、资源、Agent、切换和验收；[运行边界与阅读入口](go-to-spring-boot-migration-guide.md#迁移验收运行边界与阅读入口)说明保留前端的条件与分层验收准备。
+- [画布 Java 迁移前置条件：HTTP 黑盒合同验证方案](canvas-java-http-contract-test-plan.md)：冻结画布端点/wire 合同、建立 Go 基线并验收 Java 与混合路由；[独立运行边界](canvas-java-http-contract-test-plan.md#http-与浏览器的独立运行边界)及[文档维护责任](canvas-java-http-contract-test-plan.md#文档落点与维护责任)说明 HTTP/浏览器执行器、前端依赖和后续变更应更新何处。
 - [自动化回归测试与核心功能验收现状调研](test-regression-and-ci-research.md)：盘点前后端测试、PR CI/CD 实际门禁、预演台 Chrome E2E 覆盖及缺口，并给出修改功能后的分层验证步骤。
 
 ## 草稿质量要求

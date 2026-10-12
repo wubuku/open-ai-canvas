@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://canvas-contract.invalid/schemas/generation.v1.schema.json",
+  "title": "Generation and Agent read-boundary payloads; DTO approval pending",
+  "$defs": {
+    "boundary-data": {}
+  }
+}
