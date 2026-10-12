@@ -377,7 +377,7 @@ profiles:
     implementation: implemented-and-executed
     target: 100% of 5 concrete routes
     remaining_paths:
-      - remote CDN delivery, remote TTL-boundary and conditional-cache behavior; concurrent first-time creation, rotation/revoke settlement and local Range are executable
+      - remote CDN delivery, remote TTL-boundary and conditional-cache behavior; concurrent first-time creation, rotation/revoke settlement and local Range are already executable, but do not prove remote delivery
     operations:
       - canvas.share.read
       - canvas.share.create
@@ -392,8 +392,8 @@ profiles:
     implementation: implemented-and-executed
     target: 100% of 4 concrete routes
     remaining_paths:
-      - controlled cross-project contention and persistence/revision failure injection; same-key/existing-link/different-unit and cross-project HTTP settlement, detach and explicit recovery are executable, not proof of controlled database interleaving
-      - arbitrary persistence/revision rollback and in-flight crash; selected PostgreSQL role-overflow and first-insertion-race partial states/recovery are executable, not proof that every failed request rolls back
+      - controlled database interleaving and persistence/revision failure injection; same-key/existing-link/different-unit and cross-project HTTP settlement, detach and explicit recovery are executable, but do not prove the interleaving or rollback policy
+      - arbitrary persistence/revision rollback and in-flight crash; selected PostgreSQL role-overflow and first-insertion-race partial states/recovery are executable, but do not prove that every failed request rolls back
     operations:
       - project.canvas.list
       - project.canvas.link
@@ -407,7 +407,7 @@ profiles:
     implementation: implemented-and-executed
     target: 100% of 15 project and unit routes plus owner/foreign/unauthenticated matrix
     remaining_paths:
-      - workflow-initialization failure rollback; sequential/concurrent same-user name conflicts and cross-user names are executable
+      - workflow-initialization failure rollback; sequential/concurrent same-user name conflicts and cross-user names are already executable
       - controlled contention/membership-invalidation and create/revision failure injection; same-leading/opposite-leading reorder and reorder-versus-create/delete/import scenarios do not prove a start barrier controls database interleaving
       - active-task rejection and populated workflow/shot/asset cascades via companion suites; unit/link detach and canvas/history/share/resource retention are executable
       - body-budget decoder framing approval; exact 32 MiB source import and over-budget rejection have an executable scenario, trailing-data policy requires a decision
