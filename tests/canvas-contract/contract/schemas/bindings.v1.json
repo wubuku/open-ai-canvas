@@ -68,6 +68,10 @@
     {"method": "GET", "path": "/api/agent/capabilities", "schema": "generation.v1.schema.json#/$defs/boundary-data"},
     {"method": "GET", "path": "/api/agent/runs/{id}", "schema": "generation.v1.schema.json#/$defs/boundary-data"},
     {"method": "GET", "path": "/api/agent/skills/usage", "schema": "generation.v1.schema.json#/$defs/boundary-data"},
-    {"method": "GET", "path": "/api/agent/profile", "schema": "generation.v1.schema.json#/$defs/boundary-data"}
+    {"method": "GET", "path": "/api/agent/profile", "schema": "generation.v1.schema.json#/$defs/boundary-data"},
+    {"method": "POST", "path": "/api/tasks", "schema": "generation.v1.schema.json#/$defs/task"},
+    {"method": "POST", "path": "/api/tasks/{id}/text-deltas", "schema": "generation.v1.schema.json#/$defs/text-delta"},
+    {"method": "GET", "path": "/api/tasks/{id}/text-deltas", "schema": "generation.v1.schema.json#/$defs/text-replay"},
+    {"method": "POST", "path": "/api/tasks/{id}/text-replay-complete", "schema": "generation.v1.schema.json#/$defs/task"}
   ]
 }

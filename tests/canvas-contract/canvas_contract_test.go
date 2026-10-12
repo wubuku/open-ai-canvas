@@ -42,6 +42,8 @@ func TestCanvasContract(t *testing.T) {
 		runRestartRecoveryContract(t, config)
 	case "generation-boundary":
 		runGenerationBoundaryContract(t, config)
+	case "generation-writeback":
+		runGenerationWritebackContract(t, config)
 	default:
 		t.Fatalf("profile %q has no executable runner", config.Profile)
 	}

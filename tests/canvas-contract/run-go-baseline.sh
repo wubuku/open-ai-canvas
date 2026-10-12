@@ -4,7 +4,7 @@ set -euo pipefail
 SUITE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SUITE_ROOT/../.." && pwd)"
 ROUNDS=1
-PROFILES="core,share-public,project-integration,project-workbench-core,resource-integrity,import,legacy-assets,public-resource,restart-recovery,generation-boundary"
+PROFILES="core,share-public,project-integration,project-workbench-core,resource-integrity,import,legacy-assets,public-resource,restart-recovery,generation-boundary,generation-writeback"
 BACKEND_PORT=18183
 BROWSER=false
 FRONTEND_PORT=18184
@@ -30,7 +30,7 @@ IFS=',' read -r -a SELECTED_PROFILES <<< "$PROFILES"
 SEEN_PROFILES=','
 for profile in "${SELECTED_PROFILES[@]}"; do
     case "$profile" in
-        core|share-public|project-integration|project-workbench-core|resource-integrity|import|legacy-assets|public-resource|restart-recovery|generation-boundary) ;;
+        core|share-public|project-integration|project-workbench-core|resource-integrity|import|legacy-assets|public-resource|restart-recovery|generation-boundary|generation-writeback) ;;
         *) printf 'Unknown profile: %s\n' "$profile" >&2; exit 1 ;;
     esac
     [[ "$SEEN_PROFILES" != *",$profile,"* ]] || { echo 'Duplicate profile' >&2; exit 1; }

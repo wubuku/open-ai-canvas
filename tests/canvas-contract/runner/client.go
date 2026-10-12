@@ -60,7 +60,7 @@ func ConfigFromEnv() (Config, error) {
 		profile = "core"
 	}
 	switch profile {
-	case "core", "share-public", "project-integration", "project-workbench-core", "resource-integrity", "import", "legacy-assets", "public-resource", "restart-recovery", "generation-boundary":
+	case "core", "share-public", "project-integration", "project-workbench-core", "resource-integrity", "import", "legacy-assets", "public-resource", "restart-recovery", "generation-boundary", "generation-writeback":
 	default:
 		return Config{}, fmt.Errorf("profile %q is not implemented; see contract/manifest.yaml", profile)
 	}
@@ -130,7 +130,7 @@ func ConfigFromEnv() (Config, error) {
 }
 
 func RequiresSettingsFixture(profile string) bool {
-	return profile == "project-integration" || profile == "project-workbench-core" || profile == "resource-integrity"
+	return profile == "project-integration" || profile == "project-workbench-core" || profile == "resource-integrity" || profile == "generation-writeback"
 }
 
 func envOr(key, fallback string) string {

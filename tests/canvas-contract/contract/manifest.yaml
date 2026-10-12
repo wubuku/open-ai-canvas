@@ -327,6 +327,14 @@ behavior_decisions:
     go_observation: In selected isolated PostgreSQL trials, two first-time same-key link requests produce one complete 200 and one complete 500/internal. Both requests advance the canvas revision, but only the successful request advances the project revision. Exactly one persisted association survives with the successful role and identity; full units, canvas content and history remain intact. Existing-role and different-unit competition instead acknowledge both requests. Foreign writes and old-revision PUT reject without additional mutation; per-unit removal and project detach settle the observed state. A start barrier does not control database interleaving or prove a particular constraint-error mechanism; a serialized two-success same-key outcome is also source-supported but not claimed as exercised unless logs show it.
     proposed_target: Approve same-key conflict/replay and machine-readable error semantics, then commit authoritative association identity, canvas assignment/revision and project revision atomically through the owning module's public port. Distinguish database uniqueness arbitration from request idempotency, preserve user isolation and complete acknowledged state, and test both controlled overlap and serialized replay. Do not require Java to return internal errors, advance the canvas on rejected insertion or copy Go non-transactional steps; the proposal is not an approved contract change.
     evidence: [tests/canvas-contract/project_link_race_contract_test.go, backend/internal/app/project.go, backend/internal/repository/repository_projects.go, backend/internal/model/models_project.go]
+  - id: D-29
+    classification: UNKNOWN
+    proposal: KNOWN_BUG
+    approval: pending
+    operations: [canvas.task.text-delta-create, canvas.task.text-delta-list, canvas.task.text-replay-complete]
+    go_observation: In the provider-free text replay path, an authenticated owner can create a text_replay task, append ordered deltas, read them with an after cursor and complete the task once. A foreign user's delta read/write request currently returns HTTP 500/internal because the shared task lookup error is not translated to a resource-scoped not-found response; foreign completion is translated to HTTP 400 by the completion handler. Duplicate completion and post-completion delta writes return HTTP 400; the completed replay returns finalText and complete=true while the retained delta list remains available during its retention window.
+    proposed_target: Preserve owner isolation and a single terminal transition, but choose an explicit machine-readable 404/not-found or indistinguishable policy for foreign task access. Keep cursor monotonicity and completion visibility, and decide whether completed deltas remain queryable or are compacted behind finalText. Do not copy Go's internal error status into Java without approval.
+    evidence: [tests/canvas-contract/generation_writeback_contract_test.go, backend/internal/handler/routes.go, backend/internal/app/text_replay.go, backend/internal/repository/text_replay.go]
 profiles:
   core:
     status: REQUIRED
@@ -613,27 +621,46 @@ profiles:
       - canvas.agent.skills-usage
       - canvas.agent.profile.read
   generation-writeback:
-    status: OUT_OF_SCOPE
-    authorization: authenticated-task-run-owner-and-approved-action
-    effects: external-generation-agent-and-durable-result-writeback
-    dependencies: [core, resource-integrity, agent-canvas]
-    implementation: separate-suite
+    status: REQUIRED
+    authorization: authenticated-text-task-owner
+    effects: provider-free-text-generation-writeback
+    dependencies: [core]
+    implementation: implemented-and-executed-text-replay-subset
+    target: >-
+      Exercise the provider-free text replay storage path through HTTP: create a
+      replay task, append owner deltas, read them with a cursor, reject foreign
+      access, and close the task exactly once.
+    remaining_paths:
+      - real Provider generation, SSE text-events cursor/replay and reconnect
+      - task retry/cancel/recovery/provider-query and durable task crash recovery
+      - creation-run leases/submissions/canvas commit and all Agent writes/events
     reason: >-
-      Task mutations, creation-run state machines and Agent run/event writes
-      have their own durable facts, leases, approvals and recovery contracts.
-      This suite covers only a read-only HTTP security boundary; all external
-      generation and durable writeback flows must be tested by their own suite
-      before Java cutover.
+      The executable subset deliberately uses input.replay=true, which stores
+      text deltas without starting a Provider or charging a generation. It is
+      a writeback baseline, not evidence that external generation, SSE, Agent,
+      creation-run or media recovery contracts are complete.
     operations:
       - canvas.task.create
       - canvas.task.text-delta-create
       - canvas.task.text-delta-list
+      - canvas.task.text-replay-complete
+  generation-runtime:
+    status: OUT_OF_SCOPE
+    authorization: authenticated-task-run-owner-and-approved-action
+    effects: external-generation-agent-and-durable-result-writeback
+    dependencies: [core, resource-integrity, agent-canvas, generation-writeback]
+    implementation: separate-suite
+    reason: >-
+      Provider-backed task mutation, creation-run state machines and Agent
+      run/event writes have separate durable facts, leases, approvals and
+      recovery contracts. The provider-free text replay subset is executable
+      above; these paths remain a separate suite before Java cutover.
+    operations:
       - canvas.task.events
       - canvas.task.retry
       - canvas.task.recover-media
       - canvas.task.query-provider
       - canvas.task.cancel
-      - canvas.task.text-replay-complete
       - canvas.creation-run.create
       - canvas.creation-run.update
       - canvas.creation-run.claim
@@ -1750,13 +1777,13 @@ operations:
 
   - id: canvas.task.create
     profile: generation-writeback
-    scenario: separate.canvas-task-suite
-    implementation: separate-suite
+    scenario: generation.writeback.owner-foreign-cursor
+    implementation: implemented-and-executed-text-replay-subset
     method: POST
     path: /api/tasks
     owner: task-runtime
-    replay: idempotency-key-and-effect-key
-    evidence: [backend/internal/handler/routes.go]
+    replay: provider-free-text-replay-admission
+    evidence: [backend/internal/handler/routes.go, tests/canvas-contract/generation_writeback_contract_test.go]
   - id: canvas.task.list
     profile: generation-boundary
     scenario: generation.boundary.unauthenticated, generation.boundary.owner-read-only
@@ -1777,24 +1804,24 @@ operations:
     evidence: [backend/internal/handler/routes.go]
   - id: canvas.task.text-delta-create
     profile: generation-writeback
-    scenario: separate.canvas-task-suite
-    implementation: separate-suite
+    scenario: generation.writeback.unauthenticated, generation.writeback.owner-foreign-cursor, generation.writeback.completion-lifecycle
+    implementation: implemented-and-executed-text-replay-subset
     method: POST
     path: /api/tasks/{id}/text-deltas
     owner: text-task-events
-    replay: sequence-idempotency
-    evidence: [backend/internal/handler/routes.go]
+    replay: owner-scoped-monotonic-sequence-and-closed-task-rejection
+    evidence: [backend/internal/handler/routes.go, tests/canvas-contract/generation_writeback_contract_test.go]
   - id: canvas.task.text-delta-list
     profile: generation-writeback
-    scenario: separate.canvas-task-suite
-    implementation: separate-suite
+    scenario: generation.writeback.unauthenticated, generation.writeback.owner-foreign-cursor, generation.writeback.completion-lifecycle
+    implementation: implemented-and-executed-text-replay-subset
     method: GET
     path: /api/tasks/{id}/text-deltas
     owner: text-task-events
-    replay: cursor-after
-    evidence: [backend/internal/handler/routes.go]
+    replay: owner-scoped-after-cursor
+    evidence: [backend/internal/handler/routes.go, tests/canvas-contract/generation_writeback_contract_test.go]
   - id: canvas.task.events
-    profile: generation-writeback
+    profile: generation-runtime
     scenario: separate.canvas-task-suite
     implementation: separate-suite
     method: GET
@@ -1803,7 +1830,7 @@ operations:
     replay: sse-cursor-after
     evidence: [backend/internal/handler/routes.go]
   - id: canvas.task.retry
-    profile: generation-writeback
+    profile: generation-runtime
     scenario: separate.canvas-task-suite
     implementation: separate-suite
     method: POST
@@ -1812,7 +1839,7 @@ operations:
     replay: retry-transition
     evidence: [backend/internal/handler/routes.go]
   - id: canvas.task.recover-media
-    profile: generation-writeback
+    profile: generation-runtime
     scenario: separate.canvas-task-suite
     implementation: separate-suite
     method: POST
@@ -1821,7 +1848,7 @@ operations:
     replay: recovery-idempotency
     evidence: [backend/internal/handler/routes.go]
   - id: canvas.task.query-provider
-    profile: generation-writeback
+    profile: generation-runtime
     scenario: separate.canvas-task-suite
     implementation: separate-suite
     method: POST
@@ -1830,7 +1857,7 @@ operations:
     replay: query-read-only-or-provider-idempotency
     evidence: [backend/internal/handler/routes.go]
   - id: canvas.task.cancel
-    profile: generation-writeback
+    profile: generation-runtime
     scenario: separate.canvas-task-suite
     implementation: separate-suite
     method: POST
@@ -1840,13 +1867,13 @@ operations:
     evidence: [backend/internal/handler/routes.go]
   - id: canvas.task.text-replay-complete
     profile: generation-writeback
-    scenario: separate.canvas-task-suite
-    implementation: separate-suite
+    scenario: generation.writeback.unauthenticated, generation.writeback.completion-lifecycle
+    implementation: implemented-and-executed-text-replay-subset
     method: POST
     path: /api/tasks/{id}/text-replay-complete
     owner: text-task-events
-    replay: completion-idempotency
-    evidence: [backend/internal/handler/routes.go]
+    replay: single-terminal-transition-and-closed-task-rejection
+    evidence: [backend/internal/handler/routes.go, tests/canvas-contract/generation_writeback_contract_test.go]
   - id: canvas.task.logs
     profile: generation-boundary
     scenario: generation.boundary.unauthenticated, generation.boundary.owner-read-only
@@ -1866,7 +1893,7 @@ operations:
     replay: read-only
     evidence: [backend/internal/handler/creation.go]
   - id: canvas.creation-run.create
-    profile: generation-writeback
+    profile: generation-runtime
     scenario: separate.canvas-creation-suite
     implementation: separate-suite
     method: POST
@@ -1884,7 +1911,7 @@ operations:
     replay: read-only
     evidence: [backend/internal/handler/creation.go]
   - id: canvas.creation-run.update
-    profile: generation-writeback
+    profile: generation-runtime
     scenario: separate.canvas-creation-suite
     implementation: separate-suite
     method: PATCH
@@ -1893,7 +1920,7 @@ operations:
     replay: state-version-or-last-write-to-be-frozen
     evidence: [backend/internal/handler/creation.go]
   - id: canvas.creation-run.claim
-    profile: generation-writeback
+    profile: generation-runtime
     scenario: separate.canvas-creation-suite
     implementation: separate-suite
     method: POST
@@ -1902,7 +1929,7 @@ operations:
     replay: lease-idempotency
     evidence: [backend/internal/handler/creation.go]
   - id: canvas.creation-run.heartbeat
-    profile: generation-writeback
+    profile: generation-runtime
     scenario: separate.canvas-creation-suite
     implementation: separate-suite
     method: POST
@@ -1911,7 +1938,7 @@ operations:
     replay: lease-renewal
     evidence: [backend/internal/handler/creation.go]
   - id: canvas.creation-run.release
-    profile: generation-writeback
+    profile: generation-runtime
     scenario: separate.canvas-creation-suite
     implementation: separate-suite
     method: POST
@@ -1920,7 +1947,7 @@ operations:
     replay: lease-release
     evidence: [backend/internal/handler/creation.go]
   - id: canvas.creation-run.proposal-approve
-    profile: generation-writeback
+    profile: generation-runtime
     scenario: separate.canvas-creation-suite
     implementation: separate-suite
     method: POST
@@ -1929,7 +1956,7 @@ operations:
     replay: approval-idempotency
     evidence: [backend/internal/handler/creation.go]
   - id: canvas.creation-run.proposal-invalidate
-    profile: generation-writeback
+    profile: generation-runtime
     scenario: separate.canvas-creation-suite
     implementation: separate-suite
     method: POST
@@ -1938,7 +1965,7 @@ operations:
     replay: invalidation-idempotency
     evidence: [backend/internal/handler/creation.go]
   - id: canvas.creation-run.submission-prepare
-    profile: generation-writeback
+    profile: generation-runtime
     scenario: separate.canvas-creation-suite
     implementation: separate-suite
     method: POST
@@ -1947,7 +1974,7 @@ operations:
     replay: quote-idempotency
     evidence: [backend/internal/handler/creation.go]
   - id: canvas.creation-run.submission-approve
-    profile: generation-writeback
+    profile: generation-runtime
     scenario: separate.canvas-creation-suite
     implementation: separate-suite
     method: POST
@@ -1956,7 +1983,7 @@ operations:
     replay: approval-idempotency
     evidence: [backend/internal/handler/creation.go]
   - id: canvas.creation-run.submission-refresh
-    profile: generation-writeback
+    profile: generation-runtime
     scenario: separate.canvas-creation-suite
     implementation: separate-suite
     method: POST
@@ -1965,7 +1992,7 @@ operations:
     replay: quote-refresh
     evidence: [backend/internal/handler/creation.go]
   - id: canvas.creation-run.execute
-    profile: generation-writeback
+    profile: generation-runtime
     scenario: separate.canvas-creation-suite
     implementation: separate-suite
     method: POST
@@ -1974,7 +2001,7 @@ operations:
     replay: execution-effect-key
     evidence: [backend/internal/handler/creation.go]
   - id: canvas.creation-run.canvas-create
-    profile: generation-writeback
+    profile: generation-runtime
     scenario: separate.canvas-creation-suite
     implementation: separate-suite
     method: POST
@@ -1983,7 +2010,7 @@ operations:
     replay: create-once
     evidence: [backend/internal/handler/creation.go]
   - id: canvas.creation-run.canvas-snapshot
-    profile: generation-writeback
+    profile: generation-runtime
     scenario: separate.canvas-creation-suite
     implementation: separate-suite
     method: GET
@@ -1992,7 +2019,7 @@ operations:
     replay: read-only
     evidence: [backend/internal/handler/creation.go]
   - id: canvas.creation-run.canvas-commit
-    profile: generation-writeback
+    profile: generation-runtime
     scenario: separate.canvas-creation-suite
     implementation: separate-suite
     method: POST
@@ -2011,7 +2038,7 @@ operations:
     replay: read-only
     evidence: [backend/internal/handler/agent.go]
   - id: canvas.agent.run.create
-    profile: generation-writeback
+    profile: generation-runtime
     scenario: separate.canvas-agent-suite
     implementation: separate-suite
     method: POST
@@ -2020,7 +2047,7 @@ operations:
     replay: request-id-and-message-id
     evidence: [backend/internal/handler/agent.go]
   - id: canvas.agent.run.message
-    profile: generation-writeback
+    profile: generation-runtime
     scenario: separate.canvas-agent-suite
     implementation: separate-suite
     method: POST
@@ -2029,7 +2056,7 @@ operations:
     replay: immutable-turn-id
     evidence: [backend/internal/handler/agent.go]
   - id: canvas.agent.run.interjection
-    profile: generation-writeback
+    profile: generation-runtime
     scenario: separate.canvas-agent-suite
     implementation: separate-suite
     method: POST
@@ -2047,7 +2074,7 @@ operations:
     replay: read-only-with-event-page
     evidence: [backend/internal/handler/agent.go]
   - id: canvas.agent.run.cancel
-    profile: generation-writeback
+    profile: generation-runtime
     scenario: separate.canvas-agent-suite
     implementation: separate-suite
     method: POST
@@ -2056,7 +2083,7 @@ operations:
     replay: cancel-idempotency
     evidence: [backend/internal/handler/agent.go]
   - id: canvas.agent.run.undo
-    profile: generation-writeback
+    profile: generation-runtime
     scenario: separate.canvas-agent-suite
     implementation: separate-suite
     method: POST
@@ -2065,7 +2092,7 @@ operations:
     replay: snapshot-hash-and-step-id
     evidence: [backend/internal/handler/agent.go]
   - id: canvas.agent.run.approval
-    profile: generation-writeback
+    profile: generation-runtime
     scenario: separate.canvas-agent-suite
     implementation: separate-suite
     method: POST
@@ -2074,7 +2101,7 @@ operations:
     replay: call-hash-and-decision-idempotency
     evidence: [backend/internal/handler/agent.go]
   - id: canvas.agent.run.events
-    profile: generation-writeback
+    profile: generation-runtime
     scenario: separate.canvas-agent-suite
     implementation: separate-suite
     method: GET

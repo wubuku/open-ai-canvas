@@ -33,7 +33,7 @@ func TestEmbeddedBindingsCompileOfflineAndMatchLiteralRoutes(test *testing.T) {
 	if err != nil {
 		test.Fatal(err)
 	}
-	if len(validator.bindings) != 66 {
+	if len(validator.bindings) != 70 {
 		test.Fatal("required route registry changed without updating its audit")
 	}
 	binaryCount := 0

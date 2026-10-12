@@ -3,6 +3,47 @@
   "$id": "https://canvas-contract.invalid/schemas/generation.v1.schema.json",
   "title": "Generation and Agent read-boundary payloads; DTO approval pending",
   "$defs": {
-    "boundary-data": {}
+    "boundary-data": {},
+    "task": {
+      "type": "object",
+      "required": ["id", "status", "type"],
+      "properties": {
+        "id": {"$ref": "common.v1.schema.json#/$defs/id"},
+        "status": {"type": "string", "minLength": 1},
+        "type": {"type": "string", "minLength": 1},
+        "stage": {"type": "string"},
+        "progress": {"type": "integer", "minimum": 0, "maximum": 100},
+        "result": {},
+        "resultJson": {"type": "string"}
+      },
+      "additionalProperties": true
+    },
+    "text-delta": {
+      "type": "object",
+      "required": ["id", "taskId", "sequence", "content"],
+      "properties": {
+        "id": {"$ref": "common.v1.schema.json#/$defs/id"},
+        "taskId": {"$ref": "common.v1.schema.json#/$defs/id"},
+        "sequence": {"type": "integer", "minimum": 1},
+        "content": {"type": "string", "minLength": 1},
+        "byteCount": {"type": "integer", "minimum": 1}
+      },
+      "additionalProperties": true
+    },
+    "text-replay": {
+      "type": "object",
+      "required": ["deltas", "complete", "status"],
+      "properties": {
+        "deltas": {"type": "array", "items": {"$ref": "#/$defs/text-delta"}},
+        "textDraft": {"type": "string"},
+        "finalText": {"type": "string"},
+        "complete": {"type": "boolean"},
+        "status": {"type": "string", "minLength": 1},
+        "stage": {"type": "string"},
+        "progress": {"type": "integer", "minimum": 0, "maximum": 100},
+        "error": {"type": "string"}
+      },
+      "additionalProperties": true
+    }
   }
 }
