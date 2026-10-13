@@ -72,6 +72,7 @@
     {"method": "POST", "path": "/api/tasks", "schema": "generation.v1.schema.json#/$defs/task"},
     {"method": "POST", "path": "/api/tasks/{id}/text-deltas", "schema": "generation.v1.schema.json#/$defs/text-delta"},
     {"method": "GET", "path": "/api/tasks/{id}/text-deltas", "schema": "generation.v1.schema.json#/$defs/text-replay"},
+    {"method": "GET", "path": "/api/tasks/{id}/text-events", "stream": true},
     {"method": "POST", "path": "/api/tasks/{id}/text-replay-complete", "schema": "generation.v1.schema.json#/$defs/task"}
   ]
 }

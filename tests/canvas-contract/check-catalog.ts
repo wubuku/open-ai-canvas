@@ -67,7 +67,7 @@ type ControlledFault = {
   requests_per_scenario: number;
   evidence: string[];
 };
-type WireBinding = { method: string; path: string; schema?: string; binary?: boolean; not_modified?: boolean; descriptor_schema?: string; redirect?: boolean };
+type WireBinding = { method: string; path: string; schema?: string; binary?: boolean; stream?: boolean; not_modified?: boolean; descriptor_schema?: string; redirect?: boolean };
 
 const suiteRoot = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(suiteRoot, "../..");
@@ -133,8 +133,9 @@ for (const binding of wireRegistry.bindings) {
   const route = routeKey(binding.method, binding.path);
   assert(!wireBindings.has(route), `duplicate wire binding: ${route}`);
   assert(requiredRoutes.has(route), `wire binding not assigned to a Required route: ${route}`);
-  assert(Boolean(binding.binary) !== Boolean(binding.schema), `wire binding must have exactly one JSON schema or binary mode: ${route}`);
-  assert(binding.binary || !binding.descriptor_schema && !binding.redirect, `file variants require a binary binding: ${route}`);
+  assert(Number(Boolean(binding.binary)) + Number(Boolean(binding.stream)) + Number(Boolean(binding.schema)) === 1, `wire binding must have exactly one JSON schema, binary or stream mode: ${route}`);
+  assert(!binding.stream || !binding.descriptor_schema && !binding.redirect && !binding.not_modified, `stream binding cannot declare file variants: ${route}`);
+  assert(binding.binary || binding.stream || !binding.descriptor_schema && !binding.redirect, `file variants require a binary binding: ${route}`);
   for (const reference of [binding.schema, binding.descriptor_schema].filter(Boolean) as string[]) {
     const [filename, fragment] = reference.split("#");
     assert(/^[a-z-]+\.v1\.schema\.json$/.test(filename), `invalid schema filename: ${route}`);
@@ -302,6 +303,8 @@ for (const argument of process.argv.slice(2)) {
             assert(wire?.mode === "not-modified" && wire.schema === (binding.schema ?? "") && (binding.not_modified || binding.binary), `unexpected not-modified wire evidence: ${matcher.route}`);
           } else if (binding.redirect && fact.status === 307) {
             assert(wire?.mode === "redirect" && wire.schema === "", `incorrect redirect wire evidence: ${matcher.route}`);
+          } else if (binding.stream && fact.status >= 200 && fact.status < 300) {
+            assert(wire?.mode === "stream" && wire.schema === "", `stream route mislabeled as JSON wire coverage: ${matcher.route}`);
           } else if (binding.binary && fact.status >= 200 && fact.status < 300) {
             assert(wire?.mode === "binary" && wire.schema === "", `binary route mislabeled as JSON wire coverage: ${matcher.route}`);
           } else if (binding.binary && fact.status === 416 && wire?.mode === "range-error") {

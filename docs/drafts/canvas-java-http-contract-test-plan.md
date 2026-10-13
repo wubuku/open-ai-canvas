@@ -9,7 +9,7 @@ audience: 负责将画布后端 API 从 Go 迁移到 Java Spring Boot 的架构�
 # 画布 Java 迁移前置条件：HTTP 黑盒合同验证方案
 
 > **目的**：在开始实现 Java 画布端点之前，建立一套能先验证 Go 基线、再用同一套请求和断言验证 Java 实现的 HTTP 黑盒合同测试。
-> **状态**：持续实施；当前 manifest 登记 162 个 operation / 143 个唯一 method/path、89 个 Required operation / 114 个 HTTP 场景，另有 6 个独立统计的真实浏览器场景。最新完整双轮证据为 `20261013-063740-64558`：两轮均执行全部 11 个 HTTP profile、114 个 HTTP 场景，第一轮和第二轮均记录 `14160/14159` 个清单内 observed/wire 请求；每轮 70 条映射并执行路由、71 条实际触达路由、70 条返回过非错误响应的路由，6 条受控故障（其中 4 条为提交后响应丢失）、4 条 incomplete、0 条未分类中断。浏览器两轮均为 6 个场景、171 条页面响应头观测，阻断装饰分别为 8/9 条。旧 112/111/108/107/104/102/100 场景版本只保留为历史，不拼接扩大当前覆盖。Required 剩余路径和 Java/远端门禁未闭合；本轮最终复核后的连续 clean-review 为 `3/3`，但不代表剩余路径或合同批准完成；本文件不修改 Go/Java 产品服务。
+> **状态**：持续实施；当前 manifest 登记 162 个 operation / 143 个唯一 method/path、90 个 Required operation / 115 个 HTTP 场景，另有 6 个独立统计的真实浏览器场景。最新完整双轮证据为 `20261013-073513-51126`：两轮均执行全部 11 个 HTTP profile、90 个 Required operation / 115 个 HTTP 场景，每轮均记录 `14163/14162` 个清单内 observed/wire 请求；每轮 71 条映射并执行路由、72 条实际触达路由、71 条返回过非错误响应的路由，6 条受控故障（其中 4 条为提交后响应丢失）、4 条 incomplete、0 条未分类中断。浏览器两轮均为 6 个场景，页面响应头分别为 170/171，阻断装饰均为 9 条。旧 114/112/111/108/107/104/102/100 场景版本只保留为历史，不拼接扩大当前覆盖。Required 剩余路径和 Java/远端门禁未闭合；新版 clean-review 已完成 `3/3`，本文件不修改 Go/Java 产品服务。
 > **证据范围**：核对当前 Go handler、OpenAPI、画布域与 repository 测试、Web API 客户端、画布研究报告和 Spring Boot 迁移指引；HTTP runner 可脱离仓库独立编译，浏览器 runner 只需已运行的真实前端与同源 API。证据涵盖隔离 PostgreSQL 18 + Go HTTP、真实 React/Vite 部分路径、崩溃/优雅重启、提交成功但丢失响应、固定 HTTPS 导入和资源替身；不代表 Java、生产混合网关、真实对象存储/CDN 或全部浏览器能力已经验收。
 > **文档关系**：本文件是[迁移总指引](go-to-spring-boot-migration-guide.md)中 M1/Gate 0 的画布专项计划；当前 API 事实以[画布开发导航](../content/docs/canvas/canvas-development.mdx)和[HTTP API 合同](../content/docs/backend/http-api.mdx)为入口，现有测试能力见[自动化回归测试调研](test-regression-and-ci-research.md)，可执行套件见[`tests/canvas-contract`](../../tests/canvas-contract/README.md)。
 
@@ -43,17 +43,17 @@ audience: 负责将画布后端 API 从 Go 迁移到 Java Spring Boot 的架构�
 
 ### 当前进度
 
-**完整实施目标仍在进行，暂估 90%（工程工作量估算，不是覆盖率）**。可审计基线只是子阶段，不能作为整个目标的出口。当前登记 162 个 operation / 143 个唯一 method/path、89 个 Required operation、114 个 HTTP 场景，另有 6 个独立统计的浏览器场景。最新完整双轮 `20261013-063740-64558` 已执行 114 个场景：两轮均为 `14160/14159` 个清单内 observed/wire 请求；每轮 70 条映射并执行路由、71 条实际触达路由、70 条至少返回过非错误响应的路由、6 条受控故障（其中 4 条为提交后响应丢失）、4 条 incomplete 和 0 条未分类中断。浏览器两轮均为 6 个场景、171 条页面响应头观测，阻断装饰分别为 8/9 条。31 项行为裁决仍未批准。Required 剩余路径、Java 与远端门禁仍未闭合，工程估算不因请求数增长提高。
+**完整实施目标仍在进行，暂估 90%（工程工作量估算，不是覆盖率）**。可审计基线只是子阶段，不能作为整个目标的出口。当前登记 162 个 operation / 143 个唯一 method/path、90 个 Required operation、115 个 HTTP 场景，另有 6 个独立统计的浏览器场景。最新完整双轮证据为 `20261013-073513-51126`：两轮均执行 90/115；每轮 `14163` 个清单内 observed 请求、`14162` 个 wire 校验、`71/72/71` 条映射/实际触达/成功路由、6 条受控故障（4 条响应丢失）、4 条 incomplete、0 条未分类中断；浏览器两轮均为 6 个场景，页面响应头分别为 `170/171`。31 项行为裁决仍未批准。Required 剩余路径、Java 与远端门禁仍未闭合，工程估算不因请求数增长提高。
 
-当前 HTTP 场景包括固定 HTTPS 真 PNG/WAV/MP4、转换计数/过滤/拓扑/参数、1000/1001 节点和 5000/5001 连接边界、资源导入/幂等、部分下载失败后的显式恢复、素材登记、保存重开、CAS 与跨用户隔离，以及 `canvas.recovery.response-loss-and-restart`。该恢复场景现在还覆盖资源 URL 导入提交后的丢 ACK、崩溃和同幂等键重放；legacy-assets 另覆盖六次画布引用/显式 purge 竞态及本地 object-store DELETE 失败后的逻辑删除/物理对象保留。它们仍是本地受控 fixture，不等于远端对象存储恢复或生产 outbox 重试时序。转换/资源 HTTP 串联不是浏览器导入验收。此前 review 曾发现并修正浏览器 selector、fixture 完整字段、真实媒体路由、SSRF profile 配置、断言过度收紧和 YAML 解析问题；本轮最终双轮已通过，连续 clean-review 已完成 `3/3`。每次新发现或实现变动后仍须重新累计，不以运行轮数替代 clean-review。
+当前 HTTP 场景包括固定 HTTPS 真 PNG/WAV/MP4、转换计数/过滤/拓扑/参数、1000/1001 节点和 5000/5001 连接边界、资源导入/幂等、部分下载失败后的显式恢复、素材登记、保存重开、CAS 与跨用户隔离，以及 `canvas.recovery.response-loss-and-restart`。该恢复场景现在还覆盖资源 URL 导入提交后的丢 ACK、崩溃和同幂等键重放；legacy-assets 另覆盖六次画布引用/显式 purge 竞态及本地 object-store DELETE 失败后的逻辑删除/物理对象保留。`generation-writeback` 已加入 provider-free text replay 与 SSE 游标重放，但不覆盖 Provider 或 live-disconnect SSE reconnect。它们仍是本地受控 fixture，不等于远端对象存储恢复或生产 outbox 重试时序。转换/资源 HTTP 串联不是浏览器导入验收。此前 review 曾发现并修正浏览器 selector、fixture 完整字段、真实媒体路由、SSRF profile 配置、断言过度收紧和 YAML 解析问题；新版 90/115 双轮及随后三轮 clean-review 均已通过，当前为 `3/3`。每次新发现或实现变动后仍须重新累计，不以运行轮数替代 clean-review。
 
 | 任务项 | 状态 | 可追溯结果 |
 | --- | --- | --- |
 | 事实盘点 | 完成并持续校验 | 162 个 operation / 143 个唯一 method/path；直接画布 14 个端点；新增资源导入恢复和 legacy purge 竞态 operation 不重复计 endpoint |
-| 覆盖分层 | 完成并持续扩充 | 89 个 Required operation 映射 114 个 HTTP 场景；114 场景版已完成双轮，35 个 deferred、38 个 out-of-scope；6 个浏览器场景分开统计 |
+| 覆盖分层 | 完成并持续扩充 | 90 个 Required operation 映射 115 个 HTTP 场景；90/115 版本已完成双轮，35 个 deferred、38 个 out-of-scope；6 个浏览器场景分开统计 |
 | 执行路径设计与实现 | 继续实施 | 并发同 key/已有 link/不同 unit/跨项目争用、角色失败部分提交、资源导入丢 ACK/重启、legacy 画布引用/purge 竞态、物理删除失败保留和分享资源 CDN redirect/object-store success-failure-recovery 均已执行；受控在途交错、远端 CDN/TTL/条件缓存、完整 task/Agent 写回及 UI 缓存/冲突继续登记 |
-| 套件与文档同步 | 持续同步 | 独立编译、专项 race、36 项 HTTP/9 项浏览器审计单测、对象存储 fixture alias 单测及新 114 场景双轮均通过；`20261013-063740-64558` 的 suite 输入 hash、route/result trace 复审和运行边界已互链 |
-| 重复基线与完整复审 | 完成本轮复核，目标仍 active | `20261013-063740-64558` 的 114 场景/31 决策版完成 HTTP + 浏览器双轮；Required 剩余路径、Java/远端门禁仍未闭合，本轮连续 clean-review 为 `3/3` |
+| 套件与文档同步 | 持续同步 | 独立编译、专项 race、36 项 HTTP/9 项浏览器审计单测、对象存储 fixture alias 单测及 90/115 场景双轮均通过；`20261013-073513-51126` 的 suite 输入 hash、route/result trace 复审和运行边界已互链 |
+| 重复基线与完整复审 | 本轮复核完成，目标仍 active | `20261013-073513-51126` 的 90/115 版本完成 HTTP + 浏览器双轮；Required 剩余路径、Java/远端门禁仍未闭合；manifest/runner 变更后的 clean-review 已完成 `3/3` |
 
 ### 连续 clean-review 记录
 
@@ -61,23 +61,23 @@ audience: 负责将画布后端 API 从 Go 迁移到 Java Spring Boot 的架构�
 
 | 轮次 | 复核面 | 结果 |
 | --- | --- | --- |
-| Round 1 | manifest/catalog ↔ 真实注册路由、scenario 双向映射、wire binding、最新双轮报告 | 通过；36 项 catalog 单测、114/114 scenario、89/89 operation，最终双轮两次均为 `70/71/70` 路由，报告/hash 不变量一致 |
-| Round 2 | HTTP runner、fixture、故障/响应丢失、generation-boundary、race/browser 专项 | 通过；独立编译、合同/runner/harness race、9 项浏览器审计、shell/gofmt/diff 和最终 HTTP + browser 双轮均通过，0 条未分类 incomplete |
-| Round 3 | 文档互链、Java/混合网关边界、浏览器 companion 口径、当前结果与历史结果隔离 | 通过；11 份文档 294 条相对链接/anchor、0 条断链；最新 run-id/hash、当前/历史计数、Java-only/混合网关和浏览器不计 HTTP 分母均复核通过 |
+| Round 1 | manifest/catalog ↔ 真实注册路由、scenario 双向映射、wire binding、最新双轮报告 | 通过；36 项 catalog 单测、90/90 operation、115/115 scenario，双轮均 `71/72/71`，`14163/14162` 报告与 catalog audit 一致；聚焦 282 个 Markdown 链接/anchor、格式、shell 和旧口径检查也通过 |
+| Round 2 | HTTP runner、fixture、故障/响应丢失、generation-boundary、race/browser 专项 | 通过；合同/runner/harness race、独立编译、backend import 边界、SSE `200/401/500` 矩阵和浏览器 6/6 两轮均通过，4 条 incomplete 全部为已声明响应丢失且 0 条未分类 |
+| Round 3 | 文档互链、Java/混合网关边界、浏览器 companion 口径、当前结果与历史结果隔离 | 通过；聚焦 9 份文档的 282 个相对链接/anchor、最新 run-id/hash、当前/历史计数、Java-only/混合网关和浏览器不计 HTTP 分母均复核通过 |
 
 本轮接续任务与验收条件：
 
-**已完成：按用户要求整合 HTTP/浏览器运行边界与 Web–Java 配合条件。** 保留 README 的详细执行说明，通过迁移总指引、两级索引和正式画布导航形成可发现的阅读链；补充文档职责、变更触发器并检查 11 份文档/294 个相对链接与 heading anchor，0 条断链。此项只补文档，不扩大运行覆盖，不修改 Go/Java 产品服务；当前运行证据和 clean-review 仍按下方唯一账本维护。具体范围见本文件“文档落点与维护责任”和“当前续跑”。
+**已完成：按用户要求整合 HTTP/浏览器运行边界与 Web–Java 配合条件。** 保留 README 的详细执行说明，通过迁移总指引、两级索引和正式画布导航形成可发现的阅读链；本轮聚焦检查 9 份文档/282 个相对链接与 heading anchor，0 条断链。此项只补文档，不扩大运行覆盖，不修改 Go/Java 产品服务；当前运行证据和 clean-review 仍按下方唯一账本维护。具体范围见本文件“文档落点与维护责任”和“当前续跑”。
 
-**已完成：并发关联补强版、资源导入恢复和 legacy purge 竞态的专项及合并全量复核。** 并发专项 `20261012-190445-42455` 每轮首次同 key 的 6 次竞争均得到 `200 + 500/internal`，canvas revision +2/project revision +1，登记 D-28；已有 link 与不同 unit 各 6 次竞争均两次成功。跨项目 6 次竞争两次成功但两份 full-detail link 残留，扩充 D-03/D-26；当前项目解除、拒绝后完整正文核验和显式旧链接恢复均已在 `20261013-063740-64558` 全量中复核。新增资源导入丢 ACK/重启同 key 恢复、legacy 六次画布引用/purge 竞态及本地 object-store DELETE 故障保留路径已进入 D-31/恢复矩阵；起跑屏障不控制数据库内部交错，purge 是否允许断链仍待 Java 合同裁决。本次全量通过，且随后三轮 clean-review 已完成；Required 剩余路径仍未闭合。
+**已完成：并发关联补强版、资源导入恢复和 legacy purge 竞态的专项及合并全量复核。** 并发专项 `20261012-190445-42455` 每轮首次同 key 的 6 次竞争均得到 `200 + 500/internal`，canvas revision +2/project revision +1，登记 D-28；已有 link 与不同 unit 各 6 次竞争均两次成功。跨项目 6 次竞争两次成功但两份 full-detail link 残留，扩充 D-03/D-26；当前项目解除、拒绝后完整正文核验和显式旧链接恢复均已在旧版 `20261013-063740-64558` 全量中复核。新增资源导入丢 ACK/重启同 key 恢复、legacy 六次画布引用/purge 竞态及本地 object-store DELETE 故障保留路径已进入 D-31/恢复矩阵；起跑屏障不控制数据库内部交错，purge 是否允许断链仍待 Java 合同裁决。新版 `20261013-073513-51126` 已完成 90/115 全量双轮，随后三轮 clean-review 也已完成；Required 剩余路径仍未闭合。
 
-**当前唯一 `in_progress` 步骤：补齐 Required 的确定性剩余路径。** 114 场景双轮已完成，`generation-boundary` 的任务 owner/foreign read 已纳入正式证据；资源导入响应丢失/重启、legacy purge 竞态和本地物理删除失败也已进入正式证据；分享资源对象存储场景已闭合其本地 CDN redirect 与 fixture 成功/GET 故障/恢复路径，`generation-writeback` 已闭合 provider-free text replay 子集，但这些都不等同于生产 CDN、远端 TTL/条件缓存、生产 outbox 重试或 Provider/SSE/Agent 写回验收。下一优先级是 `core` 的 `updated-at` 并列排序、项目关联的受控 persistence/revision failure injection，以及资源上传预留到期/协调恢复。每项必须先登记可复现 fixture、明确 Java 目标语义与安全默认，再加入 manifest/scenario 并重新跑完整双轮；不能把已有成功路径或 Go 当前缺陷当作这些路径的证明。分享 fixture 已实现为私有 loopback HTTP adapter：Go 启动器将它绑定到当前隔离 PostgreSQL database，Java/混合目标必须提供等价的隔离 fixture API，不得让 runner 写目标表。分享到期专项 `20261012-194641-2996` 已双轮通过，且已合并进最新全量：过期后的匿名 public read 404、owner status disabled 且不泄露 token、foreign status 404、源画布/历史不变、`expiresDays=0` 重新启用原 token。源码 `canvas_share.go` 的 0..365 校验和服务端时间边界已由 fixture/HTTP 状态流验收；排序并列、远端 CDN/TTL/条件缓存、Provider/SSE/Agent 写回和其他 share 缺口仍未闭合。连续 clean-review 已为 `3/3`，但这只表示复核未发现新文档/测试缺口，不表示 Required `remaining_paths` 已清零。
+**当前唯一 `in_progress` 步骤：补齐 Required 的确定性剩余路径。** `20261013-073513-51126` 已完成 90/115 双轮和三轮 clean-review，`generation-boundary` 的任务 owner/foreign read 已纳入正式证据；资源导入响应丢失/重启、legacy purge 竞态和本地物理删除失败也已进入正式证据；分享资源对象存储场景已闭合其本地 CDN redirect 与 fixture 成功/GET 故障/恢复路径，`generation-writeback` 已闭合 provider-free text replay + SSE 游标重放子集，但这些都不等同于生产 CDN、远端 TTL/条件缓存、生产 outbox 重试或 Provider/SSE 断线重连/Agent 写回验收。下一优先级是 `core` 的 `updated-at` 并列排序、项目关联的受控 persistence/revision failure injection，以及资源上传预留到期/协调恢复。每项必须先登记可复现 fixture、明确 Java 目标语义与安全默认，再加入 manifest/scenario 并重新跑完整双轮；不能把已有成功路径或 Go 当前缺陷当作这些路径的证明。分享 fixture 已实现为私有 loopback HTTP adapter：Go 启动器将它绑定到当前隔离 PostgreSQL database，Java/混合目标必须提供等价的隔离 fixture API，不得让 runner 写目标表。分享到期专项 `20261012-194641-2996` 已双轮通过，且已合并进旧版全量：过期后的匿名 public read 404、owner status disabled 且不泄露 token、foreign status 404、源画布/历史不变、`expiresDays=0` 重新启用原 token。源码 `canvas_share.go` 的 0..365 校验和服务端时间边界已由 fixture/HTTP 状态流验收；排序并列、远端 CDN/TTL/条件缓存、Provider/SSE/Agent 写回和其他 share 缺口仍未闭合。新版 clean-review 已完成 `3/3`，它只表示复核未发现新的需要修改的缺口，不表示 Required `remaining_paths` 已清零。
 
 1. **已完成：纠正进度口径**。撤回虚假的 clean-review `3/3`，区分清单内请求和全部 trace；纳入真实浏览器链路后重新估算工程进度为 90%，不把测试数或请求数充当覆盖率。
 2. **已完成：实现并专项验证导入链路**。新增三个场景；真媒体下载、素材登记、拒绝未登记/跨用户引用、重开全文/边、幂等计费和 stale CAS 均有 HTTP 后置状态。首次三次失败分别来自漏掉 Asset 登记、按 JSON 键顺序比较 struct/map、将标准库 `audio/wave` 误当后端 MIME；逐项定位并改 runner，不改产品或放宽为任意成功。
-3. **已完成：冻结新版后跑全部 11 个 Required profile 和真实浏览器两轮**。最新 `20261013-063740-64558` 完成 114 场景/31 决策版完整双轮；两轮均为 `14160/14159` 个清单内完整请求/wire，每轮均为 71 条实际触达路由、70 条至少返回过非错误响应的路由；浏览器两轮均为 6 个场景、171 条页面响应头观测，阻断装饰分别为 8/9 条。旧 112/111/108/107/104/102/100 场景全量、分享到期专项和并发初版专项均保留为历史或专项证据，不拼接新版本。后续可执行输入变动仍需重新验证。
+3. **已完成：冻结新版后跑全部 11 个 Required profile 和真实浏览器两轮**。最新 `20261013-073513-51126` 完成 90/115 版本完整双轮；两轮均为 `14163/14162` 个清单内 observed/wire 请求，每轮均为 71 条映射并执行路由、72 条实际触达路由、71 条至少返回过非错误响应的路由，6 条受控故障、4 条响应丢失、4 条 incomplete、0 条未分类中断；浏览器两轮均为 6 个场景，页面响应头分别为 170/171，阻断装饰均为 9 条。旧 `20261013-063740-64558` 及更早场景全量、分享到期专项和并发初版专项均保留为历史或专项证据，不拼接新版本。后续可执行输入变动仍需重新验证。
 4. **继续实施：审计与补齐 Required 剩余路径**。响应丢失/重启已专项执行，但不代表 crash-during-write；分享资源已补入本地 CDN/object-store redirect、成功读取、GET 故障与恢复，仍需区分实际缺口、跨套件依赖和未来切流审批，优先远端对象存储 Range/交付矩阵、生产 CDN/TTL/条件缓存、项目事务交错、真实 task/Agent fixture 和 UI 缓存/冲突，不暗中改成 deferred。
-5. **已完成本轮：连续完整 clean-review `3/3`**。Required 当前适用缺口未闭合时仍不宣布总体目标完成。31 项未来 Java 行为裁决保持 pending；批准未来目标合同与实现当前 Go 观测基线是两项不同工作。
+5. **当前新版 clean-review `3/3`，目标仍 active**。Required 当前适用缺口未闭合时仍不宣布总体目标完成。31 项未来 Java 行为裁决保持 pending；批准未来目标合同与实现当前 Go 观测基线是两项不同工作。
 
 ### 真实浏览器伴随套件
 
@@ -85,7 +85,7 @@ audience: 负责将画布后端 API 从 Go 迁移到 Java Spring Boot 的架构�
 
 实现与独立 Java/混合目标运行方式见[套件 README](../../tests/canvas-contract/README.md#real-browser-companion)和[浏览器场景清单](../../tests/canvas-contract/browser/scenarios.json)。浏览器只与已运行的真实 Web/HTTP 交互；复制目录后无需编译或运行当前 Go 后端。Go 基线使用隔离真实 React/Vite、两位普通用户、同源 `/api` 和完整 Resource/Asset/Canvas fixture，不模拟 UI、不注入 store。
 
-最新双轮证据为 `20261013-063740-64558/1-core/browser-report.json` 和 `20261013-063740-64558/2-core/browser-report.json`；两轮均执行 6 个场景、页面响应头均为 171 条，阻断装饰分别为 8/9 条。`evidence.txt` 保存可复核的 suite 输入 hash 和清理前临时 binary 的运行身份 hash；文档说明不宣称当前整个目录逐字等于运行时版本。媒体实际走 `POST /api/resources/access` → `GET /api/public/resources/{id}/file`，不是预设的私有 file GET。浏览器报告只将页面响应头记为网络观测，不计入 HTTP runner 的完整 body/wire 覆盖；API fixture 请求不能冒充页面触达。账号切换后的 owner 持久化不变性由独立重新认证的 owner audit API 会话核验，不能由 foreign/unauthenticated 的拒绝响应替代。
+最新双轮证据为 `20261013-073513-51126/1-core/browser-report.json` 和 `20261013-073513-51126/2-core/browser-report.json`；两轮均执行 6 个场景、页面响应头分别为 170/171 条，阻断装饰均为 9 条。`evidence.txt` 保存可复核的 suite 输入 hash 和清理前临时 binary 的运行身份 hash；文档说明不宣称当前整个目录逐字等于运行时版本。媒体实际走 `POST /api/resources/access` → `GET /api/public/resources/{id}/file`，不是预设的私有 file GET。浏览器报告只将页面响应头记为网络观测，不计入 HTTP runner 的完整 body/wire 覆盖；API fixture 请求不能冒充页面触达。账号切换后的 owner 持久化不变性由独立重新认证的 owner audit API 会话核验，不能由 foreign/unauthenticated 的拒绝响应替代。
 
 首轮 review 保留以下发现：
 
@@ -130,7 +130,7 @@ audience: 负责将画布后端 API 从 Go 迁移到 Java Spring Boot 的架构�
 
 接续只读复审发现并已修正 `check-catalog.ts` 对 REQUIRED `remaining_paths` 的错误门槛：现在要求显式、唯一、非空字符串数组，允许 profile 真正闭合时写 `[]`，缺字段仍失败，且不因空数组自动批准行为或把静态审计升级为业务完整验收。新增 2 项审计变异回归；92 场景版全量仍按修正前源码冻结完成，修正后的静态套件已单独通过。随后优先分享首次创建并发（区别于已有分享的 rotate/revoke）、普通五分钟自动历史采集、远端存储和其他 Required 缺口。
 
-本次接续已修正资源复合响应 wire 缺口：四条 file 路由的 `?access=1` 根据请求表示选择 typed JSON schema，不按 Content-Type 猜测；普通 JSON 文件仍按原始字节处理。307 单测要求空 body、单一安全 Location、隐私 headers 与不自动跟随，不能替代受控远端存储运行证据。owner/foreign/anonymous、签名/named/share/revocation 专项通过；32 MiB 真实正文和解码边界专项通过，两个新发现登记 D-18/D-19。该 10-profile 版本化基线当时的 clean-review 为 0/3；当前 114 场景版本已另行完成最终三轮复核。
+本次接续已修正资源复合响应 wire 缺口：四条 file 路由的 `?access=1` 根据请求表示选择 typed JSON schema，不按 Content-Type 猜测；普通 JSON 文件仍按原始字节处理。307 单测要求空 body、单一安全 Location、隐私 headers 与不自动跟随，不能替代受控远端存储运行证据。owner/foreign/anonymous、签名/named/share/revocation 专项通过；32 MiB 真实正文和解码边界专项通过，两个新发现登记 D-18/D-19。该 10-profile 版本化基线当时的 clean-review 为 0/3；后续旧版 114 场景曾完成三轮复核，但不代表当前 90/115 版本的 review 状态。
 
 相反首单元排序与成员写竞争的强化版完整 CI 三轮已通过，但起跑同步不控制数据库交错，不据此声称已证明死锁或全部失败路径。资源分片与完成竞争、短/长无效覆盖恢复也有两轮专项证据：失败覆盖会移除先前已确认分片，补片后才能完成，登记 D-22 缺陷提案。下一优先项包括受控网络中断、事务间隙/失败注入及隔离对象存储 fixture；保持现有鉴权/TLS/SSRF，不请求真实上游。
 
@@ -138,7 +138,7 @@ audience: 负责将画布后端 API 从 Go 迁移到 Java Spring Boot 的架构�
 2. 工作台重复创建/导入、跨项目单元、失败回滚、相同/相反首单元排序及创建/删除/导入竞争已有选定重复证据；最大批量/Unicode 和真实正文/解码预算也已专项验证。列表与导入 ACK 不代替逐单元全文。继续补初始化/事务间隙失败和成员变更的受控交错、请求体尾部策略审批、有活动任务或填充 workflow/shot/素材的级联；不把选定竞争、空工作流或 HTTP 不可访问当作全部并发/级联完成。
 3. 完善 `public-resource` 的对象存储/CDN 故障、远端真实 TTL 和条件缓存；本地真实过期/304/续签已有专项证据，不冒充远端验收。配额/存储预留/会话槽位/并发准入、不同与相同分片并发及重复合并已专项通过；分片与合并的选定竞争和错误覆盖恢复已专项两轮通过；请求体半关闭恢复已实测两轮；仍需连接重置/响应丢失、预留到期/协调、多实例和物理删除失败路径。
 4. 导入媒体/拓扑转换、节点/连接数量边界及后续资源/素材/画布保存的选定 HTTP 路径已有两轮专项证据；继续补响应丢失/重启和远端对象存储 fixture，不向生产平台发测试请求，不把 HTTP 映射当浏览器验收。资源 URL 真实 90 秒下载超时已有专项证据（专用 runner 期限至少 110 秒），不能与文本转换的 20 秒超时或客户端提前取消混用。
-5. 持续按 Required 剩余路径审计并运行完整 profiles；核验可用的远端 CI/required check 证据。当前连续完整 clean-review 为 `3/3`；发现新缺口或改变 catalog、manifest、wire 或范围后，必须从第一轮重新累计。
+5. 持续按 Required 剩余路径审计并运行完整 profiles；核验可用的远端 CI/required check 证据。新版连续完整 clean-review 已完成 `3/3`；发现新缺口或改变 catalog、manifest、wire 或范围后，必须从第一轮重新累计。
 6. **未来 C 阶段门禁**：Java 实现可用后，在相同合同版本和数据库配置上验证 Java 直连、混合网关单 writer、浏览器及必要的资源/任务链路；不将此列作已执行或当前已有 Java 目标。
 
 此前续跑顺序已完成：先扩充核心分页/筛选/坏输入和资源分片的失败/重放/跨用户矩阵；随后建立只管理自身进程的黑盒重启 fixture，验证文档/历史/分享/资源/项目的持久化与上传会话失效；再扩充项目/分享等路径并同步全套统计。任何仍未执行项保持 active，不以该顺序中的单个子任务通过宣称完整完成。
@@ -153,7 +153,7 @@ audience: 负责将画布后端 API 从 Go 迁移到 Java Spring Boot 的架构�
 | 第二轮：失败、安全与架构 | owner/foreign、UNKNOWN、receipt、幂等、单 writer、outbox/reconciler、对象存储、Spring/JPA 事务边界 | 在计划中补齐 Spring 目标架构约束，并要求 Gate 0 的 Required `remaining_paths` 为空或有正式 residual waiver；未把 Go 错误码或内部锁实现自动升级为 Java 合同 | 有发现并修改，不计 clean |
 | 第三轮：链接、术语与交付 | 文档互链/anchor、catalog 静态审计、套件编译、diff 格式和当前事实残留扫描 | 179 个相对 Markdown 链接/anchor、33 项 catalog 单测、独立 Go module 编译和 diff 检查属于当时版本的验证；后续发现 clean-review 计数和 trace 口径错误 | 不满足连续完整 clean |
 
-上轮曾写成 `3/3` 的结论已撤回并作为历史保留；当前 114 场景基线已经完成最终双轮，且本轮最终 run、专项门禁和链接审计均已复核通过，当前 clean-review 为 `3/3`。这只表示三轮复核未发现新的需要修改的缺口，不能证明 Required `remaining_paths` 已清零或 Java、混合网关、远端对象存储、真实 Agent/Provider、浏览器全部验收已完成。
+上轮曾写成 `3/3` 的结论已撤回并作为历史保留；当前 90/115 基线 `20261013-073513-51126` 已完成最终双轮、专项门禁和三轮复核，当前 clean-review 为 `3/3`。这只表示三轮复核未发现新的需要修改的缺口，不能证明 Required `remaining_paths` 已清零或 Java、混合网关、远端对象存储、真实 Agent/Provider、浏览器全部验收已完成。
 
 ## 结论与决策
 
@@ -225,11 +225,11 @@ Go 与 Java 使用逻辑相同、彼此隔离的测试数据和数据库，避�
 | 独立公开资源交付 | 2 个 method/path operation | `public-resource` 需签名链接与对象存储矩阵 | 2 个 operation 已执行；本地真实 TTL/条件缓存在资源伴随 profile 实测，远端对象存储/CDN 故障、TTL/缓存仍是 Required 未执行路径，不能由 share-token 文件替代 |
 | 项目工作台及角色库 | 50 个 method/path operation | `project-workbench-core` 先覆盖项目/单元核心；其余工作台/角色库另列 | 15 个核心 operation 已执行；其余 35 个 operation deferred，项目/单元 setup 不再冒充完整生命周期 |
 | 重启恢复 | 11 个既有路由的状态流 operation | `restart-recovery` 使用只管理自身进程的私有 fixture | SIGKILL/优雅重启持久化，以及文档写、资源创建、上传完成提交后丢失 ACK 的 crash/CAS/幂等重放/用量；不证明在途事务被杀；Go 内存上传会话失效事实仍待 Java 决策 |
-| 任务/Agent/Provider 资源依赖 | 51 个 catalog operation | 只读安全边界由 `generation-boundary` 验收，provider-free text replay 由 `generation-writeback` 验收，Provider/Agent/creation-run 外部副作用由独立 suite 或集成 profile 验收 | 9 个只读 operation + 4 个 provider-free replay operation 已进入 Required；其余 38 个仍 out-of-scope，包括会产生外部副作用的 Ark 私有素材同步，不计入画布 CRUD 通过率 |
+| 任务/Agent/Provider 资源依赖 | 51 个 catalog operation | 只读安全边界由 `generation-boundary` 验收，provider-free text replay + SSE 游标重放由 `generation-writeback` 验收，Provider/Agent/creation-run 外部副作用由独立 suite 或集成 profile 验收 | 9 个只读 operation + 5 个 provider-free replay/SSE operation 已进入 Required；其余 37 个仍 out-of-scope，包括会产生外部副作用的 Ark 私有素材同步，不计入画布 CRUD 通过率 |
 
 直接画布端点共 **14 个唯一 method/path（文档 7 + 分享 5 + 导入 2）**；创建与更新共用 `PUT /api/canvas-projects/{id}`，不能计为两个端点。本次删除 4 条实际未注册的假路由（独立分镜 GET、工作流 retry/skip/rollback），补入 13 条角色库路由和 1 条 Ark 同步路由，修复失效测试证据链接和漏挂的 profile/scenario。
 
-catalog 当前共 **162 个 operation / 143 个唯一 method/path**。11 个 runner profile 映射 **89 个 operation / 114 个 HTTP scenario**；另有 **35 个 deferred** 和 **38 个 out-of-scope**。operation 可区分同一路由的创建/更新、协议或恢复分支，endpoint 分母去重。6 个真实浏览器场景独立登记，不相加伪造 HTTP 覆盖。最新双轮报告 `20261013-063740-64558` 实测为 70 条映射、71 条实际触达及 70 条至少一次非错误响应路由；额外路由 `POST /api/creation-runs` 是准备只读 fixture，不是写入 operation 验收，亦不在 Required wire bindings 内。manifest 仍保留三个 `partial-*` operation，不能因场景有绿色就称全部适用路径闭合；其中损坏 preimage 已由资源 profile 联验，操作映射/partial 标签仍需专项复审，不能沿用旧“完全没测试”描述。
+catalog 当前共 **162 个 operation / 143 个唯一 method/path**。11 个 runner profile 映射 **90 个 operation / 115 个 HTTP scenario**；另有 **35 个 deferred** 和 **38 个 out-of-scope**。operation 可区分同一路由的创建/更新、协议或恢复分支，endpoint 分母去重。6 个真实浏览器场景独立登记，不相加伪造 HTTP 覆盖。最新双轮报告 `20261013-073513-51126` 实测为 71 条映射、72 条实际触达及 71 条至少一次非错误响应路由；额外路由 `POST /api/creation-runs` 是准备只读 fixture，不是写入 operation 验收，亦不在 Required wire bindings 内。manifest 仍保留三个 `partial-*` operation，不能因场景有绿色就称全部适用路径闭合；其中损坏 preimage 已由资源 profile 联验，操作映射/partial 标签仍需专项复审，不能沿用旧“完全没测试”描述。
 
 任何报告都必须同时输出 `catalog_total`、`unique_method_path_total`、`operation_implemented/executed`、`scenario_implemented/executed`、`deferred`、`out_of_scope` 和 `remaining_paths`。没有运行结果时 `executed` 必须为空，不把静态映射当运行证据。黑盒套件不测服务内部代码分支覆盖率；没有批准且完整的状态流分母时，也不提供一个伪精确的“路径覆盖率”。
 
@@ -593,7 +593,7 @@ bun test tests/canvas-contract/check-catalog.test.ts
 
 为避免 suite 输入 hash 与 README 后置回写相互失配，`tests/canvas-contract/README.md` 只固定统计口径；最新 run-id、每轮请求/wire 数和浏览器观测数唯一维护于本计划及其版本化证据目录。基线完成后先核对证据，再只更新 `docs/`，不能手工改写证据目录或让 README 追逐动态计数。
 
-**当前最新 run**：`20261013-063740-64558`。两轮均为 89 个 operation、114 个 HTTP 场景、`14160/14159` 个 observed/wire 请求、`70/71/70` 条映射/实际触达/非错误路由，6 条受控故障、4 条响应丢失、4 条 incomplete、0 条未分类中断；浏览器两轮均为 6 个场景、171 条页面响应头，阻断装饰分别为 8/9 条。`evidence.txt` 中的 `tests/canvas-contract/README.md` hash 与最终提交前版本一致；此后不再修改套件输入文件，只更新文档复核结论。
+**当前最新 run**：`20261013-073513-51126`。两轮均为 90 个 operation、115 个 HTTP 场景、`14163/14162` 个 observed/wire 请求、`71/72/71` 条映射/实际触达/非错误路由，6 条受控故障、4 条响应丢失、4 条 incomplete、0 条未分类中断；浏览器两轮均为 6 个场景、170/171 条页面响应头，阻断装饰均为 9 条。`evidence.txt` 中记录 suite 输入 hash、数据库/工具版本和运行身份；此后不再修改套件输入文件，只更新文档复核结论。
 
 #### 此前续跑证据（历史）
 
@@ -601,7 +601,7 @@ bun test tests/canvas-contract/check-catalog.test.ts
 - 随后仅收紧 `manifest.yaml` 的 `remaining_paths` 语义，未改测试实现或产品代码；用新隔离 run `20261013-044857-96646` 重跑 HTTP 双轮（未重复启动浏览器 companion）。第一轮 observed/wire 为 `14113/14112`，第二轮为 `14108/14107`；两轮均为 88/88 operation、112/112 scenario、70/71/70 路由、5 条受控故障、3 条响应丢失、3 条 incomplete、0 条未分类中断。该重验确认“本地 fixture/并发 HTTP 结果不等于远端 CDN、数据库交错或回滚证明”的新口径可被当前报告接受；浏览器证据仍以同一版本的前一条完整双轮为准。
 - 此后新增 `resource-import-response-loss` 受控 fault 与 `canvas.recovery.resource-import` operation：资源 URL 导入现在与文档、普通资源创建、分片合并一样纳入提交后丢 ACK/崩溃/同 key 恢复矩阵。该变更尚未形成新的全量证据；旧 `20261013-044857-96646` 报告不覆盖新 operation，必须在本轮专项和全量重跑后重新审计。
 - 新版每轮在两位用户方向执行 18 次同项目竞争（首次同 key/已有 link/不同 unit 各 6 次）与 6 次跨项目竞争。首次同 key 全部为 200+500/internal；其他三种形态全部两次成功。D-28 冻结失败也推进 canvas revision 的部分提交，D-03/D-26 补入残留关系、持久身份及显式恢复证据；不要求 Java 复制缺陷。所有拒绝后的完整 unit 正文、canvas/history 与两项目投影均重新核验，旧链接显式恢复/清理也执行。原有两个角色场景仍在新版全量运行；不能将并发起跑当作受控数据库交错，未出现的两次成功首次同 key 分支仍不宣称已执行。
-- 全量结束后，88 项可复核 suite 输入 hash 全部匹配，另记录 5 项退出时删除的临时 runtime binary hash。对两轮全部 22 份注册路由日志和 result trace 重新运行 catalog 审计，报告与当前输入一致；分享 fixture、HTTP gateway、import upstream、target control、容器/网络/private 目录和 18189/18190 监听均已清理并复核。新增测试保持在 `tests/canvas-contract`，同步 manifest、scenario 索引、用途说明、迁移/导航/研究文档；静态 catalog 36 项单测、Go 编译预检、合同/runner/harness race、9 项 browser 审计、shell/gofmt、316 条相对链接/anchor 和 `git diff --check` 均通过。链接检查排除外部 URL、站内绝对路由和代码围栏，并解析现有无扩展名 MDX；不宣称文档站构建通过。该历史证据目录为 Git 忽略的 `.local/project-workbench-debug/canvas-contract-review/20261013-040944-41307/`；不改 Go/Java 产品实现，不运行真实付费 Provider；该历史版本曾记录 clean-review `3/3`，但不代表当前 114 场景版本的 review 状态，Required `remaining_paths`、Java/远端门禁仍未闭合。
+- 全量结束后，88 项可复核 suite 输入 hash 全部匹配，另记录 5 项退出时删除的临时 runtime binary hash。对两轮全部 22 份注册路由日志和 result trace 重新运行 catalog 审计，报告与当前输入一致；分享 fixture、HTTP gateway、import upstream、target control、容器/网络/private 目录和 18189/18190 监听均已清理并复核。新增测试保持在 `tests/canvas-contract`，同步 manifest、scenario 索引、用途说明、迁移/导航/研究文档；静态 catalog 36 项单测、Go 编译预检、合同/runner/harness race、9 项 browser 审计、shell/gofmt、316 条相对链接/anchor 和 `git diff --check` 均通过。链接检查排除外部 URL、站内绝对路由和代码围栏，并解析现有无扩展名 MDX；不宣称文档站构建通过。该历史证据目录为 Git 忽略的 `.local/project-workbench-debug/canvas-contract-review/20261013-040944-41307/`；不改 Go/Java 产品实现，不运行真实付费 Provider；该历史版本曾记录 clean-review `3/3`，但不代表当前 90/115 场景版本的 review 状态，Required `remaining_paths`、Java/远端门禁仍未闭合。
 
 - 并发关联初版专项 `bash tests/canvas-contract/run-go-baseline.sh --profiles=project-integration --rounds=2`（`20261012-190015-35778`）双轮通过。新增两个顶层场景，覆盖三种同项目竞争及跨项目争用，双方用户交换方向、每形态三次；逐 ACK 对应持久身份/角色和 revision，不按请求完成顺序推断最终项目。每轮首次同 key 的 6 次竞争均为成功加完整 internal，已有 link/不同 unit 共 12 次竞争都两次成功，跨项目 6 次竞争都两次成功；当前项目 detach 后旧关联仍保留，显式重新关联/解除可恢复。首次同 key 的两次成功结局由源码支持但该专项未出现，不能把允许的分支当作执行证据。随后补强拒绝后完整 unit 正文检查并登记 D-28，旧专项不替代当前输入的全量；36 项 catalog/9 项 browser 审计单测通过。独立编译初检纠正了 runner `Response` 字段名与漏登 scenario 索引，不改产品实现或宽泛放行错误。
 - 运行边界的文档整合完成：两级索引新增直达运行小节的入口；迁移总指引在阅读入口/M1 明确 HTTP runner、浏览器 companion、Java-only/混合网关依赖和合同变更策略；正式画布导航纠正“可直接测试 Java”缺少前端/fixture 前置条件的表述；套件 README 与本计划双向链接，新增文档维护责任和变更触发器。源码核对包括 `web/package.json` 的 dev/build、`request.ts` 的 Cookie/信封、`vite.config.ts` 的代理、`nginx.conf` 的部署绑定和 `browser/run.py` 的 UI/setup/audit。仅对既有正式导航/索引做聚焦增量，不复制整份 FAQ、不新增另一份进度表。
@@ -740,7 +740,7 @@ bun test tests/canvas-contract/check-catalog.test.ts
 - runner 的本地测试拒绝缺字段/空信封/非 JSON 类型与非空 304，避免 `code` 的 Go 零值误判成功；响应摘要、HTTP 错误和断言不打印 Cookie、签名 URL、token 或完整画布正文。
 - 本轮脱敏证据在 Git 忽略目录 `.local/project-workbench-debug/canvas-contract-review/20261012-035004-8159/`：三个 `report-round-*.json`、24 组结果/注册日志和 `evidence.txt`，记录 checkout、source/binary SHA256、工具/数据库版本和 image ID。旧证据保留但不混入新执行审计。启动器已清理自身服务、容器/匿名卷、private binary、上传文件、settings key 和完整服务日志；确认测试端口不再监听、private 目录不存在，不触动其他项目服务或普通 dev 数据。
 - 最终专项验证：`go test ./runner -count=1`、`go test ./... -run '^$'`、`gofmt -l`、`bash -n tests/canvas-contract/run-go-baseline.sh`、`bun test tests/canvas-contract/check-catalog.test.ts`（10 pass）、静态 catalog 审计及 `git diff --check` 均通过。启动器非法轮数/重复 profile 在启动前返回非零；三轮路由/状态集合一致，12 个运行源码文件 hash 与实测证据一致，后续 README 变化只涉及说明。文档站无 `docs/package.json`，不宣称 build/types 通过。
-- 在该旧版本记录中，尚未完成 import 受控上游成功/超时/重放、Required 全部缺失路径、合同批准和 CI required check；因此该版本的 Gate 0 未通过。该历史版本当时已有受控 import 成功/超时/重放、本地真实 TTL/条件缓存、分享资源本地 CDN/object-store redirect 与 GET 故障/恢复、111 场景的 11-profile 全量双轮与 6 个真实浏览器场景双轮；当前 114 场景版本仍未完成 Java 直连、混合网关、生产对象存储/CDN 故障与远端 TTL/缓存、完整 UI/SSE/Provider/Agent 任务回写、合同批准和 Required `remaining_paths`。当前 checkout 无 `docs/package.json`，仅做文档静态/链接检查，不宣称文档站 build/types 通过。
+- 在该旧版本记录中，尚未完成 import 受控上游成功/超时/重放、Required 全部缺失路径、合同批准和 CI required check；因此该版本的 Gate 0 未通过。该历史版本当时已有受控 import 成功/超时/重放、本地真实 TTL/条件缓存、分享资源本地 CDN/object-store redirect 与 GET 故障/恢复、111 场景的 11-profile 全量双轮与 6 个真实浏览器场景双轮；当前 90/115 场景版本仍未完成 Java 直连、混合网关、生产对象存储/CDN 故障与远端 TTL/缓存、完整 UI/SSE/Provider/Agent 任务回写、合同批准和 Required `remaining_paths`。当前 checkout 无 `docs/package.json`，仅做文档静态/链接检查，不宣称文档站 build/types 通过。
 
 ## 历史：基线子范围 Review 与三轮自审
 

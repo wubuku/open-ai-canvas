@@ -154,6 +154,7 @@ Provider-free generation writeback:
 - `generation.writeback.unauthenticated`
 - `generation.writeback.owner-foreign-cursor`
 - `generation.writeback.completion-lifecycle`
+- `generation.writeback.sse-replay`
 
 The current Go baseline records `canvas.authz.foreign-delete` as HTTP 200 with
 no deletion effect: the owner can still read the canvas at the same revision.
@@ -191,9 +192,10 @@ remaining paths. Fifteen project/unit operations have an executable
 workbench core profile, not the entire workbench. Remaining workflow/shot/asset
 and character/voice families are deferred. The generation boundary only proves
 authenticated read isolation and safe missing-ID handling; task mutation,
-external generation, writeback, Agent events/approvals, and memory/profile writes
-remain separate gates. The `generation-writeback` profile adds a provider-free
-text replay path: task admission, owner/foreign delta access, `after` cursor
-reads, single completion, and closed-task rejection. Provider-backed task
-recovery, SSE `text-events`, creation-run state, Agent events/approvals, and
-memory/profile writes remain separate gates.
+external generation, Agent events/approvals, and memory/profile writes remain
+separate gates. The `generation-writeback` profile adds a provider-free text
+replay path: task admission, owner/foreign delta access, `after` cursor reads,
+SSE `text-events` replay, single completion, and closed-task rejection.
+Provider-backed task recovery, SSE reconnect after a live disconnect,
+creation-run state, Agent events/approvals, and memory/profile writes remain
+separate gates.

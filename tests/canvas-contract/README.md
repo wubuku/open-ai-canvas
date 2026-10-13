@@ -65,16 +65,16 @@ profile 为：
 | `public-resource` | 可执行，路径未全量 | 独立签名资源 URL、文件名、Range、篡改/缺失/过期签名、资源绑定、重放和安全缓存头；本地 S3-compatible origin 的成功/失败/恢复已由 HTTP fixture 覆盖，CDN/远端 TTL/条件缓存仍需专门 fixture |
 | `restart-recovery` | 可执行，需私有进程控制 fixture | SIGKILL 与优雅重启后原 Cookie、文档/CAS/ETag、历史、分享/签名 URL、资源字节、项目单元/关联与删除状态；提交成功而客户端丢失 ACK 后重启、CAS/幂等重放和精确资源用量；Go 内存上传会话失效后重新上传 |
 | `generation-boundary` | 可执行，路径未全量 | 任务/creation-run/Agent 只读 HTTP 边界：未认证拒绝、已有任务 owner 详情/日志读取、foreign 任务列表/详情/日志隔离、missing-ID、foreign creation-run 隔离；不启动模型、不扣费、不执行画布写回 |
-| `generation-writeback` | 可执行，明确为 provider-free 子集 | 文本任务创建、owner/foreign 增量读取、`after` 游标、单次完成和终态拒写；不覆盖 Provider、SSE、creation-run 或 Agent 写回 |
+| `generation-writeback` | 可执行，明确为 provider-free 子集 | 文本任务创建、owner/foreign 增量读取、`after` 游标、SSE 事件/游标重放、单次完成和终态拒写；不覆盖 Provider、creation-run 或 Agent 写回 |
 
 以下 catalog 仍保留但不会被上述 profile 的绿色结果隐式覆盖：
 
 - `public-resource`：分享资源的生产 CDN 交付、远端 TTL 边界和条件缓存矩阵仍未完全执行；分享 profile 已用本地 CDN/object-store fixture 验证 redirect 与成功/GET 故障/恢复，资源/public origin 的本地 S3-compatible 成功/失败/恢复、本地真实 TTL 和 Last-Modified 重验证也已执行，不冒充生产远端验收；
 - `project-workbench`：项目、单元、分镜、工作流和项目素材的完整生命周期；当前仅 `project-workbench-core` 的 15 个项目/单元 operation 已纳入可执行 profile，其余工作台和角色库仍 deferred；
-- `generation-runtime`、`agent-canvas`：Provider-backed 任务写入/恢复、SSE、creation-run 状态机、Agent run/tool/event、记忆和 profile 写入的独立合同族；`generation-writeback` 只覆盖上表明确列出的 provider-free text replay 子集，不能外推为完整生成写回。
+- `generation-runtime`、`agent-canvas`：Provider-backed 任务写入/恢复、creation-run 状态机、Agent run/tool/event、记忆和 profile 写入的独立合同族；`generation-writeback` 只覆盖上表明确列出的 provider-free text replay + SSE 子集，不能外推为完整生成写回。
 - `provider-resource`：Ark 私有素材同步的外部提交、receipt 和恢复合同。
 
-11 个 runner profile 共映射 **89 个 operation / 114 个 HTTP 场景**；另外 **35 个 deferred**、
+11 个 runner profile 共映射 **90 个 operation / 115 个 HTTP 场景**；另外 **35 个 deferred**、
 **38 个 out-of-scope**。每个 Required profile 的缺失分支均保留在 manifest
 `remaining_paths`，所以“可执行”和“通过”不表示 profile 的全部路径已经覆盖。
 manifest 的 profile `dependencies` 是测试 fixture/跨套件门禁关系，不是 Java
@@ -500,7 +500,7 @@ facet；移除查询串、分享 token 和文件名，不保存 headers 或正�
 后置断言，不能恢复原先的直接跳过。相关 catalog 审计单测共 36 项，另有 9 项
 Python browser audit 单测。
 
-当前 manifest 登记 162 个 operation、143 个唯一 method/path、89 个 Required operation 和 114 个 HTTP 场景；最新 run-id、每轮 observed/wire 请求、路由触达、受控故障和真实浏览器观测数只维护在[唯一执行账本](../../docs/drafts/canvas-java-http-contract-test-plan.md#当前进度)及其版本化证据目录，不在本 README 复制动态计数。执行报告必须同时保留 11 个 profile、浏览器 6 个场景、`remaining_paths`、31 项行为裁决和 Java/混合网关门禁；页面响应头、HTTP 完整 wire 和 fixture 请求始终分开统计。`generation-boundary` 的任务 owner/foreign task read 已纳入当前证据；`generation-writeback` 只覆盖 provider-free text replay 子集；`canvas.share.resource-object-storage-failure` 通过本地 CDN/object-store fixture 验证分享资源 redirect、成功读取、GET 故障和恢复；这不等同于生产 CDN、TTL 或条件缓存验收。资源 URL 导入与 legacy 素材 purge 的提交后响应丢失、崩溃/重放、引用竞态和本地物理删除失败也已登记；它们使用本地受控 fixture，不等同于远端对象存储恢复或生产 outbox 重试时序。新运行的精确证据以执行账本为准，不得与旧版本请求数拼接。
+当前 manifest 登记 162 个 operation、143 个唯一 method/path、90 个 Required operation 和 115 个 HTTP 场景；最新 run-id、每轮 observed/wire 请求、路由触达、受控故障和真实浏览器观测数只维护在[唯一执行账本](../../docs/drafts/canvas-java-http-contract-test-plan.md#当前进度)及其版本化证据目录，不在本 README 复制动态计数。执行报告必须同时保留 11 个 profile、浏览器 6 个场景、`remaining_paths`、31 项行为裁决和 Java/混合网关门禁；页面响应头、HTTP 完整 wire 和 fixture 请求始终分开统计。`generation-boundary` 的任务 owner/foreign task read 已纳入当前证据；`generation-writeback` 已覆盖 provider-free text replay 与 SSE `text-events` 游标重放，但不覆盖 Provider、SSE 断线重连或完整 Agent/creation-run 写回；`canvas.share.resource-object-storage-failure` 通过本地 CDN/object-store fixture 验证分享资源 redirect、成功读取、GET 故障和恢复；这不等同于生产 CDN、TTL 或条件缓存验收。资源 URL 导入与 legacy 素材 purge 的提交后响应丢失、崩溃/重放、引用竞态和本地物理删除失败也已登记；它们使用本地受控 fixture，不等同于远端对象存储恢复或生产 outbox 重试时序。新运行的精确证据以执行账本为准，不得与旧版本请求数拼接。
 
 71 场景稳定的 schema/完整单元正文状态版已通过独立 CI 两轮及全新启动器第三轮：**72 个 operation 映射、
 71 个顶层 scenario、57 条触达/有非错误响应路由、清单内 1470 次完整请求及 wire

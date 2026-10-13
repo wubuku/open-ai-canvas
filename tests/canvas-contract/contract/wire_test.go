@@ -3,6 +3,7 @@ package contract
 import (
 	"bytes"
 	"encoding/json"
+	"net/http"
 	"strings"
 	"sync"
 	"testing"
@@ -33,7 +34,7 @@ func TestEmbeddedBindingsCompileOfflineAndMatchLiteralRoutes(test *testing.T) {
 	if err != nil {
 		test.Fatal(err)
 	}
-	if len(validator.bindings) != 70 {
+	if len(validator.bindings) != 71 {
 		test.Fatal("required route registry changed without updating its audit")
 	}
 	binaryCount := 0
@@ -62,6 +63,24 @@ func TestEmbeddedBindingsCompileOfflineAndMatchLiteralRoutes(test *testing.T) {
 	}
 	if _, found := validator.binding("GET", "/api/canvas-projects/"); found {
 		test.Fatal("empty identity matched a required binding")
+	}
+}
+
+func TestSSEBindingRequiresEventStreamAndDoesNotUseJSONDecoder(test *testing.T) {
+	body := []byte("event: progress\ndata: {\"progress\":100}\n\nevent: terminal\ndata: {}\n\n")
+	evidence, err := ValidateResponse("GET", "/api/tasks/task-1/text-events?after=0", http.StatusOK, "text/event-stream; charset=utf-8", body)
+	if err != nil || !evidence.Valid || evidence.Mode != "stream" || evidence.Schema != "" || RequiresJSON("GET", "/api/tasks/task-1/text-events", http.StatusOK, "text/event-stream") {
+		test.Fatalf("valid SSE response was not classified as a stream: evidence=%+v err=%v", evidence, err)
+	}
+	for _, contentType := range []string{"application/json", "text/plain"} {
+		evidence, err = ValidateResponse("GET", "/api/tasks/task-1/text-events", http.StatusOK, contentType, body)
+		if err == nil || evidence.Valid {
+			test.Fatalf("content type %q incorrectly passed SSE validation: evidence=%+v", contentType, evidence)
+		}
+	}
+	evidence, err = ValidateResponse("GET", "/api/tasks/task-1/text-events", http.StatusOK, "text/event-stream", nil)
+	if err == nil || evidence.Valid {
+		test.Fatalf("empty SSE body incorrectly passed validation: evidence=%+v", evidence)
 	}
 }
 

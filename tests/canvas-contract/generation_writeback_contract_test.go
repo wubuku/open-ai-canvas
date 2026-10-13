@@ -2,6 +2,7 @@ package canvas_contract_test
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 
 	"canvas-contract/runner"
@@ -26,6 +27,7 @@ func runGenerationWritebackContract(test *testing.T, config runner.Config) {
 			{http.MethodPost, "/api/tasks", map[string]any{"type": "canvas_text", "prompt": "unauthenticated", "input": map[string]any{"mode": "text", "replay": true}}},
 			{http.MethodPost, "/api/tasks/" + missingID + "/text-deltas", map[string]any{"content": "unauthenticated"}},
 			{http.MethodGet, "/api/tasks/" + missingID + "/text-deltas", nil},
+			{http.MethodGet, "/api/tasks/" + missingID + "/text-events", nil},
 			{http.MethodPost, "/api/tasks/" + missingID + "/text-replay-complete", map[string]any{"text": "unauthenticated"}},
 		} {
 			response, envelope, err := anonymous.Do(runner.Context(test), request.method, request.path, request.body, nil)
@@ -71,6 +73,13 @@ func runGenerationWritebackContract(test *testing.T, config runner.Config) {
 			test.Fatal(err)
 		}
 		runner.RequireError(test, response, envelope, http.StatusInternalServerError, "")
+		response, err = foreign.DoRaw(runner.Context(test), http.MethodGet, "/api/tasks/"+taskID+"/text-events", nil, "", nil)
+		if err != nil {
+			test.Fatal(err)
+		}
+		if response.StatusCode != http.StatusInternalServerError {
+			test.Fatalf("foreign SSE status = %d", response.StatusCode)
+		}
 
 		for _, content := range []string{"第一段", "第二段"} {
 			response, envelope, err = owner.Do(runner.Context(test), http.MethodPost, "/api/tasks/"+taskID+"/text-deltas", map[string]any{"content": content}, nil)
@@ -165,6 +174,34 @@ func runGenerationWritebackContract(test *testing.T, config runner.Config) {
 			test.Fatal(err)
 		}
 		runner.RequireError(test, response, envelope, http.StatusBadRequest, "")
+	})
+
+	test.Run("generation.writeback.sse-replay", func(test *testing.T) {
+		if taskID == "" {
+			test.Fatal("owner setup did not create a replay task")
+		}
+		response, err := owner.DoRaw(runner.Context(test), http.MethodGet, "/api/tasks/"+taskID+"/text-events?after=0", nil, "", http.Header{"Accept": {"text/event-stream"}})
+		if err != nil {
+			test.Fatal(err)
+		}
+		if response.StatusCode != http.StatusOK || !strings.HasPrefix(response.Header.Get("Content-Type"), "text/event-stream") {
+			test.Fatalf("unexpected owner SSE response: %s", response)
+		}
+		body := string(response.Body)
+		for _, fragment := range []string{"event: progress", "id: 1\nevent: delta", "id: 2\nevent: delta", "event: terminal"} {
+			if !strings.Contains(body, fragment) {
+				test.Fatalf("owner SSE body missing %q: %q", fragment, body)
+			}
+		}
+
+		response, err = owner.DoRaw(runner.Context(test), http.MethodGet, "/api/tasks/"+taskID+"/text-events?after=1", nil, "", http.Header{"Accept": {"text/event-stream"}})
+		if err != nil {
+			test.Fatal(err)
+		}
+		body = string(response.Body)
+		if response.StatusCode != http.StatusOK || strings.Contains(body, "id: 1\nevent: delta") || !strings.Contains(body, "id: 2\nevent: delta") || !strings.Contains(body, "event: terminal") {
+			test.Fatalf("owner SSE cursor replay mismatch: status=%d body=%q", response.StatusCode, body)
+		}
 	})
 }
 

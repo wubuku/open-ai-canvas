@@ -30,7 +30,7 @@ test("catalog audit accepts the actual registration and scenario index", () => {
   expect(report.direct_canvas_routes).toBe(14);
   expect(report.scenario_executed).toBeNull();
   expect(report.contract_approval).toBe("pending");
-  expect(report.wire_schema_bound_routes).toBe(70);
+  expect(report.wire_schema_bound_routes).toBe(71);
   expect(report.wire_schema_version).toBe("v1-observed");
   expect(report.wire_validated_requests).toBeNull();
 });

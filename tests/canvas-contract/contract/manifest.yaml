@@ -638,7 +638,7 @@ profiles:
       a model, charging credits or mutating a canvas.
     remaining_paths:
       - existing Agent run owner reads still need deterministic local fixtures that do not start a provider runtime
-      - task SSE cursor/replay, task mutation/recovery, creation-run lease/submission/canvas commit, and Agent event/approval/undo flows remain separate suites
+      - task mutation/recovery, creation-run lease/submission/canvas commit, and Agent event/approval/undo flows remain separate suites
       - foreign Agent run records require durable fixtures before their exact not-found policy can be asserted
     operations:
       - canvas.task.list
@@ -657,11 +657,12 @@ profiles:
     dependencies: [core]
     implementation: implemented-and-executed-text-replay-subset
     target: >-
-      Exercise the provider-free text replay storage path through HTTP: create a
-      replay task, append owner deltas, read them with a cursor, reject foreign
-      access, and close the task exactly once.
+      Exercise the provider-free text replay storage and SSE path through HTTP:
+      create a replay task, append owner deltas, read them with a cursor, replay
+      the same events through SSE, reject foreign access, and close the task
+      exactly once.
     remaining_paths:
-      - real Provider generation, SSE text-events cursor/replay and reconnect
+      - real Provider generation and SSE reconnect after a live disconnect
       - task retry/cancel/recovery/provider-query and durable task crash recovery
       - creation-run leases/submissions/canvas commit and all Agent writes/events
     reason: >-
@@ -673,6 +674,7 @@ profiles:
       - canvas.task.create
       - canvas.task.text-delta-create
       - canvas.task.text-delta-list
+      - canvas.task.events
       - canvas.task.text-replay-complete
   generation-runtime:
     status: OUT_OF_SCOPE
@@ -686,7 +688,6 @@ profiles:
       recovery contracts. The provider-free text replay subset is executable
       above; these paths remain a separate suite before Java cutover.
     operations:
-      - canvas.task.events
       - canvas.task.retry
       - canvas.task.recover-media
       - canvas.task.query-provider
@@ -1859,14 +1860,14 @@ operations:
     replay: owner-scoped-after-cursor
     evidence: [backend/internal/handler/routes.go, tests/canvas-contract/generation_writeback_contract_test.go]
   - id: canvas.task.events
-    profile: generation-runtime
-    scenario: separate.canvas-task-suite
-    implementation: separate-suite
+    profile: generation-writeback
+    scenario: "generation.writeback.unauthenticated, generation.writeback.owner-foreign-cursor, generation.writeback.sse-replay"
+    implementation: implemented-and-executed-provider-free-replay
     method: GET
     path: /api/tasks/{id}/text-events
     owner: text-task-events
     replay: sse-cursor-after
-    evidence: [backend/internal/handler/routes.go]
+    evidence: [backend/internal/handler/routes.go, tests/canvas-contract/generation_writeback_contract_test.go]
   - id: canvas.task.retry
     profile: generation-runtime
     scenario: separate.canvas-task-suite

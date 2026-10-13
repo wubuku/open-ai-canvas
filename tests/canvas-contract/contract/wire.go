@@ -26,6 +26,7 @@ type Binding struct {
 	Path             string `json:"path"`
 	Schema           string `json:"schema"`
 	Binary           bool   `json:"binary"`
+	Stream           bool   `json:"stream"`
 	AllowNotModified bool   `json:"not_modified"`
 	DescriptorSchema string `json:"descriptor_schema"`
 	AllowRedirect    bool   `json:"redirect"`
@@ -84,7 +85,17 @@ func newWireValidator() (*wireValidator, error) {
 	identities := map[string]bool{}
 	for _, binding := range registry.Bindings {
 		identity := binding.Method + " " + binding.Path
-		if identities[identity] || !strings.HasPrefix(binding.Path, "/api/") || binding.Binary == (binding.Schema != "") || !binding.Binary && (binding.DescriptorSchema != "" || binding.AllowRedirect) {
+		modes := 0
+		if binding.Binary {
+			modes++
+		}
+		if binding.Stream {
+			modes++
+		}
+		if binding.Schema != "" {
+			modes++
+		}
+		if identities[identity] || !strings.HasPrefix(binding.Path, "/api/") || modes != 1 || binding.Stream && (binding.DescriptorSchema != "" || binding.AllowRedirect || binding.AllowNotModified) || !binding.Binary && !binding.Stream && (binding.DescriptorSchema != "" || binding.AllowRedirect) {
 			return nil, fmt.Errorf("invalid wire binding registry")
 		}
 		identities[identity] = true
@@ -169,6 +180,8 @@ func wireMode(method, path string, status int) (WireEvidence, Binding, error) {
 		evidence.Schema, evidence.Mode = binding.Schema, "not-modified"
 	} else if binding.AllowRedirect && status == http.StatusTemporaryRedirect {
 		evidence.Schema, evidence.Mode = "", "redirect"
+	} else if binding.Stream && status >= 200 && status < 300 {
+		evidence.Schema, evidence.Mode = "", "stream"
 	} else if binding.Binary && status >= 200 && status < 300 {
 		evidence.Schema, evidence.Mode = "", "binary"
 	} else if binding.Binary && status == http.StatusRequestedRangeNotSatisfiable {
@@ -212,6 +225,11 @@ func ValidateResponse(method, path string, status int, contentType string, body 
 			return invalid("unexpected 304 or nonempty body")
 		}
 	case "binary", "unbound-raw":
+	case "stream":
+		mediaType, _, parseErr := mime.ParseMediaType(contentType)
+		if parseErr != nil || mediaType != "text/event-stream" || len(body) == 0 {
+			return invalid("stream requires a nonempty text/event-stream body")
+		}
 	case "redirect":
 		if len(body) != 0 || len(responseHeaders) != 1 || len(responseHeaders[0].Values("Location")) != 1 {
 			return invalid("redirect requires an empty body and one Location header")
