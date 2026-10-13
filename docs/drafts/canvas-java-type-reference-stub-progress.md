@@ -57,9 +57,9 @@ audience: 继续实施画布 Java 类型参考桩的开发者、评审者和合�
 
 ## 5. 当前接续顺序
 
-1. 完成本轮文档交叉复核，保证进度、规划、合同计划和迁移入口没有把旧阶段结果当成当前状态。
-2. 提交并推送当前 Java reference stub 与文档；工作区恢复干净。
-3. 真实 Java 业务移植开始后，复用同一 runner，另行证明 PostgreSQL、混合网关、远端对象存储、Provider、Agent、SSE 断线恢复和切流回滚。
+1. 当前参考桩的文档入口和验证 runbook 已闭环：先读 Java README，再按本账本和合同套件 README 执行对应门禁；不要把 README 的命令模板误读为本轮重新执行的证据。
+2. 真实 Java 业务移植开始后，复用同一 HTTP runner 和 manifest；每个 profile 必须在目标实现上重新执行，不能继承 H2 reference stub 的绿色结果。
+3. 真实移植需另行证明 PostgreSQL、混合网关、远端对象存储、Provider、Agent、SSE 断线恢复、多实例并发和切流回滚；浏览器 companion 需在 Java/混合后端实际提供页面辅助 API 后单独验收。
 
 ## 6. 当前阻塞项与边界
 
