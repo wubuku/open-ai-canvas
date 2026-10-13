@@ -23,11 +23,11 @@ func TestExpireShareUsesPrivateFixtureContract(t *testing.T) {
 		_, _ = writer.Write([]byte(`{"expired":true,"projectId":"project-1"}`))
 	}))
 	defer server.Close()
-	config := Config{ShareFixtureURL: server.URL, ShareFixtureToken: "fixture-token-with-at-least-24-bytes", Timeout: 2 * time.Second}
+	config := Config{FixtureURL: server.URL, FixtureToken: "fixture-token-with-at-least-24-bytes", Timeout: 2 * time.Second}
 	if err := ExpireShare(context.Background(), config, "project-1"); err != nil {
 		t.Fatal(err)
 	}
-	if authorization != "Bearer "+config.ShareFixtureToken || !strings.Contains(body, `"projectId":"project-1"`) {
+	if authorization != "Bearer "+config.FixtureToken || !strings.Contains(body, `"projectId":"project-1"`) {
 		t.Fatalf("fixture request leaked or omitted its scoped authorization: auth=%q body=%q", authorization, body)
 	}
 }
@@ -36,13 +36,24 @@ func TestShareConfigRequiresPrivateExpiryFixture(t *testing.T) {
 	t.Setenv("CANVAS_CONTRACT_BASE_URL", "http://127.0.0.1:18183")
 	t.Setenv("CANVAS_CONTRACT_PROFILE", "share-public")
 	t.Setenv("CANVAS_CONTRACT_REGISTER_USERS", "true")
-	t.Setenv("CANVAS_CONTRACT_SHARE_FIXTURE_URL", "http://example.test:1234")
-	t.Setenv("CANVAS_CONTRACT_SHARE_FIXTURE_TOKEN", "fixture-token-with-at-least-24-bytes")
+	t.Setenv("CANVAS_CONTRACT_FIXTURE_URL", "http://example.test:1234")
+	t.Setenv("CANVAS_CONTRACT_FIXTURE_TOKEN", "fixture-token-with-at-least-24-bytes")
 	if _, err := ConfigFromEnv(); err == nil {
 		t.Fatal("share profile accepted a non-loopback expiry fixture")
 	}
-	t.Setenv("CANVAS_CONTRACT_SHARE_FIXTURE_URL", "http://127.0.0.1:18185")
+	t.Setenv("CANVAS_CONTRACT_FIXTURE_URL", "http://127.0.0.1:18185")
 	if _, err := ConfigFromEnv(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestDatabaseFixtureConfigRejectsCredentials(t *testing.T) {
+	t.Setenv("CANVAS_CONTRACT_BASE_URL", "http://127.0.0.1:18183")
+	t.Setenv("CANVAS_CONTRACT_PROFILE", "core")
+	t.Setenv("CANVAS_CONTRACT_REGISTER_USERS", "true")
+	t.Setenv("CANVAS_CONTRACT_FIXTURE_TOKEN", "fixture-token-with-at-least-24-bytes")
+	t.Setenv("CANVAS_CONTRACT_FIXTURE_URL", "http://fixture-user:fixture-password@127.0.0.1:18185")
+	if _, err := ConfigFromEnv(); err == nil || strings.Contains(err.Error(), "fixture-password") {
+		t.Fatal("database fixture accepted credentials or exposed them in an error")
 	}
 }

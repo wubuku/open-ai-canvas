@@ -153,6 +153,43 @@ func runResourceStoredReservationLimitMatrix(test *testing.T, admin *runner.Clie
 	requireResourceState(test, owner, before)
 }
 
+func runResourceReservationExpiryMatrix(test *testing.T, admin *runner.Client) {
+	owner := policyFixtureUser(test, admin, "reservation-expiry")
+	withResourcePolicy(test, admin, func(setting map[string]any) {
+		resource := setting["resource"].(map[string]any)
+		resource["resourceUploadMB"] = 1
+		resource["dailyUploadMB"] = 1
+		setting["request"].(map[string]any)["resourceUploadPerMinute"] = 1000
+	})
+	content := paddedImage(test, 600<<10)
+	before := resourceState(test, owner)
+	session := startChunkUpload(test, owner, len(content))
+	if err := runner.ExpireUploadReservation(runner.Context(test), owner.Config, session.UploadID); err != nil {
+		test.Fatal(err)
+	}
+	basePath := "/api/resources/uploads/" + session.UploadID
+	writeChunk(test, owner, basePath+"/chunks/0", content, http.StatusOK)
+	response, envelope, err := owner.Do(runner.Context(test), http.MethodPost, basePath+"/complete", nil, nil)
+	if err != nil {
+		test.Fatal(err)
+	}
+	runner.RequireError(test, response, envelope, http.StatusBadRequest, "")
+	requireResourceState(test, owner, before)
+
+	recovered := startChunkUpload(test, owner, len(content))
+	recoveredPath := "/api/resources/uploads/" + recovered.UploadID
+	writeChunk(test, owner, recoveredPath+"/chunks/0", content, http.StatusOK)
+	resourceID := completeChunkUpload(test, owner, recovered, content)
+	if resourceID == "" {
+		test.Fatal("expired reservation recovery did not publish a resource")
+	}
+	after := resourceState(test, owner)
+	if len(after.IDs) != len(before.IDs)+1 || after.UsedBytes != before.UsedBytes+int64(len(content)) {
+		test.Fatalf("recovered upload changed visible resource state unexpectedly: before=%+v after=%+v", before, after)
+	}
+	test.Log("expired reservation was rejected at commit, released, and replaced by a successful retry")
+}
+
 func runResourceSessionSlotLimitMatrix(test *testing.T, admin *runner.Client) {
 	owner := policyFixtureUser(test, admin, "session-slots")
 	foreign := policyFixtureUser(test, admin, "foreign-session-slots")

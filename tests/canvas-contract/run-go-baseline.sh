@@ -260,11 +260,11 @@ for round in $(seq 1 "$ROUNDS"); do
             (( CONTROL_READY )) || { echo 'Private target control did not become ready' >&2; exit 1; }
             CONTROL_URL="$(bun -e 'console.log((await Bun.file(process.argv[1]).json()).origin)' "$PRIVATE_ROOT/control-$COUNTER.json")"
         fi
-        if [[ "$profile" == share-public ]]; then
+        if [[ "$profile" == core || "$profile" == share-public || "$profile" == resource-integrity || "$profile" == restart-recovery ]]; then
             SHARE_FIXTURE_TOKEN="$(openssl rand -hex 24)"
             (
                 cd "$SUITE_ROOT"
-                CANVAS_CONTRACT_SHARE_FIXTURE_TOKEN="$SHARE_FIXTURE_TOKEN" exec "$PRIVATE_ROOT/share-fixture" \
+                CANVAS_CONTRACT_FIXTURE_TOKEN="$SHARE_FIXTURE_TOKEN" exec "$PRIVATE_ROOT/share-fixture" \
                     --database-url="postgres://canvas:$PASSWORD@127.0.0.1:$PG_PORT/$DATABASE?sslmode=disable" \
                     --ready-file="$SHARE_FIXTURE_READY"
             ) > "$PRIVATE_ROOT/share-fixture-$COUNTER.log" 2>&1 &
@@ -287,7 +287,7 @@ for round in $(seq 1 "$ROUNDS"); do
             CANVAS_CONTRACT_USER_A_USERNAME='' CANVAS_CONTRACT_USER_A_PASSWORD='' CANVAS_CONTRACT_USER_B_USERNAME='' CANVAS_CONTRACT_USER_B_PASSWORD='' \
             CANVAS_CONTRACT_IMPLEMENTATION=go CANVAS_CONTRACT_DB_PROFILE=postgres-18 CANVAS_CONTRACT_RUN_ID="$RUN_ID-$COUNTER" \
             CANVAS_CONTRACT_CONTROL_URL="$CONTROL_URL" CANVAS_CONTRACT_CONTROL_TOKEN="$CONTROL_TOKEN" \
-            CANVAS_CONTRACT_SHARE_FIXTURE_URL="$SHARE_FIXTURE_URL" CANVAS_CONTRACT_SHARE_FIXTURE_TOKEN="$SHARE_FIXTURE_TOKEN" \
+            CANVAS_CONTRACT_FIXTURE_URL="$SHARE_FIXTURE_URL" CANVAS_CONTRACT_FIXTURE_TOKEN="$SHARE_FIXTURE_TOKEN" \
             CANVAS_CONTRACT_IMPORT_FIXTURE="$IMPORT_FIXTURE" CANVAS_CONTRACT_ADMIN_USERNAME='' CANVAS_CONTRACT_ADMIN_PASSWORD='' \
             CANVAS_CONTRACT_SETTINGS_FIXTURE=true \
             go test ./... -count=1 -json > "$PROFILE_ROOT/result.jsonl"

@@ -14,6 +14,7 @@ Core document:
 - `canvas.create.read`
 - `canvas.list`
 - `canvas.list.pagination`
+- `canvas.list.updated-at-ties`
 - `canvas.write.invalid-input`
 - `canvas.conditional-read`
 - `canvas.update.cas`
@@ -87,6 +88,7 @@ Resource integrity:
 - `canvas.resource.limits.daily-replay-and-concurrency`
 - `canvas.resource.limits.rate-and-scope`
 - `canvas.resource.limits.stored-reservations`
+- `canvas.resource.upload.reservation-expiry-and-reconciliation`
 - `canvas.resource.limits.session-slots`
 - `canvas.resource.delivery.real-expiry-and-conditional-cache`
 - `canvas.resource.limits.concurrent-slot-admission`
@@ -127,6 +129,7 @@ Restart recovery (private owned-process fixture required):
 - `canvas.recovery.share-and-resource`
 - `canvas.recovery.project-links`
 - `canvas.recovery.upload-session-loss`
+- `canvas.recovery.persisted-upload-reservation`
 - `canvas.recovery.deleted-state`
 - `canvas.recovery.graceful-and-write`
 - `canvas.recovery.response-loss-and-restart`

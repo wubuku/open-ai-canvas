@@ -374,7 +374,6 @@ profiles:
     implementation: implemented-and-executed
     target: 100% of 7 unique method/path routes plus branch and state-flow matrix
     remaining_paths:
-      - updated-at sort ties
       - transport timeout and timed ordinary-history capture interval; forced-restore retention/eviction is executable and restart-recovery is the companion gate
     operations:
       - canvas.list
@@ -431,7 +430,7 @@ profiles:
       - workflow-initialization failure rollback; sequential/concurrent same-user name conflicts and cross-user names are already executable
       - controlled contention/membership-invalidation and create/revision failure injection; same-leading/opposite-leading reorder and reorder-versus-create/delete/import scenarios do not prove a start barrier controls database interleaving
       - active-task rejection and populated workflow/shot/asset cascades via companion suites; unit/link detach and canvas/history/share/resource retention are executable
-      - body-budget decoder framing approval; exact 32 MiB source import and over-budget rejection have an executable scenario, trailing-data policy requires a decision
+      - body-budget decoder framing approval; exact 32 MiB source import and over-budget rejection have an executable scenario, while Go currently accepts and ignores non-whitespace trailing JSON and the Java target policy remains pending
     operations:
       - project.list
       - project.create
@@ -456,7 +455,7 @@ profiles:
     implementation: implemented-and-executed
     target: required resource access, metadata, file, upload, import and usage paths
     remaining_paths:
-      - reservation expiry/reconciliation; controlled URL import slow-timeout and concurrent session-slot admission now have executable scenarios
+      - background reconciler independent of a subsequent upload admission; the restart-recovery companion proves durable expiry cleanup during a fresh-process admission
       - forced race interleaving and abrupt chunk-upload connection reset; HTTP request-body half-close with complete 400 and selected chunk-versus-complete/failed-overwrite recovery execute; resource-create and upload-complete response loss after commit plus restart/idempotent retry execute in restart-recovery
       - remote object-store Range/delivery-mode matrix; local object-storage failure/retry and restart-recovery persistence are executable companion gates, but do not prove every remote provider or CDN behavior
     operations:
@@ -530,7 +529,7 @@ profiles:
     target: crash and graceful restart retain committed facts, original sessions and resource bytes
     remaining_paths:
       - crash during an in-flight write or object operation, not only after committed HTTP writes
-      - interrupted upload quota reservation expiry/reconciliation and multi-instance session behavior
+      - multi-instance upload session behavior
     operations:
       - canvas.recovery.document
       - canvas.recovery.history
@@ -538,6 +537,7 @@ profiles:
       - canvas.recovery.resource
       - canvas.recovery.project
       - canvas.recovery.upload-session
+      - canvas.recovery.persisted-upload-reservation
       - canvas.recovery.deleted-state
       - canvas.recovery.write
       - canvas.recovery.resource-create
@@ -764,6 +764,14 @@ operations:
     owner: resource-upload
     replay: go-in-memory-session-lost-after-crash-then-new-session-completes
     evidence: [backend/internal/handler/resource_upload_session.go, tests/canvas-contract/restart_contract_test.go]
+  - id: canvas.recovery.persisted-upload-reservation
+    profile: restart-recovery
+    scenario: canvas.recovery.persisted-upload-reservation
+    method: POST
+    path: /api/resources/uploads
+    owner: resource-upload-quota
+    replay: expired-durable-reservation-is-reconciled-before-new-process-admission
+    evidence: [backend/internal/repository/upload_reservations.go, tests/canvas-contract/restart_contract_test.go]
   - id: canvas.recovery.deleted-state
     profile: restart-recovery
     scenario: canvas.recovery.deleted-state
@@ -814,7 +822,7 @@ operations:
     evidence: [backend/internal/handler/user_data.go, tests/canvas-contract/response_loss_contract_test.go]
   - id: canvas.list
     profile: core
-    scenario: "canvas.list, canvas.list.pagination"
+    scenario: "canvas.list, canvas.list.pagination, canvas.list.updated-at-ties"
     method: GET
     path: /api/canvas-projects
     owner: canvas-summary
@@ -822,6 +830,7 @@ operations:
     evidence:
       - backend/internal/handler/user_data.go
       - web/src/services/api/user-data.ts
+      - tests/canvas-contract/runner/database_fixture.go
   - id: canvas.create
     profile: core
     scenario: canvas.create.read, canvas.history.retention-and-forced-preimage
@@ -1133,7 +1142,7 @@ operations:
       - web/src/services/api/resources.ts
   - id: canvas.resource.upload.create
     profile: resource-integrity
-    scenario: "canvas.resource.chunked-upload, canvas.resource.chunk-validation, canvas.resource.multichunk-replay, canvas.resource.limits.single-file, canvas.resource.limits.daily-replay-and-concurrency, canvas.resource.limits.rate-and-scope, canvas.resource.limits.stored-reservations, canvas.resource.limits.session-slots, canvas.resource.limits.concurrent-slot-admission, canvas.resource.upload.concurrent-chunks-and-completion, canvas.resource.upload.chunk-versus-completion, canvas.resource.upload.invalid-overwrite-recovery, canvas.resource.upload.interrupted-chunk-recovery"
+    scenario: "canvas.resource.chunked-upload, canvas.resource.chunk-validation, canvas.resource.multichunk-replay, canvas.resource.limits.single-file, canvas.resource.limits.daily-replay-and-concurrency, canvas.resource.limits.rate-and-scope, canvas.resource.limits.stored-reservations, canvas.resource.upload.reservation-expiry-and-reconciliation, canvas.resource.limits.session-slots, canvas.resource.limits.concurrent-slot-admission, canvas.resource.upload.concurrent-chunks-and-completion, canvas.resource.upload.chunk-versus-completion, canvas.resource.upload.invalid-overwrite-recovery, canvas.resource.upload.interrupted-chunk-recovery"
     implementation: implemented-and-executed
     method: POST
     path: /api/resources/uploads
@@ -1144,7 +1153,7 @@ operations:
       - web/src/services/api/resources.ts
   - id: canvas.resource.upload.chunk
     profile: resource-integrity
-    scenario: "canvas.resource.chunked-upload, canvas.resource.chunk-validation, canvas.resource.multichunk-replay, canvas.resource.limits.rate-and-scope, canvas.resource.limits.session-slots, canvas.resource.limits.concurrent-slot-admission, canvas.resource.upload.concurrent-chunks-and-completion, canvas.resource.upload.chunk-versus-completion, canvas.resource.upload.invalid-overwrite-recovery, canvas.resource.upload.interrupted-chunk-recovery"
+    scenario: "canvas.resource.chunked-upload, canvas.resource.chunk-validation, canvas.resource.multichunk-replay, canvas.resource.limits.rate-and-scope, canvas.resource.upload.reservation-expiry-and-reconciliation, canvas.resource.limits.session-slots, canvas.resource.limits.concurrent-slot-admission, canvas.resource.upload.concurrent-chunks-and-completion, canvas.resource.upload.chunk-versus-completion, canvas.resource.upload.invalid-overwrite-recovery, canvas.resource.upload.interrupted-chunk-recovery"
     implementation: implemented-and-executed
     method: PUT
     path: /api/resources/uploads/{id}/chunks/{index}
@@ -1155,7 +1164,7 @@ operations:
       - web/src/services/api/resources.ts
   - id: canvas.resource.upload.complete
     profile: resource-integrity
-    scenario: "canvas.resource.chunked-upload, canvas.resource.chunk-validation, canvas.resource.multichunk-replay, canvas.resource.limits.rate-and-scope, canvas.resource.limits.stored-reservations, canvas.resource.limits.session-slots, canvas.resource.limits.concurrent-slot-admission, canvas.resource.upload.concurrent-chunks-and-completion, canvas.resource.upload.chunk-versus-completion, canvas.resource.upload.invalid-overwrite-recovery, canvas.resource.upload.interrupted-chunk-recovery"
+    scenario: "canvas.resource.chunked-upload, canvas.resource.chunk-validation, canvas.resource.multichunk-replay, canvas.resource.limits.rate-and-scope, canvas.resource.limits.stored-reservations, canvas.resource.upload.reservation-expiry-and-reconciliation, canvas.resource.limits.session-slots, canvas.resource.limits.concurrent-slot-admission, canvas.resource.upload.concurrent-chunks-and-completion, canvas.resource.upload.chunk-versus-completion, canvas.resource.upload.invalid-overwrite-recovery, canvas.resource.upload.interrupted-chunk-recovery"
     implementation: implemented-and-executed
     method: POST
     path: /api/resources/uploads/{id}/complete
@@ -1459,7 +1468,7 @@ operations:
     path: /api/projects/{id}/units/import
     owner: project-unit
     replay: append-fresh-unit-identities-observed-under-D-12; no safe automatic retry
-    evidence: [backend/internal/handler/project_unit_routes.go]
+    evidence: [backend/internal/handler/project_unit_routes.go, tests/canvas-contract/project_import_body_contract_test.go]
   - id: project.unit.reorder
     profile: project-workbench-core
     scenario: project.workbench.lifecycle, project.workbench.authz, project.workbench.feature-gate, project.workbench.invalid-mutations, project.workbench.cross-project-units, project.workbench.concurrent-reorder, project.workbench.concurrent-opposite-order, project.workbench.reorder-versus-create, project.workbench.reorder-versus-delete, project.workbench.reorder-versus-import

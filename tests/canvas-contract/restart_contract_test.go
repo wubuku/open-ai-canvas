@@ -57,7 +57,14 @@ func restartOwnedTarget(test *testing.T, config runner.Config, mode string, gene
 }
 
 func runRestartRecoveryContract(test *testing.T, config runner.Config) {
-	owner, foreign, _ := prepareClients(test, config)
+	owner, foreign, admin := prepareClients(test, config)
+	withResourcePolicy(test, admin, func(setting map[string]any) {
+		resource := setting["resource"].(map[string]any)
+		resource["resourceUploadMB"] = 600
+		resource["dailyUploadMB"] = 2048
+		resource["storedFileGB"] = 1
+		setting["request"].(map[string]any)["resourceUploadPerMinute"] = 1000
+	})
 	anonymous, err := runner.NewClient("anonymous", config)
 	if err != nil {
 		test.Fatal(err)
@@ -109,9 +116,13 @@ func runRestartRecoveryContract(test *testing.T, config runner.Config) {
 	before := readCanvasDocument(test, owner, identity)
 	historyBefore := readCanvasHistory(test, owner, identity)
 	workbenchBefore := readWorkbenchState(test, owner, workbenchID)
+	persistedReservation := startChunkUpload(test, owner, 512<<20)
 	uploadContent := []byte("pending restart upload fixture")
 	pending := startChunkUpload(test, owner, len(uploadContent))
 	writeChunk(test, owner, "/api/resources/uploads/"+pending.UploadID+"/chunks/0", uploadContent, http.StatusOK)
+	if err := runner.ExpireUploadReservation(runner.Context(test), config, persistedReservation.UploadID); err != nil {
+		test.Fatal(err)
+	}
 	deletedID := "deleted-restart-" + config.RunID
 	createCanvas(test, owner, deletedID, runner.FixtureProject(deletedID, "Deleted before restart", 0, false))
 	requireHTTPSuccess(test, owner, http.MethodDelete, "/api/canvas-projects/"+deletedID, nil)
@@ -136,6 +147,13 @@ func runRestartRecoveryContract(test *testing.T, config runner.Config) {
 	}) {
 		return
 	}
+	test.Run("canvas.recovery.persisted-upload-reservation", func(test *testing.T) {
+		replacement := startChunkUpload(test, owner, 512<<20)
+		if replacement.UploadID == persistedReservation.UploadID {
+			test.Fatal("restart recovery reused the expired upload reservation identity")
+		}
+		test.Log("expired durable upload reservation was reconciled by a fresh process after crash restart")
+	})
 	test.Run("canvas.recovery.share-and-resource", func(test *testing.T) {
 		_, envelope := requireHTTPSuccess(test, anonymous, http.MethodGet, "/api/public/canvas-shares/"+shareToken, nil)
 		public := runner.DecodeData[struct {

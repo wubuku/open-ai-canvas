@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"canvas-contract/runner"
 )
@@ -100,6 +101,24 @@ func runCanvasPageMatrix(test *testing.T, owner, foreign *runner.Client, runID s
 	}
 	for _, invalidQuery := range []string{"page=0", "page=-1", "page=abc", "page=1000001", "page=1&pageSize=0", "page=1&pageSize=-1", "page=1&pageSize=abc"} {
 		requireHTTPError(test, owner, http.MethodGet, "/api/canvas-projects?"+invalidQuery, nil, http.StatusBadRequest)
+	}
+}
+
+func runCanvasUpdatedAtTieMatrix(test *testing.T, owner *runner.Client, runID string) {
+	test.Helper()
+	tieIdentities := []string{"page-tie-a-" + runID, "page-tie-b-" + runID}
+	tiePrefix := "Page-Tie-Matrix-" + runID
+	for index := len(tieIdentities) - 1; index >= 0; index-- {
+		identity := tieIdentities[index]
+		createCanvas(test, owner, identity, runner.FixtureProject(identity, tiePrefix+fmt.Sprintf("-%d", index), 0, false))
+	}
+	tieTimestamp := time.Date(2026, time.January, 1, 0, 0, 0, 0, time.UTC)
+	if err := runner.SetCanvasUpdatedAt(runner.Context(test), owner.Config, tieIdentities, tieTimestamp); err != nil {
+		test.Fatal(err)
+	}
+	tiePage := readCanvasPage(test, owner, "page=1&pageSize=2&q="+url.QueryEscape(tiePrefix))
+	if len(tiePage.Projects) != 2 || tiePage.Projects[0]["id"] != tieIdentities[0] || tiePage.Projects[1]["id"] != tieIdentities[1] {
+		test.Fatal("updated-at ties must use the documented stable ID ascending order")
 	}
 }
 

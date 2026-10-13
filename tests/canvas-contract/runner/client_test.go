@@ -69,6 +69,8 @@ func TestImportConfigRequiresExplicitFixtureAndTestAdmin(t *testing.T) {
 
 func TestSettingsProfilesRequireIsolatedTargetAndAdmin(t *testing.T) {
 	t.Setenv("CANVAS_CONTRACT_BASE_URL", "http://127.0.0.1:18183")
+	t.Setenv("CANVAS_CONTRACT_FIXTURE_URL", "http://127.0.0.1:18185")
+	t.Setenv("CANVAS_CONTRACT_FIXTURE_TOKEN", "fixture-token-with-at-least-24-bytes")
 	for _, profile := range []string{"project-integration", "project-workbench-core", "resource-integrity"} {
 		t.Setenv("CANVAS_CONTRACT_PROFILE", profile)
 		t.Setenv("CANVAS_CONTRACT_REGISTER_USERS", "true")
@@ -91,6 +93,24 @@ func TestSettingsProfilesRequireIsolatedTargetAndAdmin(t *testing.T) {
 		if _, err := ConfigFromEnv(); err != nil {
 			t.Fatal(err)
 		}
+	}
+}
+
+func TestRestartRecoveryRequiresDatabaseFixture(t *testing.T) {
+	t.Setenv("CANVAS_CONTRACT_BASE_URL", "http://127.0.0.1:18183")
+	t.Setenv("CANVAS_CONTRACT_PROFILE", "restart-recovery")
+	t.Setenv("CANVAS_CONTRACT_REGISTER_USERS", "true")
+	t.Setenv("CANVAS_CONTRACT_CONTROL_URL", "http://127.0.0.1:18186")
+	t.Setenv("CANVAS_CONTRACT_CONTROL_TOKEN", "control-token-with-at-least-24-bytes")
+	t.Setenv("CANVAS_CONTRACT_FIXTURE_URL", "")
+	t.Setenv("CANVAS_CONTRACT_FIXTURE_TOKEN", "")
+	if _, err := ConfigFromEnv(); err == nil {
+		t.Fatal("restart recovery accepted a target without a private database fixture")
+	}
+	t.Setenv("CANVAS_CONTRACT_FIXTURE_URL", "http://127.0.0.1:18185")
+	t.Setenv("CANVAS_CONTRACT_FIXTURE_TOKEN", "fixture-token-with-at-least-24-bytes")
+	if _, err := ConfigFromEnv(); err != nil {
+		t.Fatal(err)
 	}
 }
 

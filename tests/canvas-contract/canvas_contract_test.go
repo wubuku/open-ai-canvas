@@ -473,6 +473,9 @@ func runCoreContract(t *testing.T, config runner.Config) {
 	t.Run("canvas.list.pagination", func(t *testing.T) {
 		runCanvasPageMatrix(t, clientA, clientB, config.RunID)
 	})
+	t.Run("canvas.list.updated-at-ties", func(t *testing.T) {
+		runCanvasUpdatedAtTieMatrix(t, clientA, config.RunID)
+	})
 	t.Run("canvas.write.invalid-input", func(t *testing.T) {
 		runCanvasInvalidWriteMatrix(t, clientA, config.RunID)
 	})
@@ -1500,6 +1503,9 @@ func runResourceIntegrityContract(t *testing.T, config runner.Config) {
 	})
 	t.Run("canvas.resource.limits.stored-reservations", func(t *testing.T) {
 		runResourceStoredReservationLimitMatrix(t, admin)
+	})
+	t.Run("canvas.resource.upload.reservation-expiry-and-reconciliation", func(t *testing.T) {
+		runResourceReservationExpiryMatrix(t, admin)
 	})
 	t.Run("canvas.resource.limits.session-slots", func(t *testing.T) {
 		runResourceSessionSlotLimitMatrix(t, admin)

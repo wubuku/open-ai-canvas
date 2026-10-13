@@ -48,7 +48,7 @@ fixture 或环境配置变更后重新建立相应基线，不能借用旧 hash�
 
 ## Scope
 
-manifest 当前登记 **161 个唯一 operation / 143 个唯一 method/path**。
+manifest 当前登记 **163 个 operation / 143 个唯一 method/path**。
 直接画布有 **14 个端点**（文档 7、分享 5、导入 2），创建与更新是同一个 PUT。
 其中可由本 runner 执行的
 profile 为：
@@ -63,7 +63,7 @@ profile 为：
 | `import` | 可执行，路径未全量 | LibTV/TapNow 受控固定 HTTPS 上游、媒体/拓扑转换、新批次重放、owner/foreign/未认证、feature gate、业务/HTTP/JSON/大小/重定向/截断/空画布错误和真实 20 秒上游超时；真实 PNG/WAV/MP4 资源导入、素材登记、保存重开/CAS/跨用户拒绝（新增路径的运行结果见验证记录） |
 | `legacy-assets` | 可执行 | 旧素材列表/批量读取/更新/删除、文件夹生命周期、批量删除和用户数据快照 |
 | `public-resource` | 可执行，路径未全量 | 独立签名资源 URL、文件名、Range、篡改/缺失/过期签名、资源绑定、重放和安全缓存头；本地 S3-compatible origin 的成功/失败/恢复已由 HTTP fixture 覆盖，CDN/远端 TTL/条件缓存仍需专门 fixture |
-| `restart-recovery` | 可执行，需私有进程控制 fixture | SIGKILL 与优雅重启后原 Cookie、文档/CAS/ETag、历史、分享/签名 URL、资源字节、项目单元/关联与删除状态；提交成功而客户端丢失 ACK 后重启、CAS/幂等重放和精确资源用量；Go 内存上传会话失效后重新上传 |
+| `restart-recovery` | 可执行，需私有进程控制和数据库 fixture | SIGKILL 与优雅重启后原 Cookie、文档/CAS/ETag、历史、分享/签名 URL、资源字节、项目单元/关联与删除状态；提交成功而客户端丢失 ACK 后重启、CAS/幂等重放和精确资源用量；持久化 upload reservation 过期后跨进程重新准入；Go 内存上传会话失效后重新上传 |
 | `generation-boundary` | 可执行，路径未全量 | 任务/creation-run/Agent 只读 HTTP 边界：未认证拒绝、已有任务 owner 详情/日志读取、foreign 任务列表/详情/日志隔离、missing-ID、foreign creation-run 隔离；不启动模型、不扣费、不执行画布写回 |
 | `generation-writeback` | 可执行，明确为 provider-free 子集 | 文本任务创建、owner/foreign 增量读取、`after` 游标、SSE 事件/游标重放、单次完成和终态拒写；不覆盖 Provider、creation-run 或 Agent 写回 |
 
@@ -74,8 +74,8 @@ profile 为：
 - `generation-runtime`、`agent-canvas`：Provider-backed 任务写入/恢复、creation-run 状态机、Agent run/tool/event、记忆和 profile 写入的独立合同族；`generation-writeback` 只覆盖上表明确列出的 provider-free text replay + SSE 子集，不能外推为完整生成写回。
 - `provider-resource`：Ark 私有素材同步的外部提交、receipt 和恢复合同。
 
-11 个 runner profile 共映射 **90 个 operation / 115 个 HTTP 场景**；另外 **35 个 deferred**、
-**38 个 out-of-scope**。每个 Required profile 的缺失分支均保留在 manifest
+11 个 runner profile 共映射 **91 个 operation / 118 个 HTTP 场景**；另外 **35 个 deferred**、
+**37 个 out-of-scope**。每个 Required profile 的缺失分支均保留在 manifest
 `remaining_paths`，所以“可执行”和“通过”不表示 profile 的全部路径已经覆盖。
 manifest 的 profile `dependencies` 是测试 fixture/跨套件门禁关系，不是 Java
 模块 import 图；writer 未批准前标记未分配，兼容分类默认 `UNKNOWN`。
@@ -395,15 +395,15 @@ go test ./... -count=1 -v
 
 | 变量 | 默认值 | 说明 |
 | --- | --- | --- |
-| `CANVAS_CONTRACT_PROFILE` | `core` | 可选 `core`、`share-public`、`project-integration`、`project-workbench-core`、`resource-integrity`、`import`、`legacy-assets`、`public-resource`、`restart-recovery`、`generation-boundary`；未知 profile 直接失败 |
+| `CANVAS_CONTRACT_PROFILE` | `core` | 可选 `core`、`share-public`、`project-integration`、`project-workbench-core`、`resource-integrity`、`import`、`legacy-assets`、`public-resource`、`restart-recovery`、`generation-boundary`、`generation-writeback`；未知 profile 直接失败 |
 | `CANVAS_CONTRACT_TIMEOUT` | `20s`，`import` 为 `35s` | 单次 HTTP 请求超时；导入 runner 必须晚于目标的上游超时 |
 | `CANVAS_CONTRACT_IMPLEMENTATION` | `unknown` | 写入报告/失败信息的被测实现标签 |
 | `CANVAS_CONTRACT_DB_PROFILE` | `unknown` | 写入报告/失败信息的数据库标签，例如 `postgres-18` |
 | `CANVAS_CONTRACT_RUN_ID` | 自动生成 | 用于测试账号和画布 ID；不要复用固定共享数据 |
 | `CANVAS_CONTRACT_CONTROL_URL` | 空 | `restart-recovery` 必需，私有 loopback HTTP origin，无路径/查询串/凭据 |
 | `CANVAS_CONTRACT_CONTROL_TOKEN` | 空 | `restart-recovery` 必需，至少 24 字节；其他 profile 不需要控制服务 |
-| `CANVAS_CONTRACT_SHARE_FIXTURE_URL` | 空 | `share-public` 必需，私有 loopback HTTP origin；只提供隔离目标的“将指定项目分享标记为已过期”准备动作，不是被测 API |
-| `CANVAS_CONTRACT_SHARE_FIXTURE_TOKEN` | 空 | `share-public` 必需，至少 24 字节；fixture 只接受 Bearer token，不进入测试报告 |
+| `CANVAS_CONTRACT_FIXTURE_URL` | 空 | `core`、`share-public`、`resource-integrity` 必需，私有 loopback HTTP origin；只提供隔离数据库准备动作，不是被测 API |
+| `CANVAS_CONTRACT_FIXTURE_TOKEN` | 空 | 上述 profile 必需，至少 24 字节；fixture 只接受 Bearer token，不进入测试报告 |
 | `CANVAS_CONTRACT_IMPORT_FIXTURE` | `false` | `import` 必需显式设为 `true`，仅允许在已建立固定域 TLS 替身的隔离环境使用，禁止对生产服务声明该标志 |
 | `CANVAS_CONTRACT_SETTINGS_FIXTURE` | `false` | 两个项目 profile 和 `resource-integrity` 必须显式设 `true`，只可对隔离目标临时修改全局功能开关/运行配额与频控；缺失直接失败，不 skip。Go 启动器自动声明自身隔离目标 |
 | `CANVAS_CONTRACT_ADMIN_USERNAME` / `CANVAS_CONTRACT_ADMIN_PASSWORD` | 空 | `import`、两个项目 profile 和 `resource-integrity` 的显式账号模式需隔离测试管理员；注册模式自动使用 bootstrap 管理员。资源限额场景另经管理员 HTTP 创建隔离账号以避免已有用量/限流窗口污染 |
@@ -411,12 +411,25 @@ go test ./... -count=1 -v
 测试账号密码不会写入输出。不要在 CI artifact 中保存 Cookie、账号密码、
 提示词全文、签名 URL 或画布正文。
 
-`share-public` 的真实到期场景不能靠伪造客户端时间或等待 1 天完成。Go 启动器
-会为每个 share profile 启动仅绑定当前隔离 PostgreSQL database 的私有
-`cmd/share-fixture`，runner 通过 loopback + Bearer token 请求一次性准备动作；
-随后分享创建、匿名读取、owner/foreign 状态、源画布/历史不变和恢复全部通过目标
-HTTP API 验收。Java/混合目标不得让 runner 直接写其数据库，应提供等价的隔离
-fixture adapter，并保留相同的安全边界和清理语义。
+`core` 的 updated-at 并列排序、`share-public` 的真实到期场景和
+`resource-integrity` 的 reservation 到期场景都不能靠伪造客户端时间或长时间等待完成。
+Go 启动器会为这些 profile 启动仅绑定当前隔离 PostgreSQL database 的私有
+`cmd/share-fixture`（历史目录名保留，但它现在是数据库 fixture adapter），runner
+通过 loopback + Bearer token 请求一次性准备动作；最终断言仍全部通过目标 HTTP API。
+Java/混合目标不得让 runner 直接写其数据库，应提供语义等价的隔离 fixture adapter，
+并保留相同的安全边界、精确对象范围和清理语义。
+
+### Database fixture adapter protocol
+
+数据库 fixture adapter 是测试准备面，不是被测 API，也不是要求 Java 暴露生产数据库写入接口。当前 Go adapter 的最小 HTTP 合同如下；Java 或混合目标可以使用不同实现，但必须提供等同的语义、隔离范围和确认信息：
+
+| 方法/路径 | 请求 JSON | 成功确认 | 用途与原子性 |
+| --- | --- | --- | --- |
+| `POST /expire-share` | `{ "projectId": "..." }` | `{ "expired": true, "projectId": "..." }` | 将指定项目分享设置为已过期；只允许一个精确项目，找不到即失败 |
+| `POST /set-canvas-updated-at` | `{ "projectIds": ["..."], "updatedAt": "RFC3339Nano" }` | `{ "updated": N, "updatedAt": "..." }` | 在一个数据库事务中为全部指定画布写入同一时间；任何 ID 不存在都整体失败，用于证明并列排序 tie-break |
+| `POST /expire-upload-reservation` | `{ "uploadId": "..." }` | `{ "expired": true, "uploadId": "..." }` | 使指定上传预留立即过期；随后由目标 HTTP API 证明提交拒绝、额度不被错误释放及同目标重试语义 |
+
+三条路径都要求 `Authorization: Bearer <fixture-token>`、JSON body 不超过 16 KiB、拒绝未知字段和尾随 JSON；adapter 只监听字面量 loopback，禁止 URL 凭据、重定向跟随和把 token/正文写入报告。其数据库连接只指向本次运行的隔离 PostgreSQL，adapter 的写入不是 HTTP 覆盖证据；Java 实现应在测试配置中启动等价的私有 adapter，而不是让 runner 直接连接或修改 Java 数据库。
 
 ## Restart fixture and CI
 
@@ -500,7 +513,7 @@ facet；移除查询串、分享 token 和文件名，不保存 headers 或正�
 后置断言，不能恢复原先的直接跳过。相关 catalog 审计单测共 36 项，另有 9 项
 Python browser audit 单测。
 
-当前 manifest 登记 162 个 operation、143 个唯一 method/path、90 个 Required operation 和 115 个 HTTP 场景；最新 run-id、每轮 observed/wire 请求、路由触达、受控故障和真实浏览器观测数只维护在[唯一执行账本](../../docs/drafts/canvas-java-http-contract-test-plan.md#当前进度)及其版本化证据目录，不在本 README 复制动态计数。执行报告必须同时保留 11 个 profile、浏览器 6 个场景、`remaining_paths`、31 项行为裁决和 Java/混合网关门禁；页面响应头、HTTP 完整 wire 和 fixture 请求始终分开统计。`generation-boundary` 的任务 owner/foreign task read 已纳入当前证据；`generation-writeback` 已覆盖 provider-free text replay 与 SSE `text-events` 游标重放，但不覆盖 Provider、SSE 断线重连或完整 Agent/creation-run 写回；`canvas.share.resource-object-storage-failure` 通过本地 CDN/object-store fixture 验证分享资源 redirect、成功读取、GET 故障和恢复；这不等同于生产 CDN、TTL 或条件缓存验收。资源 URL 导入与 legacy 素材 purge 的提交后响应丢失、崩溃/重放、引用竞态和本地物理删除失败也已登记；它们使用本地受控 fixture，不等同于远端对象存储恢复或生产 outbox 重试时序。新运行的精确证据以执行账本为准，不得与旧版本请求数拼接。
+当前 manifest 登记 163 个 operation、143 个唯一 method/path、91 个 Required operation 和 118 个 HTTP 场景；115 场景版双轮仍是历史证据，最新 run-id、每轮 observed/wire 请求、路由触达、受控故障和真实浏览器观测数只维护在[唯一执行账本](../../docs/drafts/canvas-java-http-contract-test-plan.md#当前进度)及其版本化证据目录，不在本 README 复制动态计数。执行报告必须同时保留 11 个 profile、浏览器 6 个场景、`remaining_paths`、31 项行为裁决和 Java/混合网关门禁；页面响应头、HTTP 完整 wire 和 fixture 请求始终分开统计。`generation-boundary` 的任务 owner/foreign task read 已纳入当前证据；`generation-writeback` 已覆盖 provider-free text replay 与 SSE `text-events` 游标重放，但不覆盖 Provider、SSE 断线重连或完整 Agent/creation-run 写回；`canvas.share.resource-object-storage-failure` 通过本地 CDN/object-store fixture 验证分享资源 redirect、成功读取、GET 故障和恢复；这不等同于生产 CDN、TTL 或条件缓存验收。资源 URL 导入、legacy 素材 purge 的提交后响应丢失/崩溃/重放/引用竞态、本地物理删除失败和 durable upload reservation 跨进程重新准入也已登记；它们使用本地受控 fixture，不等同于远端对象存储恢复、后台 reconciler 或生产 outbox 重试时序。当前 118 场景全量双轮已完成，证据和动态计数只以执行账本为准；若 manifest、runner、fixture 或可执行场景再变化，必须建立新的 run-id，不得与旧版本请求数拼接。
 
 71 场景稳定的 schema/完整单元正文状态版已通过独立 CI 两轮及全新启动器第三轮：**72 个 operation 映射、
 71 个顶层 scenario、57 条触达/有非错误响应路由、清单内 1470 次完整请求及 wire

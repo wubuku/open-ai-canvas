@@ -106,7 +106,22 @@ func runWorkbenchImportBodyBoundary(test *testing.T, owner, foreign *runner.Clie
 		test.Fatal("observed trailing-whitespace acceptance changed prior chapters or persisted padding")
 	}
 	runner.RequireNumber(test, final.Project["revision"], after.Project["revision"].(float64)+1, "trailing framing commit revision")
+	nonWhitespaceTrailing := append(append([]byte{}, compact...), []byte(`{}`)...)
+	response, envelope, err = owner.DoBytes(runner.Context(test), http.MethodPost, path, "application/json", nonWhitespaceTrailing, nil)
+	if err != nil {
+		test.Fatal(err)
+	}
+	runner.RequireSuccess(test, response, envelope)
+	acknowledged = runner.DecodeData[struct {
+		Units []map[string]any `json:"units"`
+	}](test, envelope).Units
+	nonWhitespaceAfter := readWorkbenchState(test, owner, projectID)
+	if len(acknowledged) != 1 || len(nonWhitespaceAfter.Units) != len(final.Units)+1 || nonWhitespaceAfter.Units[len(final.Units)]["sourceText"] != "Small authoritative source" {
+		test.Fatal("observed non-whitespace trailing JSON was not isolated from the decoded import payload")
+	}
+	runner.RequireNumber(test, nonWhitespaceAfter.Project["revision"], final.Project["revision"].(float64)+1, "non-whitespace trailing framing commit revision")
+	test.Log("Go baseline currently accepts and ignores non-whitespace trailing JSON; Java target policy remains pending")
 	requireHTTPError(test, foreign, http.MethodPost, path, compactInput, http.StatusNotFound)
-	requireWorkbenchState(test, owner, projectID, final)
+	requireWorkbenchState(test, owner, projectID, nonWhitespaceAfter)
 	requireWorkbenchState(test, foreign, foreignProject, foreignBefore)
 }

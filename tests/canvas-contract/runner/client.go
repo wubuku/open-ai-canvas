@@ -22,25 +22,25 @@ import (
 )
 
 type Config struct {
-	BaseURL           string
-	Profile           string
-	RegisterUsers     bool
-	UsernameA         string
-	PasswordA         string
-	UsernameB         string
-	PasswordB         string
-	AdminUsername     string
-	AdminPassword     string
-	ImportFixture     bool
-	SettingsFixture   bool
-	Timeout           time.Duration
-	Implementation    string
-	DatabaseProfile   string
-	RunID             string
-	ControlURL        string
-	ControlToken      string
-	ShareFixtureURL   string
-	ShareFixtureToken string
+	BaseURL         string
+	Profile         string
+	RegisterUsers   bool
+	UsernameA       string
+	PasswordA       string
+	UsernameB       string
+	PasswordB       string
+	AdminUsername   string
+	AdminPassword   string
+	ImportFixture   bool
+	SettingsFixture bool
+	Timeout         time.Duration
+	Implementation  string
+	DatabaseProfile string
+	RunID           string
+	ControlURL      string
+	ControlToken    string
+	FixtureURL      string
+	FixtureToken    string
 }
 
 func ConfigFromEnv() (Config, error) {
@@ -92,12 +92,12 @@ func ConfigFromEnv() (Config, error) {
 	}
 	controlURL := strings.TrimSpace(os.Getenv("CANVAS_CONTRACT_CONTROL_URL"))
 	controlToken := os.Getenv("CANVAS_CONTRACT_CONTROL_TOKEN")
-	shareFixtureURL := strings.TrimSpace(os.Getenv("CANVAS_CONTRACT_SHARE_FIXTURE_URL"))
-	shareFixtureToken := os.Getenv("CANVAS_CONTRACT_SHARE_FIXTURE_TOKEN")
-	if profile == "share-public" {
-		fixture, fixtureErr := url.Parse(shareFixtureURL)
-		if fixtureErr != nil || fixture.Scheme != "http" || fixture.Hostname() != "127.0.0.1" && fixture.Hostname() != "::1" || fixture.Port() == "" || fixture.Path != "" || fixture.RawQuery != "" || fixture.Fragment != "" || len(shareFixtureToken) < 24 {
-			return Config{}, fmt.Errorf("share-public requires a private loopback share-expiry fixture and token (at least 24 bytes)")
+	fixtureURL := strings.TrimSpace(os.Getenv("CANVAS_CONTRACT_FIXTURE_URL"))
+	fixtureToken := os.Getenv("CANVAS_CONTRACT_FIXTURE_TOKEN")
+	if profile == "core" || profile == "share-public" || profile == "resource-integrity" || profile == "restart-recovery" {
+		fixture, fixtureErr := url.Parse(fixtureURL)
+		if fixtureErr != nil || fixture.Scheme != "http" || fixture.Hostname() != "127.0.0.1" && fixture.Hostname() != "::1" || fixture.Port() == "" || fixture.User != nil || fixture.Path != "" || fixture.RawQuery != "" || fixture.Fragment != "" || len(fixtureToken) < 24 {
+			return Config{}, fmt.Errorf("%s requires a private loopback database fixture and token (at least 24 bytes)", profile)
 		}
 	}
 	if profile == "restart-recovery" {
@@ -107,25 +107,25 @@ func ConfigFromEnv() (Config, error) {
 		}
 	}
 	return Config{
-		BaseURL:           baseURL,
-		Profile:           profile,
-		RegisterUsers:     registerUsers,
-		UsernameA:         strings.TrimSpace(os.Getenv("CANVAS_CONTRACT_USER_A_USERNAME")),
-		PasswordA:         os.Getenv("CANVAS_CONTRACT_USER_A_PASSWORD"),
-		UsernameB:         strings.TrimSpace(os.Getenv("CANVAS_CONTRACT_USER_B_USERNAME")),
-		PasswordB:         os.Getenv("CANVAS_CONTRACT_USER_B_PASSWORD"),
-		AdminUsername:     adminUsername,
-		AdminPassword:     adminPassword,
-		ImportFixture:     importFixture,
-		SettingsFixture:   settingsFixture,
-		Timeout:           timeout,
-		Implementation:    envOr("CANVAS_CONTRACT_IMPLEMENTATION", "unknown"),
-		DatabaseProfile:   envOr("CANVAS_CONTRACT_DB_PROFILE", "unknown"),
-		RunID:             runID,
-		ControlURL:        controlURL,
-		ControlToken:      controlToken,
-		ShareFixtureURL:   shareFixtureURL,
-		ShareFixtureToken: shareFixtureToken,
+		BaseURL:         baseURL,
+		Profile:         profile,
+		RegisterUsers:   registerUsers,
+		UsernameA:       strings.TrimSpace(os.Getenv("CANVAS_CONTRACT_USER_A_USERNAME")),
+		PasswordA:       os.Getenv("CANVAS_CONTRACT_USER_A_PASSWORD"),
+		UsernameB:       strings.TrimSpace(os.Getenv("CANVAS_CONTRACT_USER_B_USERNAME")),
+		PasswordB:       os.Getenv("CANVAS_CONTRACT_USER_B_PASSWORD"),
+		AdminUsername:   adminUsername,
+		AdminPassword:   adminPassword,
+		ImportFixture:   importFixture,
+		SettingsFixture: settingsFixture,
+		Timeout:         timeout,
+		Implementation:  envOr("CANVAS_CONTRACT_IMPLEMENTATION", "unknown"),
+		DatabaseProfile: envOr("CANVAS_CONTRACT_DB_PROFILE", "unknown"),
+		RunID:           runID,
+		ControlURL:      controlURL,
+		ControlToken:    controlToken,
+		FixtureURL:      fixtureURL,
+		FixtureToken:    fixtureToken,
 	}, nil
 }
 
