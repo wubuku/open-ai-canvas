@@ -11,7 +11,7 @@ audience: 负责将画布后端 API 从 Go 迁移到 Java Spring Boot 的架构�
 > **目的**：在开始实现 Java 画布端点之前，建立一套能先验证 Go 基线、再用同一套请求和断言验证 Java 实现的 HTTP 黑盒合同测试。
 > **状态**：持续实施；当前 manifest 登记 163 个 operation / 143 个唯一 method/path、91 个 Required operation / 118 个 HTTP 场景，另有 6 个独立统计的真实浏览器场景。当前 118 场景全量双轮证据为 `20261013-122339-53249`：两轮均执行全部 11 个 HTTP profile、91 个 Required operation；第一/第二轮分别记录 `14197/14196` 与 `14193/14192` 个清单内 observed/wire 请求，均为 71 条映射并执行路由、72 条实际触达路由、71 条返回过非错误响应的路由，6 条受控故障（其中 4 条为提交后响应丢失）、4 条 incomplete、0 条未分类中断。浏览器两轮均为 6 个场景，页面响应头分别为 171/170，阻断装饰均为 9/9。115 场景双轮证据 `20261013-073513-51126` 只保留为历史，不与当前结果拼接；旧 114/112/111/108/107/104/102/100 场景版本也只保留为历史。Required 剩余路径和 Java/远端门禁未闭合；当前 clean-review 为 `3/3`，本文件不修改 Go/Java 产品服务。
 > **证据范围**：核对当前 Go handler、OpenAPI、画布域与 repository 测试、Web API 客户端、画布研究报告和 Spring Boot 迁移指引；HTTP runner 可脱离仓库独立编译，浏览器 runner 只需已运行的真实前端与同源 API。证据涵盖隔离 PostgreSQL 18 + Go HTTP、真实 React/Vite 部分路径、崩溃/优雅重启、提交成功但丢失响应、固定 HTTPS 导入和资源替身；不代表 Java、生产混合网关、真实对象存储/CDN 或全部浏览器能力已经验收。
-> **文档关系**：本文件是[迁移总指引](go-to-spring-boot-migration-guide.md)中 M1/Gate 0 的画布专项计划；当前 API 事实以[画布开发导航](../content/docs/canvas/canvas-development.mdx)和[HTTP API 合同](../content/docs/backend/http-api.mdx)为入口，现有测试能力见[自动化回归测试调研](test-regression-and-ci-research.md)，可执行套件见[`tests/canvas-contract`](../../tests/canvas-contract/README.md)。
+> **文档关系**：本文件是[迁移总指引](go-to-spring-boot-migration-guide.md)中 M1/Gate 0 的画布专项计划；当前 API 事实以[画布开发导航](../content/docs/canvas/canvas-development.mdx)和[HTTP API 合同](../content/docs/backend/http-api.mdx)为入口，现有测试能力见[自动化回归测试调研](test-regression-and-ci-research.md)，可执行套件见[`tests/canvas-contract`](../../tests/canvas-contract/README.md)；Java 类型、DTO、H2、seed/mock 和 OpenAPI 参考桩的实施方案见[画布 Java Spring Boot 类型参考桩实施规划](canvas-java-type-reference-stub-plan.md)。
 
 ## 本轮实施目标与任务清单
 

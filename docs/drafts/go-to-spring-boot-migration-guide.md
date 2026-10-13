@@ -2,7 +2,7 @@
 title: Go 后端迁移到 Java Spring Boot 指引
 status: draft
 scope: backend-java-migration
-updated: 2026-10-12
+updated: 2026-10-13
 audience: 准备以 Java Spring Boot 重建影策后端的架构师与开发团队
 ---
 
@@ -11,7 +11,7 @@ audience: 准备以 Java Spring Boot 重建影策后端的架构师与开发团�
 > **目标读者**：正在评估用 Java Spring Boot 重建当前 AI 视频创作工作台后端的开发者。
 > **文档定位**：这是迁移和架构改进指引，不是 Go 文件逐个对应 Java 文件的翻译表。
 > **事实边界**：当前项目事实以本仓库源码、配置和测试为准；Java 目标结构是建议。本轮已在隔离 Go/PostgreSQL 环境完成画布 HTTP 合同与真实前端 companion 基线；没有运行 Java、生产数据库或模型调用。
-> **相关研究**：[后端架构考古与 Spring Boot 移植评估](backend-architecture-review.md)记录当前实现的得失；[当前数据模型综述与导航](data-model-overview-and-navigation.md)用于逐领域盘点数据落点；[画布 Java HTTP 合同测试计划](canvas-java-http-contract-test-plan.md)将本文的 API 合同、owner、切流和验收原则落到画布专项。
+> **相关研究**：[后端架构考古与 Spring Boot 移植评估](backend-architecture-review.md)记录当前实现的得失；[当前数据模型综述与导航](data-model-overview-and-navigation.md)用于逐领域盘点数据落点；[画布 Java HTTP 合同测试计划](canvas-java-http-contract-test-plan.md)将本文的 API 合同、owner、切流和验收原则落到画布专项；[画布 Java Spring Boot 类型参考桩实施规划](canvas-java-type-reference-stub-plan.md)进一步定义只使用 H2 file + seed/mock 数据的强类型参考桩及现有黑盒套件缺口补全任务。
 
 本文按 `spring-boot-principal-architect` 的 **B：重写/大型重构**模式组织：先建立证据账本、事实 owner、operation 合同和失败恢复协议，再选择模块边界与基础设施；默认采用 PostgreSQL durable facts、短事务、transactional outbox、reconciler、单 writer 和可回滚的逐 operation 切换。该架构指引约束 Java 的目标设计，但不把 Go 当前的包结构、锁顺序、错误文本或缺陷自动提升为兼容合同。
 
