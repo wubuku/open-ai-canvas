@@ -41,7 +41,7 @@ public final class CanvasImportDtos {
             @Schema(description = "Detected media MIME type") String mimeType,
             @Schema(description = "Conversion status") String status,
             @Schema(description = "Historical task failure details") String errorDetails,
-            @Schema(description = "Explicit import provenance extension") OpaqueJsonValue metadata) {
+            @Schema(ref = "#/components/schemas/OpaqueJsonValue", description = "Explicit import provenance extension") OpaqueJsonValue metadata) {
     }
 
     @Schema(name = "CanvasImportConnection", description = "Typed connection between converted import nodes.")

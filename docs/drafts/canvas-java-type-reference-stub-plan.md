@@ -871,6 +871,8 @@ Java HTTP client 必须显式设置 connect/read/overall timeout、关闭自动�
 | 2026-10-14 | Required operation 与 Java OpenAPI method/path 归一化映射 | 通过；91 operations → 71 unique routes，71/71 mapped |
 | 2026-10-14 | 核心 Controller/DTO 动态类型扫描与 `OpaqueJsonValue` 例外核对 | 通过；动态 JSON 仅在内部 codec 或命名扩展字段 |
 | 2026-10-14 | graceful restart 后 reset 隔离状态并重跑 `public-resource` | 通过；8/8 子场景 |
+| 2026-10-14 | 实际 `/v3/api-docs` schema 复核；修复 `CanvasConnection`、导入和项目扩展字段的默认 `JsonNode` 展示后重新构建 | 通过；87/87 operationId 唯一，核心/项目命名扩展字段均引用 `OpaqueJsonValue`，核心公共动态签名为 0 |
+| 2026-10-14 | schema 修复后的 11 个 Required profile 全量回归 | 通过；118/118 HTTP scenario、11/11 profile；一次外部端口占用仅触发换端口重试 |
 
 尚未执行且不能提前宣称通过：
 

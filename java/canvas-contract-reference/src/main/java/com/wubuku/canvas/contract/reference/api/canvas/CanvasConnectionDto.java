@@ -13,5 +13,5 @@ public record CanvasConnectionDto(
         @NotBlank @Schema(description = "Target node identity") String toNodeId,
         @Schema(description = "Optional source handle identity") String fromHandleId,
         @Schema(description = "Optional target handle identity") String toHandleId,
-        @Schema(description = "Client-owned connection extension") OpaqueJsonValue metadata) {
+        @Schema(ref = "#/components/schemas/OpaqueJsonValue", description = "Client-owned connection extension") OpaqueJsonValue metadata) {
 }

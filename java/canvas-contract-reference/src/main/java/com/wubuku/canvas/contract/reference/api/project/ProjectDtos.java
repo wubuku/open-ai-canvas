@@ -3,6 +3,7 @@ package com.wubuku.canvas.contract.reference.api.project;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.wubuku.canvas.contract.reference.api.canvas.CanvasSummaryDto;
 import com.wubuku.canvas.contract.reference.api.common.OpaqueJsonValue;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 
@@ -108,10 +109,10 @@ public final class ProjectDtos {
     @Schema(name = "ProjectUnitWorkspaceResponse", description = "Typed unit workspace projection with named extension collections.")
     public record ProjectUnitWorkspaceResponse(
             ProjectUnitDto unit,
-            List<OpaqueJsonValue> workflows,
-            List<OpaqueJsonValue> shots,
-            List<OpaqueJsonValue> assets,
-            List<OpaqueJsonValue> tasks) {
+            @ArraySchema(arraySchema = @Schema(description = "Workflow extension records"), schema = @Schema(ref = "#/components/schemas/OpaqueJsonValue")) List<OpaqueJsonValue> workflows,
+            @ArraySchema(arraySchema = @Schema(description = "Shot extension records"), schema = @Schema(ref = "#/components/schemas/OpaqueJsonValue")) List<OpaqueJsonValue> shots,
+            @ArraySchema(arraySchema = @Schema(description = "Asset extension records"), schema = @Schema(ref = "#/components/schemas/OpaqueJsonValue")) List<OpaqueJsonValue> assets,
+            @ArraySchema(arraySchema = @Schema(description = "Task extension records"), schema = @Schema(ref = "#/components/schemas/OpaqueJsonValue")) List<OpaqueJsonValue> tasks) {
     }
 
     @Schema(name = "ProjectUnitImportResponse", description = "Batch-created typed project unit summaries.")
@@ -189,14 +190,14 @@ public final class ProjectDtos {
             List<ProjectUnitDto> units,
             List<CanvasSummaryDto> canvases,
             List<CanvasUnitLinkDto> canvasUnitLinks,
-            List<OpaqueJsonValue> assets,
-            List<OpaqueJsonValue> assetFolders,
-            List<OpaqueJsonValue> workflows,
-            List<OpaqueJsonValue> shots,
-            List<OpaqueJsonValue> shotRevisions,
-            List<OpaqueJsonValue> shotArtifacts,
-            List<OpaqueJsonValue> shotReferences,
-            List<OpaqueJsonValue> assetCandidates,
-            List<OpaqueJsonValue> tasks) {
+            @ArraySchema(arraySchema = @Schema(description = "Asset extension records"), schema = @Schema(ref = "#/components/schemas/OpaqueJsonValue")) List<OpaqueJsonValue> assets,
+            @ArraySchema(arraySchema = @Schema(description = "Asset-folder extension records"), schema = @Schema(ref = "#/components/schemas/OpaqueJsonValue")) List<OpaqueJsonValue> assetFolders,
+            @ArraySchema(arraySchema = @Schema(description = "Workflow extension records"), schema = @Schema(ref = "#/components/schemas/OpaqueJsonValue")) List<OpaqueJsonValue> workflows,
+            @ArraySchema(arraySchema = @Schema(description = "Shot extension records"), schema = @Schema(ref = "#/components/schemas/OpaqueJsonValue")) List<OpaqueJsonValue> shots,
+            @ArraySchema(arraySchema = @Schema(description = "Shot-revision extension records"), schema = @Schema(ref = "#/components/schemas/OpaqueJsonValue")) List<OpaqueJsonValue> shotRevisions,
+            @ArraySchema(arraySchema = @Schema(description = "Shot-artifact extension records"), schema = @Schema(ref = "#/components/schemas/OpaqueJsonValue")) List<OpaqueJsonValue> shotArtifacts,
+            @ArraySchema(arraySchema = @Schema(description = "Shot-reference extension records"), schema = @Schema(ref = "#/components/schemas/OpaqueJsonValue")) List<OpaqueJsonValue> shotReferences,
+            @ArraySchema(arraySchema = @Schema(description = "Asset-candidate extension records"), schema = @Schema(ref = "#/components/schemas/OpaqueJsonValue")) List<OpaqueJsonValue> assetCandidates,
+            @ArraySchema(arraySchema = @Schema(description = "Task extension records"), schema = @Schema(ref = "#/components/schemas/OpaqueJsonValue")) List<OpaqueJsonValue> tasks) {
     }
 }

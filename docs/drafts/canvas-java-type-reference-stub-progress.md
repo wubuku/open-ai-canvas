@@ -31,12 +31,12 @@ audience: 继续实施画布 Java 类型参考桩的开发者、评审者和合�
 
 ## 3. 当前完成度
 
-截至 2026-10-14，类型参考桩本轮总体进度约 **95%**：Java 项目、强类型核心 API、H2 durable state、11/11 Required profile、OpenAPI 静态审计和重启后专项复验均已完成；剩余工作是本组文档的最终交叉复核、提交和推送。这个百分比是本轮交付总账估算，不是 API 或代码覆盖率。
+截至 2026-10-14，类型参考桩本轮总体进度为 **100%（reference-stub 交付范围）**：Java 项目、强类型核心 API、H2 durable state、11/11 Required profile、OpenAPI 静态审计、重启后专项复验和文档交付均已完成。这个百分比只表示本轮 reference-stub 交付范围，不是 API 或代码覆盖率，也不表示生产 Java 迁移完成。
 
 | 阶段 | 状态 | 证据/说明 |
 |---|---|---|
 | Maven/Spring WebMVC/H2/Flyway 骨架 | 已完成 | `mvn -q -DskipTests package` 已通过；JDK 23、Maven 3.9.14 |
-| Auth/admin/setup 最小路径 | 部分完成 | 现有 Go runner 已成功完成 register、admin users、login |
+| Auth/admin/setup 最小路径 | 已完成（Required gate 最小路径） | 现有 Go runner 已成功完成 register、admin users、login；完整生产管理能力不属于本桩目标 |
 | H2 file + seed + 重启持久化骨架 | 已完成（reference 边界） | Flyway V1、H2 file、seed、crash/graceful restart 和已提交状态恢复已由 `restart-recovery` 验证；不等价于生产 PostgreSQL/多实例证明 |
 | 画布核心状态机 | 已完成 core 基线 | create/read/list/CAS/history/restore/delete/ETag、分页排序、压缩、错误边界已由 core 黑盒覆盖 |
 | 画布核心强类型 DTO 重构 | 已完成核心公共面 | 核心 Controller 不再使用完整 `JsonNode`/`WireData` 作为 request/response；内部 state codec 和命名 `OpaqueJsonValue` 例外仍受约束 |
@@ -127,6 +127,14 @@ audience: 继续实施画布 Java 类型参考桩的开发者、评审者和合�
 - target-control graceful restart 后，`GET /api/health` 返回 typed `status=ok`，`GET /v3/api-docs` 返回 71,838 bytes OpenAPI JSON。
 - OpenAPI 静态审计：87 个 operation、87 个唯一 `operationId`；91 个 Required operation 归并为 71 个 Required 唯一路由，71/71 映射到 Java OpenAPI；核心 `api.canvas` 公共签名没有 `Map<String,Object>`、`List<Object>`、裸 `Object`、`ResponseEntity<?>` 或完整 `JsonNode`，扩展字段引用命名的 `OpaqueJsonValue` schema。
 - H2 reset 后的 `public-resource` 重启后复验：8 个子场景 PASS；首轮未 reset 的 403 是非空 H2 注册前置条件污染，已用私有 fixture reset 后重跑，不计为 API 实现失败。
+
+### 2026-10-14：最终 OpenAPI schema 复核与回归
+
+- 首次以实际 `/v3/api-docs` JSON 复核时发现：`CanvasConnectionDto.metadata` 以及若干命名扩展集合虽然 Java 类型是 `OpaqueJsonValue`，但 springdoc 默认仍把部分字段展示成 `#/components/schemas/JsonNode`；这违反“扩展字段也必须有命名边界”的核心类型门禁。
+- 修复：为 `CanvasConnectionDto`、`CanvasImportDtos.ImportNodeDto` 的扩展字段显式加 `@Schema(ref = "#/components/schemas/OpaqueJsonValue")`；为 `ProjectDtos` 的扩展集合加 `@ArraySchema` 并显式引用同一 schema。没有把完整画布文档退回动态 JSON。
+- 修复后重新执行 `mvn -q -f java/canvas-contract-reference/pom.xml test`、`package` 和真实服务 `/v3/api-docs` 审计：87 个 operation、87 个唯一 `operationId`、所有 operation 均有 response 描述；`CanvasDocument`、`CanvasNode`、`CanvasConnection`、`CanvasImportResponse`、项目扩展响应均不再含 `JsonNode` schema 属性，核心公共签名动态类型扫描为 0。
+- 修复后重新执行 11 个 Required profile：118/118 HTTP scenario、11/11 profile PASS。重跑期间 `19387` 被外部 DeepSeek 进程占用，`legacy-assets` 改用隔离端口重跑并通过；该次是编排端口冲突，不是产品失败。
+- 本轮结论：类型参考桩交付范围仍为 **100%**；严格三轮内容审计应以本次修复后的文档和代码为起点重新计数，生产 PostgreSQL、真实 Web/Chromium、Provider、Agent、远端对象存储/CDN 和多实例门禁仍不属于本桩已完成范围。
 
 ### 4.1 根因修复记录
 
