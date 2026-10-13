@@ -192,7 +192,7 @@ CanvasNodeData
 
 本地“已保存”和远端“已同步”必须分别展示。排查同步问题时同时看画布同步状态组件、浏览器存储、`PUT /canvas-projects/:id` 响应、revision/ETag 和后端历史记录。
 
-如果要把这些画布端点迁移到 Java，当前页面提供的是现状代码导航，不是 Java 实现规范；请结合[画布 Java HTTP 黑盒合同测试计划](../../../drafts/canvas-java-http-contract-test-plan.md)冻结 wire/状态流合同，并阅读[Go 到 Spring Boot 迁移指引](../../../drafts/go-to-spring-boot-migration-guide.md)确认事实 owner、单 writer 和切流门禁。
+如果要把这些画布端点迁移到 Java，当前页面提供的是现状代码导航，不是 Java 实现规范；请结合[画布 Java HTTP 黑盒合同测试计划](../../../drafts/canvas-java-http-contract-test-plan.md)冻结 wire/状态流合同，并阅读[Go 到 Spring Boot 迁移指引](../../../drafts/go-to-spring-boot-migration-guide.md)确认事实 owner、单 writer 和切流门禁。用于阅读 DTO、OpenAPI 和 H2/mock 状态依赖的可运行类型参考桩见[`java/canvas-contract-reference/README.md`](../../../../java/canvas-contract-reference/README.md)；它不是生产 Java 服务。
 
 独立 Go module 只指[HTTP 主套件](../../../../tests/canvas-contract/README.md#成果用途与证据职责)：请求目标后端与隔离 fixture，不需要前端或浏览器。另有 Python/Playwright 的[真实浏览器伴随套件](../../../../tests/canvas-contract/README.md#独立运行边界)，需要已运行的真实 Web（本地 Vite 即可）、同源 `/api` 目标和 fixture，通过真实 UI 验收登录、画布编辑/重开、资源显示和公开分享；API 准备/核验不算 UI 操作，浏览器场景不计入 HTTP 覆盖。
 

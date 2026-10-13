@@ -13,10 +13,13 @@
 - [云端 Agent 深度调研报告](drafts/cloud-agent-deep-research.md)：跨前端、Go 控制面、Pi runtime、Skill、画布工具、媒体任务和恢复机制的深度导航；未完成真实端到端验收的内容已明确标注。
 - [Agent 能力与技术实现全景调研](drafts/agent-capabilities-and-architecture-research.md)：区分服务端画布 Agent 与浏览器创作交互两套运行合同，概览能力、工具、执行、并发和未验证边界。
 - [技能广场与 Skill 运行机制调研](drafts/skills-usage-and-runtime-research.md)：说明产品技能目录、创作者如何加入和选用技能，以及两类生成入口怎样加载技能文本和受实际工具合同约束。
+- [SKILL 与关键 Prompt 资产盘点](drafts/skill-asset-inventory.md)：按仓库锚点盘点产品内置 Skill、Skill 支撑卡片、仓库协作 Skill、后端策略/模板和前端镜头 Prompt 资产；不替代运行机制报告。
 - [画布系统深度调研报告](drafts/canvas-deep-research.md)：面向准备自建 AI 视频创作画布的开发者，梳理可借鉴的架构、七层状态模型、并发合并、生成回写和渲染性能设计。
 - [预演台系统深度调研报告](drafts/previs-workbench-deep-research.md)：面向设计 3D 预演能力的开发者，梳理场景模型、动画语义、保存同步、Three.js 导出回写、Agent 合同与实现边界。
 - [Go 后端迁移到 Java Spring Boot 指引](drafts/go-to-spring-boot-migration-guide.md)：全后端 Java 重建的事实 owner、模块边界、失败恢复、分阶段切流和验收护栏；开始联调前先读[迁移验收运行边界与阅读入口](drafts/go-to-spring-boot-migration-guide.md#迁移验收运行边界与阅读入口)。
-- [画布 Java Spring Boot 类型参考桩实施规划](drafts/canvas-java-type-reference-stub-plan.md)：规划可运行的 Spring WebMVC + H2 + seed/mock 类型参考桩，并登记现有黑盒套件的 Required、浏览器、远端和独立 suite 缺口；不是已完成的 Java 项目。
+- [画布 Java Spring Boot 类型参考桩实施规划](drafts/canvas-java-type-reference-stub-plan.md)：规划并冻结可运行的 Spring WebMVC + H2 + seed/mock 强类型类型参考桩；已落地但不等同于生产 Java 迁移完成。
+- [画布 Java 类型参考桩实施进度](drafts/canvas-java-type-reference-stub-progress.md)：记录 Java 桩 11/11 Required profile、118/118 HTTP scenario、命令证据、强类型阻断门槛和未验证边界。
+- [Canvas Contract Reference README](../java/canvas-contract-reference/README.md)：Java 桩的启动、OpenAPI、HTTP runner、reset 和 reference-only 运行边界。
 - [画布 Java 迁移前置条件：HTTP 黑盒合同验证方案](drafts/canvas-java-http-contract-test-plan.md)：为画布 Java 移植前建立 Go HTTP 基线、wire 合同和可复用状态流验收门禁；[独立运行边界](drafts/canvas-java-http-contract-test-plan.md#http-与浏览器的独立运行边界)区分无需前端的 HTTP 主套件和需要真实 Web 的浏览器补充验收。
 - [自动化回归测试与核心功能验收现状调研](drafts/test-regression-and-ci-research.md)：说明当前测试层次、PR/发布检查、预演台浏览器 E2E 的边界，以及改动后的验证建议。
 - [研究草稿入口](drafts/README.md)：查看尚未稳定或尚未真实验收的调研结论。

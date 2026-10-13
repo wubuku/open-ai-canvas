@@ -2,7 +2,7 @@
 title: 画布 Java 迁移前置条件：HTTP 黑盒合同验证方案
 status: draft
 scope: migration-test-plan
-updated: 2026-10-13
+updated: 2026-10-14
 audience: 负责将画布后端 API 从 Go 迁移到 Java Spring Boot 的架构师与开发团队
 ---
 
@@ -11,7 +11,7 @@ audience: 负责将画布后端 API 从 Go 迁移到 Java Spring Boot 的架构�
 > **目的**：在开始实现 Java 画布端点之前，建立一套能先验证 Go 基线、再用同一套请求和断言验证 Java 实现的 HTTP 黑盒合同测试。
 > **状态**：持续实施；当前 manifest 登记 163 个 operation / 143 个唯一 method/path、91 个 Required operation / 118 个 HTTP 场景，另有 6 个独立统计的真实浏览器场景。当前 118 场景全量双轮证据为 `20261013-122339-53249`：两轮均执行全部 11 个 HTTP profile、91 个 Required operation；第一/第二轮分别记录 `14197/14196` 与 `14193/14192` 个清单内 observed/wire 请求，均为 71 条映射并执行路由、72 条实际触达路由、71 条返回过非错误响应的路由，6 条受控故障（其中 4 条为提交后响应丢失）、4 条 incomplete、0 条未分类中断。浏览器两轮均为 6 个场景，页面响应头分别为 171/170，阻断装饰均为 9/9。115 场景双轮证据 `20261013-073513-51126` 只保留为历史，不与当前结果拼接；旧 114/112/111/108/107/104/102/100 场景版本也只保留为历史。Required 剩余路径和 Java/远端门禁未闭合；当前 clean-review 为 `3/3`，本文件不修改 Go/Java 产品服务。
 > **证据范围**：核对当前 Go handler、OpenAPI、画布域与 repository 测试、Web API 客户端、画布研究报告和 Spring Boot 迁移指引；HTTP runner 可脱离仓库独立编译，浏览器 runner 只需已运行的真实前端与同源 API。证据涵盖隔离 PostgreSQL 18 + Go HTTP、真实 React/Vite 部分路径、崩溃/优雅重启、提交成功但丢失响应、固定 HTTPS 导入和资源替身；不代表 Java、生产混合网关、真实对象存储/CDN 或全部浏览器能力已经验收。
-> **文档关系**：本文件是[迁移总指引](go-to-spring-boot-migration-guide.md)中 M1/Gate 0 的画布专项计划；当前 API 事实以[画布开发导航](../content/docs/canvas/canvas-development.mdx)和[HTTP API 合同](../content/docs/backend/http-api.mdx)为入口，现有测试能力见[自动化回归测试调研](test-regression-and-ci-research.md)，可执行套件见[`tests/canvas-contract`](../../tests/canvas-contract/README.md)；Java 类型、DTO、H2、seed/mock 和 OpenAPI 参考桩的实施方案见[画布 Java Spring Boot 类型参考桩实施规划](canvas-java-type-reference-stub-plan.md)。
+> **文档关系**：本文件是[迁移总指引](go-to-spring-boot-migration-guide.md)中 M1/Gate 0 的画布专项计划；当前 API 事实以[画布开发导航](../content/docs/canvas/canvas-development.mdx)和[HTTP API 合同](../content/docs/backend/http-api.mdx)为入口，现有测试能力见[自动化回归测试调研](test-regression-and-ci-research.md)，可执行套件见[`tests/canvas-contract`](../../tests/canvas-contract/README.md)；Java 类型、DTO、H2、seed/mock 和 OpenAPI 参考桩的实施方案见[实施规划](canvas-java-type-reference-stub-plan.md)，实际实现、profile 证据和运行边界见[实施进度](canvas-java-type-reference-stub-progress.md)及[`java/canvas-contract-reference/README.md`](../../java/canvas-contract-reference/README.md)。
 
 ## 本轮实施目标与任务清单
 
@@ -43,7 +43,7 @@ audience: 负责将画布后端 API 从 Go 迁移到 Java Spring Boot 的架构�
 
 ### 当前进度
 
-**完整实施目标仍在进行，暂估 91%（工程工作量估算，不是覆盖率）**。可审计基线只是子阶段，不能作为整个目标的出口。当前登记 163 个 operation / 143 个唯一 method/path、91 个 Required operation、118 个 HTTP 场景，另有 6 个独立统计的浏览器场景。历史 115 场景双轮证据为 `20261013-073513-51126`；当前 118 场景新版全量双轮为 `20261013-122339-53249`：第一/第二轮分别为 `14197/14196` 与 `14193/14192` 清单内 observed/wire 请求，均为 `71/72/71` 映射/实际触达/非错误响应路由、6 条受控故障、4 条声明中的 incomplete、0 条未分类中断；浏览器两轮均 6 个场景，页面响应头分别为 171/170，阻断装饰均为 9/9。31 项行为裁决仍未批准。Required 剩余路径、Java 与远端门禁仍未闭合，工程估算不因请求数增长提高。
+**HTTP 合同套件的完整扩展目标仍在进行，暂估 91%（工程工作量估算，不是覆盖率）**。可审计的 11-profile 基线已完成，但 manifest 中的 deferred、separate-suite 和远端/生产门禁仍不是 Java reference stub 的交付分母。当前登记 163 个 operation / 143 个唯一 method/path、91 个 Required operation、118 个 HTTP 场景，另有 6 个独立统计的浏览器场景。历史 115 场景双轮证据为 `20261013-073513-51126`；当前 118 场景新版全量双轮为 `20261013-122339-53249`：第一/第二轮分别为 `14197/14196` 与 `14193/14192` 清单内 observed/wire 请求，均为 `71/72/71` 映射/实际触达/非错误响应路由、6 条受控故障、4 条声明中的 incomplete、0 条未分类中断；浏览器两轮均为 6 个场景，页面响应头分别为 171/170，阻断装饰均为 9/9。31 项行为裁决仍未批准。Java reference stub 已完成 11/11 profile、118/118 scenario；真实 Java 业务迁移、生产数据库/远端依赖和扩展套件仍未闭合。
 
 当前 HTTP 场景包括固定 HTTPS 真 PNG/WAV/MP4、转换计数/过滤/拓扑/参数、1000/1001 节点和 5000/5001 连接边界、资源导入/幂等、部分下载失败后的显式恢复、素材登记、保存重开、CAS 与跨用户隔离，以及 `canvas.recovery.response-loss-and-restart`。该恢复场景现在还覆盖资源 URL 导入提交后的丢 ACK、崩溃和同幂等键重放，以及持久化 upload reservation 过期后由新进程重新准入；legacy-assets 另覆盖六次画布引用/显式 purge 竞态及本地 object-store DELETE 失败后的逻辑删除/物理对象保留。`generation-writeback` 已加入 provider-free text replay 与 SSE 游标重放，但不覆盖 Provider 或 live-disconnect SSE reconnect。它们仍是本地受控 fixture，不等于远端对象存储恢复或生产 outbox 重试时序。转换/资源 HTTP 串联不是浏览器导入验收。此前 review 曾发现并修正浏览器 selector、fixture 完整字段、真实媒体路由、SSRF profile 配置、断言过度收紧和 YAML 解析问题；历史 90/115 双轮及其 `3/3` clean-review 不延续到本轮。当前 118 场景全量双轮已通过，连续 clean-review 已完成 `3/3`；每次新发现或实现变动后仍须从 `0/3` 重新累计，不以运行轮数替代 clean-review。
 
@@ -54,6 +54,16 @@ audience: 负责将画布后端 API 从 Go 迁移到 Java Spring Boot 的架构�
 | 执行路径设计与实现 | 继续实施 | 新增 updated-at 并列稳定排序、过期 reservation 的提交拒绝/额度释放/同目标重试、跨进程 durable reservation admission、非空 trailing JSON 的 Go 事实证据；后台 reconciler、受控在途交错、远端 CDN/TTL/条件缓存、完整 task/Agent 写回及 UI 缓存/冲突继续登记 |
 | 套件与文档同步 | 已完成本轮实现 | 独立编译、专项 race、36 项 HTTP/9 项浏览器审计单测、数据库 fixture adapter 单测和 118 场景完整双轮/浏览器回归通过；Required 剩余路径和远端/Java 门禁仍独立保留 |
 | 重复基线与完整复审 | 完成当前复审轮次 | `20261013-122339-53249` 已完成 118 场景全量双轮；当前连续 clean-review 为 `3/3`。后续 fixture、scenario、manifest、runner 或文档发生实质变更后必须从 `0/3` 重新累计 |
+
+### Java 类型参考桩交付状态
+
+这是 HTTP 套件为未来 Java 移植提供的**可运行类型参考桩**，不是本文件更广义的生产迁移完成标志：
+
+- `java/canvas-contract-reference/` 已用 Spring Boot 3.4 + Spring WebMVC + H2 file + Flyway + Springdoc OpenAPI 创建并可启动。
+- 11 个 Required profile、91 个 Required operation、118 个 HTTP scenario 已通过 Java jar；profile 子场景和根因修复由[实施进度](canvas-java-type-reference-stub-progress.md)记录。
+- OpenAPI 静态审计得到 87 个唯一 operationId；91 个 Required operation 归并为 71 个 Required 唯一路由，71/71 均可映射到 Java OpenAPI。核心画布 Controller/DTO 使用领域类型；`JsonNode` 只在内部 codec 或命名 `OpaqueJsonValue` 扩展边界出现。
+- 这套 HTTP 主套件不需要真实 Web 或浏览器。浏览器 companion 仍是独立的真实前端消费链验收；它不增加 HTTP 覆盖分母。Java 只迁移画布时，登录、资源、页面辅助 API 和 fixture 仍必须由 Java 或混合网关明确提供。
+- 参见 [`java/canvas-contract-reference/README.md`](../../java/canvas-contract-reference/README.md) 的启动、reset、profile 命令和 reference-only 限制；不要把 H2/mock/单进程绿色外推为 PostgreSQL、生产对象存储、Provider、Agent 或切流证明。
 
 ### 连续 clean-review 记录
 

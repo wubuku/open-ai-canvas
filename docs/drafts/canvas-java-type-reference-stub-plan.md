@@ -1,15 +1,15 @@
 ---
 title: 画布 Java Spring Boot 类型参考桩实施规划
-status: draft
+status: implementation
 scope: java-reference-stub-plan
-updated: 2026-10-13
+updated: 2026-10-14
 audience: 负责实现画布 Java 移植、HTTP 合同验收和类型设计的架构师与开发团队
 ---
 
 # 画布 Java Spring Boot 类型参考桩实施规划
 
 > **目的**：规划一个可以启动、可以被现有 HTTP 黑盒合同套件调用、只使用 H2 文件数据库和 mock/seed 数据的 Java Maven 项目，为未来的 Java 画布移植版提供可运行的 DTO、wire format、OpenAPI 和端点类型参考。
-> **状态**：规划阶段；本文件只定义实施方案，不表示 Java 项目已经创建、编译或通过黑盒套件。
+> **状态**：参考桩实现已完成本轮 Required gate；规划与实际进度分开记录于 `docs/drafts/canvas-java-type-reference-stub-progress.md`。本文件中的“已验证”只有在有命令、HTTP transcript 或测试证据时才可勾选；“桩通过”不表示生产 Java 迁移通过。
 > **目标目录**：`java/canvas-contract-reference/`
 > **架构依据**：采用 `spring-boot-principal-architect` 的模式 B 思路和护栏，但本项目是 reference-only stub，不是生产重写，也不把 Go 的包结构或缺陷自动提升为 Java 架构。
 > **证据范围**：当前 checkout 的 `tests/canvas-contract`、Go handler/fixture、OpenAPI、Web API 客户端、画布研究文档、迁移指引，以及该 Spring Boot 架构技能的合同、事实 owner、事务、恢复和模块边界原则。
@@ -24,6 +24,26 @@ audience: 负责实现画布 Java 移植、HTTP 合同验收和类型设计的�
 4. 所有初始数据、媒体字节、任务、事件、用户和权限场景都是确定性的 seed/mock 数据；请求之间需要的身份、资源、revision、history、share、upload、task 和 event 状态持久化到 H2，不能靠内存全局变量维持。
 5. 它以当前合同套件的 `REQUIRED` 范围为第一交付门槛：11 个 profile、91 个 Required operation、118 个 HTTP scenario。完整 manifest 目前登记 163 个 operation / 143 个唯一 method/path，另有 `DEFERRED` 和独立 suite 的 `OUT_OF_SCOPE` 范围，不在第一版 reference stub 的默认交付分母中。
 6. 现有 Go runner 通过 TCP HTTP 验收 Java jar；不需要把 Go 产品代码作为 Java 的依赖，也不需要启动浏览器才能执行 HTTP 主套件。真实浏览器 companion 是后续前端配合验收，不是这个 Java 项目的启动前提。
+
+### 1.3 画布核心强类型硬门槛
+
+这是本项目的**阻断性要求**，不得为了快速通过黑盒请求而降级：
+
+- 直接操作画布文档、节点、连线、历史、恢复、分享和项目画布关联的 Controller 方法，公共 request/response 签名必须使用领域 DTO、`ApiEnvelope<T>`、明确的集合类型和明确的分页/错误类型。
+- 这些核心 Controller/DTO 的公共签名禁止 `Map<String, Object>`、`List<Object>`、无类型 `Object`、`ResponseEntity<?>`、`JsonNode` 及其子类作为业务字段或方法参数/返回值。`JsonNode` 只能留在 persistence/codec 边界，或在 DTO 中以命名的、经过注解和大小限制的 `OpaqueJsonValue` 表示已批准的扩展字段；不能用一个泛化 JSON 节点承载整个画布文档。
+- 核心 DTO 必须按 wire 合同拆分为领域类型；当前 reference stub 的核心集合是：`CanvasDocumentDto`、`CanvasNodeDto`、`CanvasConnectionDto`、`CanvasPositionDto`、`CanvasViewportDto`、`CanvasSummaryDto`、`CanvasHistorySnapshotDto`、`CanvasShareDto`、`CanvasLibraryResponse`、`CanvasHistoryResponse`、`CanvasHistoryReadResponse`、`CanvasWriteRequest`、`CanvasWriteResponse`、`CanvasRestoreRequest`、`CanvasShareRequest`、`CanvasShareResponse` 和错误 DTO。若未来出现独立资源引用或分页 wire，应新增命名的 `CanvasResourceReferenceDto`/分页 DTO，而不是回退到动态对象；每个已暴露类型及字段写 `@Schema`，每个端点写唯一 `operationId`、`@Operation`、成功/错误 `@ApiResponse`。
+- `nodes`、`connections`、`metadata`、`customExtension` 等仍可扩展的部分必须有清晰的 DTO 边界：列表元素用命名 DTO；未知字段必须通过 `OpaqueJsonValue`/版本化扩展 DTO 保留，不能把整棵文档退化为动态类型。
+- 辅助性的 setup、fixture、mock provider 配置端点可以采用较宽松的 opaque DTO，但不得反向影响画布核心 Controller 的类型约束；ArchUnit/反射扫描和 OpenAPI schema 扫描失败即阻止交付。
+- 早期的 `CanvasWriteRequest(JsonNode project)`、`WireData.ReferenceObjectDto project` 实现曾是阻塞项；当前已替换为领域 DTO，并由 11 个 Required profile、OpenAPI schema 和核心公共签名扫描复核关闭。后续新增核心字段仍必须遵守同一门禁。
+
+这项约束的实际目的不是追求 Java 形式上的“类型数量”，而是让未来移植者阅读 Controller 方法签名或生成的 OpenAPI 文档时，就能直接看到 wire format 的字段、嵌套结构、必填性、数值类型和错误边界；不应要求读者继续追踪某个 `Map`/`JsonNode` 实例是如何在运行时拼出来的。只有极少数 API 的设计意图本身就是承载版本化、客户端自定义扩展时，才允许在命名的扩展字段或辅助端点中使用弱类型，并且必须在 DTO/OpenAPI 描述中明确标注扩展边界。
+
+### 1.4 当前实现快照（2026-10-14）
+
+- `java/canvas-contract-reference/` 已可构建、启动并使用 H2 file + Flyway 恢复已提交状态；项目运行说明见 [`java/canvas-contract-reference/README.md`](../../java/canvas-contract-reference/README.md)。
+- 11 个 Required profile、91 个 Required operation、118 个 HTTP scenario 已用同一 Go runner 对 Java jar 验证通过；Required operation 中 recovery/行为变体复用路由，故归并为 71 个 Required 唯一路由。
+- `/v3/api-docs` 静态审计得到 87 个 operation、87 个唯一 `operationId`；71/71 个 Required 唯一路由可映射到 Java OpenAPI。核心画布公共签名没有 `Map<String,Object>`、`List<Object>`、裸 `Object`、`ResponseEntity<?>` 或完整 `JsonNode`；扩展字段显式引用命名的 `OpaqueJsonValue` schema，且该 schema 明确不能承载完整画布文档。
+- 这只是“可运行的类型/wire 参考桩”出口；真实 Java 业务迁移仍必须重新证明 PostgreSQL、事务、权限、对象存储、Provider、Agent、SSE 断线恢复、多实例并发和切流回滚。
 
 ### 1.1 成功定义
 
@@ -822,22 +842,22 @@ Java HTTP client 必须显式设置 connect/read/overall timeout、关闭自动�
 4. 新增 dynamic JSON 字段、异步 task、外部调用或 callback：必须重新做强类型、operation catalog、ambiguity policy 和安全审查。
 5. reference stub 任何“为了通过测试”的特殊行为：在代码、README 和本规划中标记为 `REFERENCE DECISION`，并链接对应 scenario，不得沉淀为无名 workaround。
 
-## 17. 实施前检查清单
+## 17. 实施与交付检查清单
 
-- [ ] 确认 `tests/canvas-contract/contract/manifest.yaml` 当前 163/143/91/118 统计未漂移。
-- [ ] 确认 11 个 Required profile 与 runner `ConfigFromEnv` 支持列表一致。
-- [ ] 确认 setup API、private fixture、target-control 和 H2 data directory 的启动合同。
-- [ ] 确认 WebMVC 而非 WebFlux，SSE 采用 `SseEmitter`，不把浏览器作为 HTTP 主套件依赖。
-- [ ] 确认所有公共 Controller 方法和 DTO 的禁止动态类型规则可以通过静态扫描执行。
-- [ ] 确认 `spring.jpa.open-in-view=false`、迁移策略、seed marker 和 H2 file restart 方案。
-- [ ] 确认 request ledger 的 operation-specific replay policy，不采用全局 POST 幂等 middleware。
-- [ ] 确认 import、file、Range、304/416、gzip、ETag、SSE、response-loss 和 restart 都有对应 wire/state test。
-- [ ] 确认每个 deferred/out-of-scope 范围有安全默认、触发器和最迟决策点。
-- [ ] 确认实现后更新本文件的“已验证/未验证”状态，而不是提前把规划写成成果。
+- [x] 确认 `tests/canvas-contract/contract/manifest.yaml` 当前 163/143/91/118 统计未漂移。
+- [x] 确认 11 个 Required profile 与 runner `ConfigFromEnv` 支持列表一致。
+- [x] 确认 setup API、private fixture、target-control 和 H2 data directory 的启动合同。
+- [x] 确认 WebMVC 而非 WebFlux，SSE 采用 `SseEmitter`，不把浏览器作为 HTTP 主套件依赖。
+- [x] 确认所有公共 Controller 方法和 DTO 的禁止动态类型规则可以通过静态扫描执行。
+- [x] 确认 `spring.jpa.open-in-view=false`、迁移策略、seed marker 和 H2 file restart 方案。
+- [x] 确认 request ledger 的 operation-specific replay policy，不采用全局 POST 幂等 middleware。
+- [x] 确认 import、file、Range、304/416、gzip、ETag、SSE、response-loss 和 restart 都有对应 wire/state test。
+- [x] 确认每个 deferred/out-of-scope 范围有安全默认、触发器和最迟决策点。
+- [x] 已将实现证据、profile 结果、OpenAPI 审计和 reference-only 边界写入进度、README 与关联文档。
 
-## 18. 规划阶段验证记录
+## 18. 规划与实施验证记录
 
-以下是本规划文档在当前 checkout 上实际执行过的静态/现状检查；它们验证的是规划依据和文档一致性，不代表 Java 项目已经创建或通过 HTTP 黑盒套件：
+以下记录区分规划依据检查和实现后验证；它们不把 reference stub 结果外推为生产 Java 迁移结果：
 
 | 时间 | 检查 | 结果 |
 |---|---|---|
@@ -846,13 +866,18 @@ Java HTTP client 必须显式设置 connect/read/overall timeout、关闭自动�
 | 2026-10-13 | `PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests/canvas-contract/browser -p '*_test.py'` | 9 pass、0 fail |
 | 2026-10-13 | setup/auth/session、admin fixture、private fixture 和 11 个 runner profile 源码交叉核对 | 计划已覆盖实际调用路径；setup 不计入 91 个画布 operation |
 | 2026-10-13 | 新规划文档链接、索引、章节顺序、缺口 ID、敏感机器路径和 `git diff --check` | 通过 |
+| 2026-10-14 | `mvn -q -f java/canvas-contract-reference/pom.xml -DskipTests package`、target-control graceful restart、`/api/health`、`/v3/api-docs` | 通过；OpenAPI 87 operations / 87 unique operationId |
+| 2026-10-14 | 11 个 Java Required profile 日志逐一核对 | 通过；118/118 子场景、11/11 profile |
+| 2026-10-14 | Required operation 与 Java OpenAPI method/path 归一化映射 | 通过；91 operations → 71 unique routes，71/71 mapped |
+| 2026-10-14 | 核心 Controller/DTO 动态类型扫描与 `OpaqueJsonValue` 例外核对 | 通过；动态 JSON 仅在内部 codec 或命名扩展字段 |
+| 2026-10-14 | graceful restart 后 reset 隔离状态并重跑 `public-resource` | 通过；8/8 子场景 |
 
 尚未执行且不能提前宣称通过：
 
-- `java/canvas-contract-reference/` 尚未创建，因此没有 Maven compile/test、OpenAPI export、jar smoke 或 H2 restart 结果。
-- 没有以 Java target 运行 `tests/canvas-contract` 的任何 profile，因此不能宣称 Java API、DTO、wire 或 response-loss 已兼容。
 - 没有启动真实 Web 前端/Chromium，因此 browser companion 的 Java 直连或混合网关验收仍未完成。
 - 没有执行真实 PostgreSQL、远端 CDN/object-store、Provider、Agent runtime 或生产切流验证；这些边界仍按 G-01～G-14 和 deferred 表管理。
+
+已完成但只限 reference stub 的内容不应被迁移负责人误读为生产保证：H2/JPA 单进程并发、mock object store、seed 用户、私有 fixture、provider-free generation 和本地 restart 都属于可重复的类型/合同参考环境。
 
 本文件的严格三轮内容审计按用户要求在本轮对话中逐轮输出；若审计发现规划事实、范围、逻辑或缺口登记问题，必须先修改本文并把连续无修改计数重置为 `0/3`。
 
@@ -878,10 +903,10 @@ Reject:
 - 用 H2/MockMvc/health 200 冒充生产 PostgreSQL、并发、RLS 或 Java 迁移通过。
 - 用 core profile 或 OpenAPI 生成成功冒充 91 operation / 118 scenario 全部通过。
 
-First implementation steps:
-1. 建 Maven/WebMVC/OpenAPI/H2 schema 和架构护栏。
-2. 建 typed envelope、auth/session、seed、request ledger 和 canvas core。
-3. 用现有 HTTP runner 逐 profile 实跑，失败即回到对应 DTO/state/wire 证据修正。
+Reference stub implementation status:
+1. Maven/WebMVC/OpenAPI/H2 schema、Flyway state store 和架构护栏已落地。
+2. typed envelope、auth/session、seed、request ledger、canvas core 及其依赖 profile 已落地。
+3. 11 个 Required profile 已用现有 HTTP runner 实跑；真实 Java 业务移植仍从 PostgreSQL/owner/outbox/recovery 门禁开始，不把桩内部实现直接升级为生产设计。
 ```
 
-本文件只是实施规划；完成后的 Java 项目、运行报告、未覆盖项和行为差异必须分别记录在 `java/canvas-contract-reference/README.md`、合同测试计划和迁移指引中。
+本文件是实施规划与验收门槛；已完成的 reference stub、运行报告索引、未覆盖项和行为差异分别记录在 [`java/canvas-contract-reference/README.md`](../../java/canvas-contract-reference/README.md)、[实施进度](canvas-java-type-reference-stub-progress.md)、[合同测试计划](canvas-java-http-contract-test-plan.md) 和[迁移指引](go-to-spring-boot-migration-guide.md)中。后续真实 Java 业务移植不得把本桩的 H2/mock 事实当作生产合同已验收。

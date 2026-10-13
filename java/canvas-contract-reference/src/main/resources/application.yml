@@ -1,0 +1,41 @@
+spring:
+  application:
+    name: canvas-contract-reference
+  datasource:
+    url: ${CANVAS_REFERENCE_JDBC_URL:jdbc:h2:file:./data/canvas-contract-reference;MODE=PostgreSQL;AUTO_SERVER=TRUE}
+    username: ${CANVAS_REFERENCE_DB_USERNAME:sa}
+    password: ${CANVAS_REFERENCE_DB_PASSWORD:}
+    driver-class-name: org.h2.Driver
+    hikari:
+      connection-init-sql: SET WRITE_DELAY 0
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate.format_sql: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  jackson:
+    default-property-inclusion: non_null
+  servlet:
+    multipart:
+      max-file-size: 1GB
+      max-request-size: 1GB
+server:
+  address: ${CANVAS_REFERENCE_BIND_ADDRESS:127.0.0.1}
+  port: ${CANVAS_REFERENCE_PORT:18183}
+  compression:
+    enabled: false
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui/index.html
+reference:
+  contract:
+    enabled: ${CANVAS_REFERENCE_CONTRACT_ENABLED:true}
+    fixture-token: ${CANVAS_CONTRACT_FIXTURE_TOKEN:}
+  seed:
+    enabled: ${CANVAS_REFERENCE_SEED_ENABLED:true}

@@ -2,7 +2,7 @@
 title: Go 后端迁移到 Java Spring Boot 指引
 status: draft
 scope: backend-java-migration
-updated: 2026-10-13
+updated: 2026-10-14
 audience: 准备以 Java Spring Boot 重建影策后端的架构师与开发团队
 ---
 
@@ -10,8 +10,8 @@ audience: 准备以 Java Spring Boot 重建影策后端的架构师与开发团�
 
 > **目标读者**：正在评估用 Java Spring Boot 重建当前 AI 视频创作工作台后端的开发者。
 > **文档定位**：这是迁移和架构改进指引，不是 Go 文件逐个对应 Java 文件的翻译表。
-> **事实边界**：当前项目事实以本仓库源码、配置和测试为准；Java 目标结构是建议。本轮已在隔离 Go/PostgreSQL 环境完成画布 HTTP 合同与真实前端 companion 基线；没有运行 Java、生产数据库或模型调用。
-> **相关研究**：[后端架构考古与 Spring Boot 移植评估](backend-architecture-review.md)记录当前实现的得失；[当前数据模型综述与导航](data-model-overview-and-navigation.md)用于逐领域盘点数据落点；[画布 Java HTTP 合同测试计划](canvas-java-http-contract-test-plan.md)将本文的 API 合同、owner、切流和验收原则落到画布专项；[画布 Java Spring Boot 类型参考桩实施规划](canvas-java-type-reference-stub-plan.md)进一步定义只使用 H2 file + seed/mock 数据的强类型参考桩及现有黑盒套件缺口补全任务。
+> **事实边界**：当前项目事实以本仓库源码、配置和测试为准；Java 目标结构是建议。本轮已在隔离 Go/PostgreSQL 环境完成画布 HTTP 合同与真实前端 companion 基线，并以同一 HTTP runner 对 Java **类型参考桩**完成 11/11 Required profile、118/118 HTTP scenario；这不等于 Java 生产业务、生产数据库或模型调用已通过。
+> **相关研究**：[后端架构考古与 Spring Boot 移植评估](backend-architecture-review.md)记录当前实现的得失；[当前数据模型综述与导航](data-model-overview-and-navigation.md)用于逐领域盘点数据落点；[画布 Java HTTP 合同测试计划](canvas-java-http-contract-test-plan.md)将本文的 API 合同、owner、切流和验收原则落到画布专项；[画布 Java Spring Boot 类型参考桩实施规划](canvas-java-type-reference-stub-plan.md)与[实施进度](canvas-java-type-reference-stub-progress.md)定义并记录只使用 H2 file + seed/mock 数据的强类型参考桩；可运行入口见[`java/canvas-contract-reference/README.md`](../../java/canvas-contract-reference/README.md)。
 
 本文按 `spring-boot-principal-architect` 的 **B：重写/大型重构**模式组织：先建立证据账本、事实 owner、operation 合同和失败恢复协议，再选择模块边界与基础设施；默认采用 PostgreSQL durable facts、短事务、transactional outbox、reconciler、单 writer 和可回滚的逐 operation 切换。该架构指引约束 Java 的目标设计，但不把 Go 当前的包结构、锁顺序、错误文本或缺陷自动提升为兼容合同。
 
@@ -45,8 +45,8 @@ audience: 准备以 Java Spring Boot 重建影策后端的架构师与开发团�
 | 范围 | API/认证兼容、PostgreSQL/Flyway、任务/Provider/计费、媒体、画布、Agent 控制面、切换与回滚 |
 | 非目标 | 第一阶段不重写 Node/Pi runtime，不拆微服务，不引入 Broker/workflow engine，不承诺无停机 |
 | 基线 | `research` 分支的当前 checkout；具体源码、suite input hash 和运行证据以画布合同计划登记的 evidence 目录为准 |
-| 当前唯一进行中步骤 | M0：补齐逐 endpoint/逐表/逐 Provider/逐环境清单，并清零或明确阻断关键未知项；画布专项同步推进 M1 前置合同缺口 |
-| 下一步验证 | 画布分享资源本地 CDN/object-store 成功/GET 故障/恢复、`core` updated-at 并列排序、资源预留到期/释放/重试、跨进程 durable reservation admission 和工作台 trailing JSON 已纳入当前 118 场景双轮基线；下一步补项目关联 persistence/revision failure injection、后台 reservation reconciler、其余 Required `remaining_paths` 和真实 Java/混合网关验收；全局迁移再用真实 PostgreSQL 副本补逐表映射，并用 wire/故障注入测试证明一个低成本 Provider 的 prepare → UNKNOWN → reconcile → settle 闭环 |
+| 当前唯一进行中步骤 | M0：补齐逐 endpoint/逐表/逐 Provider/逐环境清单，并清零或明确阻断关键未知项；画布 Java 类型参考桩已完成，真实 Java 业务迁移仍停在 M1 前的合同/owner/数据决策门槛 |
+| 下一步验证 | reference stub 已完成 11/11 Required profile、118/118 HTTP scenario、H2 restart 和 OpenAPI/强类型门禁；下一步不是扩大桩的业务逻辑，而是针对真实 Java 服务补项目关联 persistence/revision failure injection、后台 reservation reconciler、其余 Required `remaining_paths`、混合网关/Go Cookie 兼容、真实 PostgreSQL/远端对象存储和 Provider prepare → UNKNOWN → reconcile → settle 闭环 |
 | 阻塞项 | tenant/RLS 是否启用、archived/purge 删除例外、Provider callback inventory、真实数据水位和回滚窗口 |
 
 完成一项 M0 决策后，先更新本节的当前步骤、证据和阻塞项，再进入下一阶段；不要另建第二份迁移状态表。
@@ -695,8 +695,8 @@ Java 写出的新数据如果 Go 不能读，切换就是 `forward-only`；不�
 
 交付：
 
-- Spring Boot 模块结构、统一错误映射、request/trace ID、认证上下文、运行角色和健康探针；启用 ArchUnit/Spring Modulith 依赖规则。
-- 只冻结合同、不改变 schema 的兼容层：DTO、operationId、错误、权限、幂等、SSE cursor 和 wire tests。
+- Spring Boot 模块结构、统一错误映射、request/trace ID、认证上下文、运行角色和健康探针；启用 ArchUnit/Spring Modulith 依赖规则。当前 [`java/canvas-contract-reference`](../../java/canvas-contract-reference/README.md) 是可运行的 H2/mock 类型参考桩，不是生产模块结构的最终替代。
+- 只冻结合同、不改变 schema 的兼容层：DTO、operationId、错误、权限、幂等、SSE cursor 和 wire tests。参考桩已证明 11/11 Required profile 可以由同一 HTTP runner 驱动；真实 Java 服务仍必须在 PostgreSQL/混合网关上重做这些门禁。
 - 先执行[画布 Java HTTP 合同测试计划](canvas-java-http-contract-test-plan.md)中 manifest 登记的 11 个 Required profile：`core`、`share-public`、`project-integration`、`project-workbench-core`、`resource-integrity`、`import`、`legacy-assets`、`public-resource`、`restart-recovery`、`generation-boundary`、`generation-writeback`；使用独立的[`tests/canvas-contract`](../../tests/canvas-contract/README.md) runner 固定 Go 基线，再把同一套场景用于 Java 和混合路由。当前已登记 91 个 Required operation、118 个 HTTP 场景、31 项行为决策；当前 118 场景双轮 `20261013-122339-53249` 第一/第二轮分别为 `14197/14196` 与 `14193/14192` 个清单内 observed/wire 请求，每轮 71 条映射并执行路由、72 条实际触达路由、71 条非错误路由、6 条受控故障、4 条响应丢失、4 条 incomplete 和 0 条未分类中断；真实浏览器 companion 另完成 6 个场景两轮，页面响应头分别为 171/170、阻断装饰均为 9/9。115 场景历史双轮 `20261013-073513-51126` 只作历史。`generation-boundary` 当前已验证任务未认证、已有任务 owner 详情/日志、foreign 任务列表/详情/日志、missing-ID 和 foreign creation-run read；`generation-writeback` 已加入 provider-free text replay + SSE 游标重放，但 Provider、SSE 断线重连、Agent run fixture、任务恢复和 Agent durable writeback 仍由独立 suite 阻断。响应丢失专项覆盖文档/资源/上传完成提交后的丢 ACK、重启、CAS 和幂等重放，过期 durable reservation 的新进程重新准入也已验证，但不覆盖在途事务 crash 或后台 reconciler；分享资源场景现已验证本地 CDN redirect 与 object-store 成功/GET 故障/恢复，但生产远端存储/CDN、TTL/条件缓存、完整 UI 缓存/冲突和 Java 切流仍未验收。Resource–Asset–Canvas 的当前 HTTP 顺序是持久化前置条件证据，不要求 Java 复制 Go 的表结构、service 别名或锁；Java 必须显式选择事实 owner、短事务与外部下载/存储的 outbox/恢复协议。工作台非核心及任务/Agent 写回按 manifest 保持 deferred/separate-suite。远端对象存储 Range/交付、生产 CDN、TTL/条件缓存不能由本地 fixture 绿灯隐式覆盖。
 - 真实前端 companion 的 6 个场景已与 HTTP 基线一起双轮通过；账号切换后的 owner 文档不变性由独立重新认证的 owner audit API 会话验证。该结果仍不代表完整浏览器用户旅程、多标签并发写入、任务/Agent durable writeback、远端存储或 Java/混合网关已通过。最新版本和剩余矩阵以专项计划为准，不能因测试构造而要求 Java 复制 Go 内部进程、表结构或内存会话。
 - 两类执行器及保留前端的条件见[运行边界与阅读入口](#迁移验收运行边界与阅读入口)。M1 交付必须列明目标 API/网关、身份和资源提供者、隔离 fixture；启用浏览器验收时再列明真实 Web 与同源代理。当前 browser setup 的 admin/user 合同也须满足，或先显式改造 fixture；`--implementation=java` 只是报告标签，不补齐依赖、不启动服务。连接配置、源码证据和合同变更处理以[前端配合条件](../../tests/canvas-contract/README.md#web-前端与-java-的配合条件)为准；Go 基线启动器不是 Java 验收入口。
@@ -861,6 +861,6 @@ Java 写出的新数据如果 Go 不能读，切换就是 `forward-only`；不�
 
 会改变相应默认政策的证据包括：已验证的多租户/合规隔离要求、Provider 官方稳定幂等合同，以及真实切换演练证明旧 Go writer 能安全读取 Java 新格式；会推翻模块化单体与 PostgreSQL 状态机默认的证据，则必须是不可由 PostgreSQL + outbox + reconciler 满足的故障域、吞吐或隔离要求，并附 replacement test、观测触发器和回滚成本。
 
-本轮完成文档与架构语义审阅、源码/测试静态核对，并在隔离 PostgreSQL 18 与 Go HTTP 服务上完成当前 118 场景版本的画布合同 runner 91 个 Required operation/11-profile 全量两轮，包含实际崩溃/优雅重启；同一轮真实浏览器 companion 也完成 6 个场景两轮。第一/第二轮清单内 observed/wire 分别为 `14197/14196` 与 `14193/14192`，每轮 71 条映射并执行路由、72 条实际触达路由、71 条至少返回过非错误响应的路由、6 条受控故障、4 条响应丢失、4 条声明中的 incomplete 和 0 条未分类中断；浏览器两轮页面响应头分别为 171/170、阻断装饰均为 9/9。历史 115 场景双轮 `20261013-073513-51126` 仍保留为历史证据。新增 SSE 单轮已被合并进当前全量，但只证明 provider-free operation 的当前 Go 行为，不证明 Provider、SSE 断线重连、creation-run 或 Agent 写回。分享资源本地 CDN/object-store 的 redirect、成功读取、GET 故障与恢复、并发关联、固定 HTTPS 导入、legacy purge 竞态和过期 durable reservation 跨进程重新准入等既有选定路径仍以对应版本证据为准；不代表生产平台、后台 reconciler、远端对象存储/CDN、Java 或完整浏览器用户旅程通过。没有运行 Java、生产数据库、真实模型调用、生产远端对象存储/CDN 故障注入、跨设备同步、真实 Agent 写回或生产负载测试。当前 checkout 没有 `docs/package.json`，未虚构文档站 build/types 命令。Go 的 foreign 删除/列举差异、missing task logs 空结果、purge 断链、内存上传会话、分片覆盖/超时、后台 reservation reconciler 及关联部分提交仍待裁决。此文档不是 Java 实施完成、套件完整目标完成或无停机结论；最新版本/报告和完整 Required 缺口以[画布合同计划](canvas-java-http-contract-test-plan.md#验证记录)为准。
+本轮完成文档与架构语义审阅、源码/测试静态核对，并在隔离 PostgreSQL 18 与 Go HTTP 服务上完成当前 118 场景版本的画布合同 runner 91 个 Required operation/11-profile 全量两轮，包含实际崩溃/优雅重启；同一轮真实浏览器 companion 也完成 6 个场景两轮。第一/第二轮清单内 observed/wire 分别为 `14197/14196` 与 `14193/14192`，每轮 71 条映射并执行路由、72 条实际触达路由、71 条至少返回过非错误响应的路由、6 条受控故障、4 条响应丢失、4 条声明中的 incomplete 和 0 条未分类中断；浏览器两轮页面响应头分别为 171/170、阻断装饰均为 9/9。历史 115 场景双轮 `20261013-073513-51126` 仍保留为历史证据。新增 SSE 单轮已被合并进当前全量，但只证明 provider-free operation 的当前 Go 行为，不证明 Provider、SSE 断线重连、creation-run 或 Agent 写回。分享资源本地 CDN/object-store 的 redirect、成功读取、GET 故障与恢复、并发关联、固定 HTTPS 导入、legacy purge 竞态和过期 durable reservation 跨进程重新准入等既有选定路径仍以对应版本证据为准；不代表生产平台、后台 reconciler、远端对象存储/CDN、完整浏览器用户旅程或真实 Java 业务迁移通过。当前已运行 [`java/canvas-contract-reference`](../../java/canvas-contract-reference/README.md) 的 H2/mock 类型参考桩，11/11 Required profile、118/118 HTTP scenario 和 OpenAPI/强类型门禁均通过；这只是可运行的 wire/type 参考，不等同生产 Java、生产数据库、真实模型调用、生产远端对象存储/CDN 故障注入、跨设备同步、真实 Agent 写回或生产负载测试。当前 checkout 没有 `docs/package.json`，未虚构文档站 build/types 命令。Go 的 foreign 删除/列举差异、missing task logs 空结果、purge 断链、内存上传会话、分片覆盖/超时、后台 reservation reconciler 及关联部分提交仍待裁决。此文档不是 Java 生产实施完成、套件扩展目标完成或无停机结论；最新版本/报告和完整 Required 缺口以[画布合同计划](canvas-java-http-contract-test-plan.md#验证记录)为准。
 
 迁移开始前应先补齐逐 endpoint、逐表、逐 Provider 和逐环境的清单，并使用真实数据副本完成至少一次迁移与回滚演练。
