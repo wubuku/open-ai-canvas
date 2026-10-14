@@ -18,7 +18,7 @@
 - [预演台系统深度调研报告](drafts/previs-workbench-deep-research.md)：面向设计 3D 预演能力的开发者，梳理场景模型、动画语义、保存同步、Three.js 导出回写、Agent 合同与实现边界。
 - [Go 后端迁移到 Java Spring Boot 指引](drafts/go-to-spring-boot-migration-guide.md)：全后端 Java 重建的事实 owner、模块边界、失败恢复、分阶段切流和验收护栏；开始联调前先读[迁移验收运行边界与阅读入口](drafts/go-to-spring-boot-migration-guide.md#迁移验收运行边界与阅读入口)。
 - [画布 Java Spring Boot 类型参考桩实施规划](drafts/canvas-java-type-reference-stub-plan.md)：规划并冻结可运行的 Spring WebMVC + H2 + seed/mock 强类型类型参考桩；已落地但不等同于生产 Java 迁移完成。
-- [画布 Java 类型参考桩实施进度](drafts/canvas-java-type-reference-stub-progress.md)：记录 Java 桩 11/11 Required profile、118/118 HTTP scenario、命令证据、强类型阻断门槛和未验证边界。
+- [画布 Java 类型参考桩实施进度](drafts/canvas-java-type-reference-stub-progress.md)：记录 Java 桩 11/11 Required profile、118/118 HTTP scenario、6/6 浏览器 companion 场景、命令证据、辅助 API 5xx 与未验证边界。
 - [Canvas Contract Reference README](../java/canvas-contract-reference/README.md)：Java 桩的启动、OpenAPI、HTTP runner、reset 和 reference-only 运行边界。
 - [画布 Java 迁移前置条件：HTTP 黑盒合同验证方案](drafts/canvas-java-http-contract-test-plan.md)：为画布 Java 移植前建立 Go HTTP 基线、wire 合同和可复用状态流验收门禁；[独立运行边界](drafts/canvas-java-http-contract-test-plan.md#http-与浏览器的独立运行边界)区分无需前端的 HTTP 主套件和需要真实 Web 的浏览器补充验收。
 - [自动化回归测试与核心功能验收现状调研](drafts/test-regression-and-ci-research.md)：说明当前测试层次、PR/发布检查、预演台浏览器 E2E 的边界，以及改动后的验证建议。

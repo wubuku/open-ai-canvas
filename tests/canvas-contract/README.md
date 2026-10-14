@@ -26,7 +26,9 @@ companion。两个 runner 分开运行和报告，浏览器请求、fixture 请�
 再按[迁移指引的运行入口](../../docs/drafts/go-to-spring-boot-migration-guide.md#迁移验收运行边界与阅读入口)
 选择后端直连或真实前端验收。此处维护执行器用途、配置与依赖事实；实施进度、
 未闭合路径与文档更新触发器分别以[唯一执行账本](../../docs/drafts/canvas-java-http-contract-test-plan.md#当前进度)
-和[维护责任](../../docs/drafts/canvas-java-http-contract-test-plan.md#文档落点与维护责任)为准。
+和[维护责任](../../docs/drafts/canvas-java-http-contract-test-plan.md#文档落点与维护责任)为准。Java 类型参考桩的
+启动、浏览器管理员 bootstrap、真实浏览器运行命令和当前 11-profile/6-browser 证据见
+[`Java 项目 README`](../../java/canvas-contract-reference/README.md) 与[实施进度账本](../../docs/drafts/canvas-java-type-reference-stub-progress.md)。
 
 | 成果/入口 | 目的与作用 | 能证明什么；不能证明什么 |
 | --- | --- | --- |

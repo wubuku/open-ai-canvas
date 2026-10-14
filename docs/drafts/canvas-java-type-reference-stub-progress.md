@@ -31,7 +31,7 @@ audience: 继续实施画布 Java 类型参考桩的开发者、评审者和合�
 
 ## 3. 当前完成度
 
-截至 2026-10-14，类型参考桩本轮总体进度为 **100%（reference-stub 交付范围）**：Java 项目、强类型核心 API、H2 durable state、11/11 Required profile、OpenAPI 静态审计、重启后专项复验和文档交付均已完成。这个百分比只表示本轮 reference-stub 交付范围，不是 API 或代码覆盖率，也不表示生产 Java 迁移完成。
+截至 2026-10-14，类型参考桩本轮总体进度为 **100%（reference-stub 交付范围）**：Java 项目、强类型核心 API、H2 durable state、11/11 Required HTTP profile、OpenAPI 静态审计、重启后专项复验、浏览器 companion 的 6/6 登记场景和文档交付均已完成。浏览器报告另记录 188 个页面 HTTP 响应头事件，其中 101 个来自 10 个未列入必需 UI 路径的辅助 API 并返回 500；因此 6/6 表示登记旅程及其指定断言通过，不表示页面调用的所有 API 均成功。此百分比只表示本轮 reference-stub 交付范围，不是 API 或代码覆盖率，也不表示生产 Java 迁移或完整 Web API 兼容已完成。
 
 | 阶段 | 状态 | 证据/说明 |
 |---|---|---|
@@ -41,6 +41,7 @@ audience: 继续实施画布 Java 类型参考桩的开发者、评审者和合�
 | 画布核心状态机 | 已完成 core 基线 | create/read/list/CAS/history/restore/delete/ETag、分页排序、压缩、错误边界已由 core 黑盒覆盖 |
 | 画布核心强类型 DTO 重构 | 已完成核心公共面 | 核心 Controller 不再使用完整 `JsonNode`/`WireData` 作为 request/response；内部 state codec 和命名 `OpaqueJsonValue` 例外仍受约束 |
 | Required 11 profiles | `11/11` 已验证 | 118 个子场景全部通过；profile 和证据文件见 `java/canvas-contract-reference/README.md` |
+| 真实 Web 浏览器 companion | `6/6` 登记场景通过 | 真实 React/Vite + Playwright + Chromium 对当前 Java jar 执行；101 个辅助 API 5xx 与其他未覆盖路径见本节 2026-10-14 运行记录和 Java README，不计作 HTTP Required 分母 |
 | OpenAPI/Swagger 对齐与静态门禁 | 已完成（reference 边界） | 87 个 operationId 唯一；Required 91 operations 归并为 71 条唯一路由且全部映射；核心公共面无禁止动态签名 |
 | README/运行报告/文档链接 | 已完成本轮 | Java README、规划、进度、合同计划、迁移入口和索引已互相链接；本轮最终检查后不再声称生产迁移通过 |
 
@@ -135,6 +136,14 @@ audience: 继续实施画布 Java 类型参考桩的开发者、评审者和合�
 - 修复后重新执行 `mvn -q -f java/canvas-contract-reference/pom.xml test`、`package` 和真实服务 `/v3/api-docs` 审计：87 个 operation、87 个唯一 `operationId`、所有 operation 均有 response 描述；`CanvasDocument`、`CanvasNode`、`CanvasConnection`、`CanvasImportResponse`、项目扩展响应均不再含 `JsonNode` schema 属性，核心公共签名动态类型扫描为 0。
 - 修复后重新执行 11 个 Required profile：118/118 HTTP scenario、11/11 profile PASS。重跑期间 `19387` 被外部 DeepSeek 进程占用，`legacy-assets` 改用隔离端口重跑并通过；该次是编排端口冲突，不是产品失败。
 - 本轮结论：类型参考桩交付范围仍为 **100%**；严格三轮内容审计应以本次修复后的文档和代码为起点重新计数，生产 PostgreSQL、真实 Web/Chromium、Provider、Agent、远端对象存储/CDN 和多实例门禁仍不属于本桩已完成范围。
+
+### 2026-10-14：当前 Java 构建 HTTP 全量补跑与真实浏览器 companion
+
+- 复核当前 jar 的真实 React/Vite 浏览器运行：先对隔离 H2 执行私有 `/reset`，以浏览器专用账号作为空库首个管理员，再运行 `tests/canvas-contract/browser/run.py`。命令参数为 `--implementation=java --web-origin=http://127.0.0.1:18184 --run-id=java-browser-20261014-current --report=.local/canvas-contract-reference/browser-20261014-final/report-current-java-browser.json --isolated-fixture`。
+- 结果：浏览器报告 `passed=true`，6/6 场景 PASS（错误密码/owner session、新建重命名重开、文本/媒体/拓扑、匿名分享撤销、foreign 隔离、同上下文账号切换与 peer reload）。报告记录 188 个真实页面 HTTP 响应头事件；其中 101 个 500 来自 `/api/announcements`、`/api/auth/settings`、`/api/banner-announcements`、`/api/model-catalog`、`/api/plugins/status`、`/api/public/appearance`、`/api/skills`、`/api/skills/added`、`/api/skills/presets`、`/api/wallet` 等辅助 API。它们不属于当前场景声明的 required UI routes；不得将 6/6 写成所有页面 API 无错误或完整前端兼容。报告还保留六条未覆盖路径，见同一 JSON 的 `remaining_paths` 和 [`tests/canvas-contract/browser/scenarios.json`](../../tests/canvas-contract/browser/scenarios.json)。
+- 随后再次 reset 同一隔离 H2，运行缺失的 `restart-recovery` profile；8/8 子场景 PASS，包含 crash/graceful 重启、文档/历史、上传预留、分享/资源、项目关联、上传会话丢失、删除态和丢失响应恢复。控制服务只操作本轮拥有的 Java 子进程。
+- 合并当前 `http-rerun/` 下 11 份独立日志，核对 11/11 profile PASS、118/118 子场景 PASS；该批日志及浏览器报告位于 Git 忽略的 `.local/canvas-contract-reference/browser-20261014-final/`，不提交凭据、Cookie、H2 文件或完整运行日志。
+- 浏览器运行边界、管理员 bootstrap、可复现命令和 5xx 解释已写入 [`java/canvas-contract-reference/README.md`](../../java/canvas-contract-reference/README.md)；suite 与 Java 进度/实现文档的入口关系见 [`tests/canvas-contract/README.md`](../../tests/canvas-contract/README.md)。
 
 ### 4.1 根因修复记录
 

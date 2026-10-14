@@ -47,7 +47,7 @@ public class AdminController {
             return null;
         });
         WireData data = new WireData();
-        data.session = service.wire(service.user(id));
+        data.user = service.wire(service.user(id));
         return ResponseEntity.ok(ApiEnvelope.success(data));
     }
 

@@ -95,20 +95,20 @@ HTTP 主套件是独立 Go module，不依赖 Go 产品内部包，也不需要�
 
 | Profile | 子场景 | 运行证据 |
 | --- | ---: | --- |
-| `core` | 17 | `/tmp/canvas-java-core-retry.log` |
-| `share-public` | 10 | `/tmp/canvas-java-share-public-final3.log` |
-| `project-integration` | 9 | `/tmp/canvas-java-project-integration-final3.log` |
-| `project-workbench-core` | 15 | `/tmp/canvas-java-project-workbench-core-final3.log` |
-| `resource-integrity` | 26 | `/tmp/canvas-java-resource-integrity-final3.log` |
-| `import` | 8 | `/tmp/canvas-java-import-final3.log` |
-| `legacy-assets` | 9 | `/tmp/canvas-java-legacy-assets-final3.log` |
-| `public-resource` | 8 | `/tmp/canvas-java-public-resource-20261014-openapi-fix.log`（OpenAPI 修复后重启并复验） |
-| `restart-recovery` | 8 | `/tmp/canvas-java-restart-recovery-final.log` |
-| `generation-boundary` | 4 | `/tmp/canvas-java-generation-boundary-final3.log` |
-| `generation-writeback` | 4 | `/tmp/canvas-java-generation-writeback-final3.log` |
+| `core` | 17 | `.local/canvas-contract-reference/browser-20261014-final/http-rerun/core.log` |
+| `share-public` | 10 | `.local/canvas-contract-reference/browser-20261014-final/http-rerun/share-public.log` |
+| `project-integration` | 9 | `.local/canvas-contract-reference/browser-20261014-final/http-rerun/project-integration.log` |
+| `project-workbench-core` | 15 | `.local/canvas-contract-reference/browser-20261014-final/http-rerun/project-workbench-core.log` |
+| `resource-integrity` | 26 | `.local/canvas-contract-reference/browser-20261014-final/http-rerun/resource-integrity.log` |
+| `import` | 8 | `.local/canvas-contract-reference/browser-20261014-final/http-rerun/import.log` |
+| `legacy-assets` | 9 | `.local/canvas-contract-reference/browser-20261014-final/http-rerun/legacy-assets.log` |
+| `public-resource` | 8 | `.local/canvas-contract-reference/browser-20261014-final/http-rerun/public-resource.log` |
+| `restart-recovery` | 8 | `.local/canvas-contract-reference/browser-20261014-final/http-rerun/restart-recovery.log` |
+| `generation-boundary` | 4 | `.local/canvas-contract-reference/browser-20261014-final/http-rerun/generation-boundary.log` |
+| `generation-writeback` | 4 | `.local/canvas-contract-reference/browser-20261014-final/http-rerun/generation-writeback.log` |
 | **合计** | **118** | 11/11 profile |
 
-profile 日志位于本机 `/tmp`，不属于仓库交付物；提交前不应把账号、Cookie、token、完整画布正文或私有 H2 文件复制进仓库。
+以上为 2026-10-14 当前 Java jar 的隔离重跑证据，位于本机 Git 忽略目录 `.local/canvas-contract-reference/browser-20261014-final/http-rerun/`；它们不属于仓库输入。提交前不应把账号、Cookie、token、完整画布正文、私有 H2 文件或这些完整日志复制进仓库。
 
 ## 自动化验证 Runbook
 
@@ -202,7 +202,11 @@ CANVAS_CONTRACT_BROWSER_ADMIN_PASSWORD='isolated-admin-password' \
   --isolated-fixture
 ```
 
-这要求 Java 或混合网关同时提供页面实际依赖的登录、session、项目/画布、资源访问、分享和 fixture 辅助 API；只实现画布 CRUD 不能保证页面能启动。当前仓库的浏览器场景登记在 [`browser/scenarios.json`](../../tests/canvas-contract/browser/scenarios.json)，包括登录失败/owner session、创建重开、文本/媒体/拓扑、匿名分享撤销、foreign 隔离和同上下文账号切换。应把 `--report` 当作独立 companion 证据；不要把它写成 Java HTTP gate 已通过，除非该命令确实在当前目标上执行成功。
+`run.py` 不启动 Java、Vite 或 Chromium，也不创建管理员；它先使用 `CANVAS_CONTRACT_BROWSER_ADMIN_USERNAME` / `PASSWORD` 登录现有管理员，再通过管理员 API 创建两个普通测试用户。如果是刚 reset 的空 H2，先用隔离的浏览器管理员凭据调用 `POST /api/auth/register` 建立首个用户（参考桩会将空库首用户设为 admin），再运行脚本；不要在非隔离或生产数据上做此 bootstrap。运行前确认 `/api/health`、Vite proxy 和管理员登录都指向同一个隔离目标。
+
+2026-10-14 对当前 Java jar 的执行证据：run id `java-browser-20261014-current`，报告位于 Git 忽略目录 `.local/canvas-contract-reference/browser-20261014-final/report-current-java-browser.json`，6/6 登记场景通过。报告收集了 188 个真实页面 HTTP 响应头事件，其中 101 个 500 来自十个未列入当前场景 required UI routes 的辅助 API：`/api/announcements`、`/api/auth/settings`、`/api/banner-announcements`、`/api/model-catalog`、`/api/plugins/status`、`/api/public/appearance`、`/api/skills`、`/api/skills/added`、`/api/skills/presets`、`/api/wallet`。所以 `passed=true` 仅表示六个登记旅程的指定 UI、HTTP 路径和持久化断言通过，不表示这些辅助端点或所有页面调用均通过；日志和完整 `remaining_paths` 仅存本机报告。不要将此 companion 结果计入 91 个 Required operation / 118 个 HTTP scenario，也不要据此宣称全页面 API 兼容。
+
+浏览器旅程及各自必需页面请求登记在 [`browser/scenarios.json`](../../tests/canvas-contract/browser/scenarios.json)，包括登录失败/owner session、创建重开、文本/媒体/拓扑、匿名分享撤销、foreign 隔离和同上下文账号切换。Java 参考桩的当前完成度及与 HTTP profiles 的分离证据见[实施进度账本](../../docs/drafts/canvas-java-type-reference-stub-progress.md)。
 
 ### 5. Go/Web 开发环境的边界
 

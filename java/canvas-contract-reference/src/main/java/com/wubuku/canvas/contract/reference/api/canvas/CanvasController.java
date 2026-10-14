@@ -53,6 +53,7 @@ public class CanvasController {
             HttpServletRequest request,
             @RequestParam(required = false) String page,
             @RequestParam(required = false) String pageSize,
+            @Parameter(description = "Project filter: omit or use 'all' for every canvas, 'independent' for canvases without a workbench project, or a project ID")
             @RequestParam(required = false) String projectId,
             @RequestParam(required = false) String q,
             @RequestParam(required = false) String sort) {
@@ -64,8 +65,9 @@ public class CanvasController {
             }
             JsonNode project = canvas.path("project");
             boolean independent = "independent".equalsIgnoreCase(projectId);
+            boolean filterByProject = projectId != null && !projectId.isBlank() && !"all".equalsIgnoreCase(projectId);
             String canvasProjectId = ReferenceService.text(project, "projectId");
-            if (projectId != null) {
+            if (filterByProject) {
                 if (independent && canvasProjectId != null && !canvasProjectId.isBlank()) {
                     continue;
                 }

@@ -67,6 +67,7 @@ public final class ReferenceDtos {
         public List<ReferenceObjectDto> events;
         public ReferenceObjectDto creationRun;
         public List<ReferenceObjectDto> creationRuns;
+        public ReferenceObjectDto user;
         public ReferenceObjectDto session;
         public ReferenceObjectDto features;
         public ReferenceObjectDto runtimePolicy;

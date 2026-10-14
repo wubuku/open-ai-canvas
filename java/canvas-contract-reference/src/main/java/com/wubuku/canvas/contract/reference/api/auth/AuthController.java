@@ -39,7 +39,7 @@ public class AuthController {
         String userId = service.register(request.username(), request.password(), request.displayName(), null);
         String sessionId = service.login(request.username(), request.password());
         addSessionCookie(response, sessionId);
-        return ResponseEntity.ok(ApiEnvelope.success(sessionData(userId)));
+        return ResponseEntity.ok(ApiEnvelope.success(userData(userId)));
     }
 
     @PostMapping("/login")
@@ -50,7 +50,7 @@ public class AuthController {
         String sessionId = service.login(request.username(), request.password());
         String userId = service.userIdForSession(sessionId);
         addSessionCookie(response, sessionId);
-        return ResponseEntity.ok(ApiEnvelope.success(sessionData(userId)));
+        return ResponseEntity.ok(ApiEnvelope.success(userData(userId)));
     }
 
     @PostMapping("/logout")
@@ -66,15 +66,14 @@ public class AuthController {
     @Operation(operationId = "reference.auth.session", summary = "Read the current mock session")
     public ResponseEntity<ApiEnvelope<WireData>> session(HttpServletRequest request) {
         String userId = service.requireUser(request);
-        return ResponseEntity.ok(ApiEnvelope.success(sessionData(userId)));
+        return ResponseEntity.ok(ApiEnvelope.success(userData(userId)));
     }
 
-    private WireData sessionData(String userId) {
+    private WireData userData(String userId) {
         ObjectNode user = service.user(userId);
-        ObjectNode session = user.deepCopy();
-        session.remove("password");
+        user.remove("password");
         WireData data = new WireData();
-        data.session = service.wire(session);
+        data.user = service.wire(user);
         return data;
     }
 

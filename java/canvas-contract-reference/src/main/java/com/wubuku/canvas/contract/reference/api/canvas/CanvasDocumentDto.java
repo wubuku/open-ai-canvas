@@ -18,6 +18,8 @@ public record CanvasDocumentDto(
         @Schema(description = "Optional workbench project identity") String projectId,
         @NotNull @Valid @Schema(description = "Typed canvas nodes") List<CanvasNodeDto> nodes,
         @NotNull @Valid @Schema(description = "Typed canvas connections") List<CanvasConnectionDto> connections,
+        @Valid @Schema(description = "Canvas assistant conversation sessions; omitted legacy values are normalized to an empty list") List<CanvasAssistantSessionDto> chatSessions,
+        @Schema(description = "Currently selected assistant conversation session") String activeChatId,
         @Schema(description = "Viewport state owned by the canvas client") CanvasViewportDto viewport,
         @Schema(ref = "#/components/schemas/OpaqueJsonValue", description = "Client-owned document metadata extension") OpaqueJsonValue metadata,
         @Schema(ref = "#/components/schemas/OpaqueJsonValue", description = "Client-owned extension payload") OpaqueJsonValue customExtension,
@@ -26,4 +28,10 @@ public record CanvasDocumentDto(
         @Schema(description = "Server modification timestamp") String updatedAt,
         @Schema(description = "Number of nodes in this document") Integer nodeCount,
         @Schema(description = "Small typed preview used by list responses") List<CanvasNodeDto> previewNodes) {
+
+    public CanvasDocumentDto {
+        if (chatSessions == null) {
+            chatSessions = List.of();
+        }
+    }
 }

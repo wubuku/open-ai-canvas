@@ -68,6 +68,21 @@ def wait_for_data(request, path, predicate, timeout=30):
     raise AssertionError(f"persisted postcondition timed out at {canonical_path(path)}")
 
 
+def wait_for_stable_project(request, path, quiet_period=1.5, timeout=30):
+    deadline = time.monotonic() + timeout
+    stable_since = None
+    previous = None
+    while time.monotonic() < deadline:
+        project = successful_data(fixture_http(request, "GET", path))["project"]
+        if project != previous:
+            previous = project
+            stable_since = time.monotonic()
+        elif stable_since is not None and time.monotonic() - stable_since >= quiet_period:
+            return project
+        time.sleep(0.25)
+    raise AssertionError(f"canvas document did not stabilize at {canonical_path(path)}")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Real frontend/browser contract against an already-running Go, Java or mixed HTTP target")
     parser.add_argument("--web-origin", required=True)
@@ -231,14 +246,20 @@ def main():
 
             stage = "browser.share.anonymous-read-and-revocation"
             owner_page.get_by_role("button", name="分享画布", exact=True).click()
-            owner_page.get_by_role("button", name="创建并复制链接", exact=True).click()
+            with owner_page.expect_response(lambda response: urlsplit(response.url).path == "/api/canvas-projects/" + canvas_id + "/share" and response.request.method == "POST") as share_created:
+                owner_page.get_by_role("button", name="创建并复制链接", exact=True).click()
+            assert share_created.value.status == 200, "owner could not create the public share"
             share_input = owner_page.locator('input[readonly]').first
             expect(share_input).to_have_value(re.compile(r".*/share/canvas/.+"))
             share_path = urlsplit(share_input.input_value()).path
+            share_baseline = successful_data(fixture_http(owner.request, "GET", "/api/canvas-projects/" + canvas_id))["project"]
+            assert "Persisted browser edited text " + digest in share_baseline["nodes"][0]["metadata"]["content"], "owner share setup lost the persisted text edit"
+            assert share_baseline["connections"] == edited["connections"], "owner share setup changed unrelated topology"
+            assert share_baseline["nodes"][1]["metadata"]["storageKey"] == "resource:" + resource_id, "owner share setup changed unrelated resource identity"
             visit(public_page, share_path)
             expect(public_page.get_by_text(title, exact=True)).to_be_visible()
             expect(public_page.locator('[data-node-id="browser-text"]')).to_contain_text("Persisted browser edited text " + digest)
-            assert successful_data(fixture_http(owner.request, "GET", "/api/canvas-projects/" + canvas_id))["project"] == edited, "anonymous share viewing changed the owner's persisted document"
+            assert successful_data(fixture_http(owner.request, "GET", "/api/canvas-projects/" + canvas_id))["project"] == share_baseline, "anonymous share viewing changed the owner's persisted document"
             owner_page.get_by_role("button", name="停止分享", exact=True).click()
             owner_page.get_by_role("dialog").filter(has_text="停止公开分享？").get_by_role("button", name="停止分享", exact=True).click()
             expect(owner_page.get_by_role("button", name="创建并复制链接", exact=True)).to_be_visible()
@@ -265,6 +286,8 @@ def main():
             expect(peer_page.locator('[data-node-id="browser-image"] img').first).to_be_visible()
             visit(owner_page, "/canvas")
             expect(owner_page.get_by_text(title, exact=True)).to_be_visible()
+            switch_baseline = wait_for_stable_project(owner.request, "/api/canvas-projects/" + canvas_id)
+            assert switch_baseline["nodes"] == share_baseline["nodes"] and switch_baseline["connections"] == share_baseline["connections"], "owner library setup changed canvas content before the account-switch check"
             owner_page.get_by_role("button", name="打开账户菜单", exact=True).click()
             with owner_page.expect_response(lambda response: urlsplit(response.url).path == "/api/auth/logout" and response.request.method == "POST") as logout_response:
                 owner_page.get_by_role("button", name="退出登录", exact=True).click()
@@ -288,7 +311,7 @@ def main():
             expect(peer_page.get_by_text("Persisted browser edited text " + digest, exact=True)).to_have_count(0)
             with authenticated_api(playwright, args.web_origin, owner_name, password) as owner_audit:
                 owner_unchanged = successful_data(fixture_http(owner_audit, "GET", "/api/canvas-projects/" + canvas_id))["project"]
-                assert owner_unchanged == edited, "account switch or foreign peer reload changed owner's persisted document"
+                assert owner_unchanged == switch_baseline, "account switch or foreign peer reload changed owner's persisted document"
             finish(stage)
 
             assert len(report["scenarios"]) == len(catalog["scenarios"]), "browser scenario catalog was not fully executed"
