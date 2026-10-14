@@ -164,7 +164,7 @@ HTTP 主套件不需要 Web dev server、React 或 Chromium，只需要已经启
 )
 ```
 
-完整 Required gate 不是只运行 `core`：依次覆盖 `core`、`share-public`、`project-integration`、`project-workbench-core`、`resource-integrity`、`import`、`legacy-assets`、`public-resource`、`restart-recovery`、`generation-boundary` 和 `generation-writeback`。这些 profile 需要不同的隔离 fixture、管理员账号、固定 TLS 上游或进程控制；逐 profile 的前置条件、环境变量和边界以[合同套件 README 的服务运行与配置说明](../../tests/canvas-contract/README.md#run-against-a-server)和[类型参考桩进度账本](../../docs/drafts/canvas-java-type-reference-stub-progress.md)为准，不能把一个 `core` 绿色结果扩写成全量通过。当前参考桩已记录 11/11 profile、118/118 scenario 的运行证据，但证据日志在本机 `/tmp`，不是仓库输入。
+完整 Required gate 不是只运行 `core`：依次覆盖 `core`、`share-public`、`project-integration`、`project-workbench-core`、`resource-integrity`、`import`、`legacy-assets`、`public-resource`、`restart-recovery`、`generation-boundary` 和 `generation-writeback`。这些 profile 需要不同的隔离 fixture、管理员账号、固定 TLS 上游或进程控制；逐 profile 的前置条件、环境变量和边界以[合同套件 README 的服务运行与配置说明](../../tests/canvas-contract/README.md#run-against-a-server)和[类型参考桩进度账本](../../docs/drafts/canvas-java-type-reference-stub-progress.md)为准，不能把一个 `core` 绿色结果扩写成全量通过。当前参考桩已记录 11/11 profile、118/118 scenario 的运行证据；逐 profile 日志位于本机 Git 忽略目录 `.local/canvas-contract-reference/browser-20261014-final/http-rerun/`，不是仓库输入。
 
 ### 4. 浏览器 companion
 

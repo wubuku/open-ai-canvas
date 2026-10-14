@@ -135,7 +135,7 @@ audience: 继续实施画布 Java 类型参考桩的开发者、评审者和合�
 - 修复：为 `CanvasConnectionDto`、`CanvasImportDtos.ImportNodeDto` 的扩展字段显式加 `@Schema(ref = "#/components/schemas/OpaqueJsonValue")`；为 `ProjectDtos` 的扩展集合加 `@ArraySchema` 并显式引用同一 schema。没有把完整画布文档退回动态 JSON。
 - 修复后重新执行 `mvn -q -f java/canvas-contract-reference/pom.xml test`、`package` 和真实服务 `/v3/api-docs` 审计：87 个 operation、87 个唯一 `operationId`、所有 operation 均有 response 描述；`CanvasDocument`、`CanvasNode`、`CanvasConnection`、`CanvasImportResponse`、项目扩展响应均不再含 `JsonNode` schema 属性，核心公共签名动态类型扫描为 0。
 - 修复后重新执行 11 个 Required profile：118/118 HTTP scenario、11/11 profile PASS。重跑期间 `19387` 被外部 DeepSeek 进程占用，`legacy-assets` 改用隔离端口重跑并通过；该次是编排端口冲突，不是产品失败。
-- 本轮结论：类型参考桩交付范围仍为 **100%**；严格三轮内容审计应以本次修复后的文档和代码为起点重新计数，生产 PostgreSQL、真实 Web/Chromium、Provider、Agent、远端对象存储/CDN 和多实例门禁仍不属于本桩已完成范围。
+- 本轮结论：类型参考桩交付范围仍为 **100%**；严格三轮内容审计应以本次修复后的文档和代码为起点重新计数。真实 Web/Chromium companion 已在后续运行记录中完成 6/6 登记场景；生产 PostgreSQL、混合网关、Provider、Agent、远端对象存储/CDN 和多实例门禁仍不属于本桩已完成范围。
 
 ### 2026-10-14：当前 Java 构建 HTTP 全量补跑与真实浏览器 companion
 

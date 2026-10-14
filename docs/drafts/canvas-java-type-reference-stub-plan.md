@@ -23,7 +23,7 @@ audience: 负责实现画布 Java 移植、HTTP 合同验收和类型设计的�
 3. 它只实现让合同套件能够运行所需的最小状态机和状态转换，不实现真实模型调用、计费、OAuth、生产对象存储、真实 Agent、真实 Provider 或完整业务策略。
 4. 所有初始数据、媒体字节、任务、事件、用户和权限场景都是确定性的 seed/mock 数据；请求之间需要的身份、资源、revision、history、share、upload、task 和 event 状态持久化到 H2，不能靠内存全局变量维持。
 5. 它以当前合同套件的 `REQUIRED` 范围为第一交付门槛：11 个 profile、91 个 Required operation、118 个 HTTP scenario。完整 manifest 目前登记 163 个 operation / 143 个唯一 method/path，另有 `DEFERRED` 和独立 suite 的 `OUT_OF_SCOPE` 范围，不在第一版 reference stub 的默认交付分母中。
-6. 现有 Go runner 通过 TCP HTTP 验收 Java jar；不需要把 Go 产品代码作为 Java 的依赖，也不需要启动浏览器才能执行 HTTP 主套件。真实浏览器 companion 是后续前端配合验收，不是这个 Java 项目的启动前提。
+6. 现有 Go runner 通过 TCP HTTP 验收 Java jar；不需要把 Go 产品代码作为 Java 的依赖，也不需要启动浏览器才能执行 HTTP 主套件。真实浏览器 companion 是独立的前端配合验收，不是这个 Java 项目的启动前提；当前 Java jar 已完成 6/6 登记场景，但不代表所有页面辅助 API 或混合网关已兼容。
 
 ### 1.3 画布核心强类型硬门槛
 
@@ -42,6 +42,7 @@ audience: 负责实现画布 Java 移植、HTTP 合同验收和类型设计的�
 
 - `java/canvas-contract-reference/` 已可构建、启动并使用 H2 file + Flyway 恢复已提交状态；项目运行说明见 [`java/canvas-contract-reference/README.md`](../../java/canvas-contract-reference/README.md)。
 - 11 个 Required profile、91 个 Required operation、118 个 HTTP scenario 已用同一 Go runner 对 Java jar 验证通过；Required operation 中 recovery/行为变体复用路由，故归并为 71 个 Required 唯一路由。
+- 真实 React/Vite + Playwright + Chromium companion 已对当前 Java jar 完成 6/6 登记场景；报告还观察到 10 个非必需 UI 辅助 API 的 101 个 5xx，因此不能把 companion 绿色外推为所有页面 API 兼容。混合网关路径仍需单独验收。
 - `/v3/api-docs` 静态审计得到 87 个 operation、87 个唯一 `operationId`；71/71 个 Required 唯一路由可映射到 Java OpenAPI。核心画布公共签名没有 `Map<String,Object>`、`List<Object>`、裸 `Object`、`ResponseEntity<?>` 或完整 `JsonNode`；扩展字段显式引用命名的 `OpaqueJsonValue` schema，且该 schema 明确不能承载完整画布文档。
 - 这只是“可运行的类型/wire 参考桩”出口；真实 Java 业务迁移仍必须重新证明 PostgreSQL、事务、权限、对象存储、Provider、Agent、SSE 断线恢复、多实例并发和切流回滚。
 
@@ -876,7 +877,7 @@ Java HTTP client 必须显式设置 connect/read/overall timeout、关闭自动�
 
 尚未执行且不能提前宣称通过：
 
-- 没有启动真实 Web 前端/Chromium，因此 browser companion 的 Java 直连或混合网关验收仍未完成。
+- Java jar 直连的真实 Web/Chromium companion 已完成 6/6 登记场景，但混合网关、旧 Go Cookie/session 兼容和完整页面辅助 API 仍未验收；报告中的 101 个辅助 API 5xx 与 6 条 `remaining_paths` 仍需按其各自 owner 处理。
 - 没有执行真实 PostgreSQL、远端 CDN/object-store、Provider、Agent runtime 或生产切流验证；这些边界仍按 G-01～G-14 和 deferred 表管理。
 
 已完成但只限 reference stub 的内容不应被迁移负责人误读为生产保证：H2/JPA 单进程并发、mock object store、seed 用户、私有 fixture、provider-free generation 和本地 restart 都属于可重复的类型/合同参考环境。
@@ -908,7 +909,7 @@ Reject:
 Reference stub implementation status:
 1. Maven/WebMVC/OpenAPI/H2 schema、Flyway state store 和架构护栏已落地。
 2. typed envelope、auth/session、seed、request ledger、canvas core 及其依赖 profile 已落地。
-3. 11 个 Required profile 已用现有 HTTP runner 实跑；真实 Java 业务移植仍从 PostgreSQL/owner/outbox/recovery 门禁开始，不把桩内部实现直接升级为生产设计。
+3. 11 个 Required profile 已用现有 HTTP runner 实跑，真实 React/Vite + Playwright + Chromium companion 也完成 6/6 登记场景；真实 Java 业务移植仍从 PostgreSQL/owner/outbox/recovery 门禁开始，不把桩内部实现直接升级为生产设计。
 ```
 
 本文件是实施规划与验收门槛；已完成的 reference stub、运行报告索引、未覆盖项和行为差异分别记录在 [`java/canvas-contract-reference/README.md`](../../java/canvas-contract-reference/README.md)、[实施进度](canvas-java-type-reference-stub-progress.md)、[合同测试计划](canvas-java-http-contract-test-plan.md) 和[迁移指引](go-to-spring-boot-migration-guide.md)中。后续真实 Java 业务移植不得把本桩的 H2/mock 事实当作生产合同已验收。
