@@ -16,6 +16,9 @@
 - [SKILL 与关键 Prompt 资产盘点](drafts/skill-asset-inventory.md)：按仓库锚点盘点产品内置 Skill、Skill 支撑卡片、仓库协作 Skill、后端策略/模板和前端镜头 Prompt 资产；不替代运行机制报告。
 - [画布系统深度调研报告](drafts/canvas-deep-research.md)：面向准备自建 AI 视频创作画布的开发者，梳理可借鉴的架构、七层状态模型、并发合并、生成回写和渲染性能设计。
 - [预演台系统深度调研报告](drafts/previs-workbench-deep-research.md)：面向设计 3D 预演能力的开发者，梳理场景模型、动画语义、保存同步、Three.js 导出回写、Agent 合同与实现边界。
+- [预演台与云端 Agent 依赖、执行机制和资源占用调研](drafts/previs-agent-dependency-resource-research.md)：深入区分预演台核心浏览器路径、Agent 语义控制和浏览器录制编排，评估渲染、录制、转码、上传、同步与后端资源边界。
+- [视频转白模：AI 视频参考视频实现机制与当前项目适配调研](drafts/video-to-white-model-deep-research.md)：解释视频到白灰参考视频的行业实现路线，核对当前项目已有的预演白膜和参考视频能力，并给出任务、资源与验收设计。
+- [LibTV「逐帧拉片」产品分析与证据档案](drafts/libtv-shot-breakdown-product-analysis.md)：核实公开页面与第三方实测对「分镜 / 动态 / 音乐」及「深度动作捕捉」的描述，区分已知产品行为、工程推测和待登录验证项。
 - [Go 后端迁移到 Java Spring Boot 指引](drafts/go-to-spring-boot-migration-guide.md)：全后端 Java 重建的事实 owner、模块边界、失败恢复、分阶段切流和验收护栏；开始联调前先读[迁移验收运行边界与阅读入口](drafts/go-to-spring-boot-migration-guide.md#迁移验收运行边界与阅读入口)。
 - [画布 Java Spring Boot 类型参考桩实施规划](drafts/canvas-java-type-reference-stub-plan.md)：规划并冻结可运行的 Spring WebMVC + H2 + seed/mock 强类型类型参考桩；已落地但不等同于生产 Java 迁移完成。
 - [画布 Java 类型参考桩实施进度](drafts/canvas-java-type-reference-stub-progress.md)：记录 Java 桩 11/11 Required profile、118/118 HTTP scenario、6/6 浏览器 companion 场景、命令证据、辅助 API 5xx 与未验证边界。

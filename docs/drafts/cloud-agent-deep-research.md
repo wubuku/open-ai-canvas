@@ -4,7 +4,7 @@
 
 > **阅读关系与术语。** 本文是跨模块研究草稿：[架构总览](../content/docs/overview/architecture.mdx)说明稳定的系统边界，[画布开发导航](../content/docs/canvas/canvas-development.mdx)说明画布代码入口，[代码地图](../content/docs/backend/code-map.mdx)负责从功能定位代码，[HTTP API](../content/docs/backend/http-api.mdx)负责协议细节；本文补充它们之间的执行链、证据和待验证边界。下文中的 **Pi runtime** 指运行在 Node.js 进程中的 Pi SDK 会话执行器；**bridge** 指 Go 控制面与 Node runtime 之间的受控请求通道；**SSE**（Server-Sent Events，服务器向浏览器单向推送事件）指 Agent 前端的观察和回放通道；**Skill** 指产品内版本化的工作流参考材料，和项目协作者使用的 `.agents/skills` 不是同一条加载路径。
 
-## 先读结论
+## TL;DR
 
 当前的 Agent 是一个由浏览器、Go 控制面、任务系统和 Pi Node runtime 组成的持久化执行系统。它不是“前端把聊天消息发给一个模型 API”这么简单，也不是一个拥有服务器文件系统权限的通用 Coding Agent。
 
@@ -12,10 +12,12 @@
 
 1. **浏览器负责交互和观察。** 画布 Agent 面板负责选择模型、权限模式、Skill、上下文、提交消息、展示事件、收集审批和把画布增量应用到本地编辑器。
 2. **Go 后端负责授权和事实。** `backend/internal/handler/agent.go` 接收请求，`backend/internal/app/cloud_agent.go` 完成幂等和运行准入，`backend/internal/app/cloud_agent_*.go` 系列文件负责策略、上下文、工具、审批、任务、持久化和恢复。
-3. **Pi runtime 负责模型循环。** Node runtime 负责把服务端提供的工具交给 Pi SDK，执行“模型请求 -> 工具调用 -> 工具结果 -> 下一轮模型请求”的循环；它不决定用户能不能读写画布，也不直接访问数据库。
+3. **Pi runtime 负责模型循环。** Node runtime 基于 `@earendil-works/pi-coding-agent` 和 `@earendil-works/pi-ai`，负责把服务端提供的工具交给 Pi SDK，执行“模型请求 -> 工具调用 -> 工具结果 -> 下一轮模型请求”的循环；它不决定用户能不能读写画布，也不直接访问数据库。
 4. **媒体生成仍然是后端任务。** Agent 只能提出结构化的 `generate_media` 或 `image_layer_split` 工具调用；真正的模型路由、模型能力、价格、额度、资源引用、任务提交、Worker 执行和结果回写仍走现有 Go 任务链。
 5. **Skill 不是授权。** Skill 可以提供工作流知识和参考材料，但工具权限、节点能力、审批、预算、资源归属和安全校验永远由服务端代码决定。
 6. **运行可以脱离浏览器继续。** 每轮 Agent 是一个持久化运行；根 `cloud_agent` 任务是非计费的控制面载体，正常模型轮次由 `cloud_agent_step` 子任务承载，上下文/记忆压缩使用专用任务，媒体生成则进入媒体任务和既有 Worker/计费链路。浏览器的 SSE 只是观察通道，断开不会自动终止运行。
+7. **Go 是否启动 Node 取决于部署模式。** 本地开发未设置 `YINGCE_AGENT_URL` 时，Go 会为一次 runtime 调用启动隔离的 Node 子进程；设置 `YINGCE_AGENT_URL` 时，Go 通过 HTTP 调用独立 `yingce-agent`，由该服务为每个请求启动 Node/Pi 子进程，Go 不会再回退启动本地 runtime。
+8. **高并发确实会带来多进程压力。** 默认最多 30 个活动 runtime，代码上限 64；每个 Node 默认 512MB V8 old-space 上限。达到上限后排队，不会无限 fork，但容量规划必须按多 Node 进程、Go bridge、数据库、上游模型连接和队列等待时间综合测量。
 
 可以把主链路压缩为：
 
@@ -34,6 +36,23 @@
   -> append-only event journal + SSE
   -> 前端事件归并、画布 patch 或全量校准
 ```
+
+进程关系可以单独压缩成：
+
+```text
+本地模式：Go backend
+             └─ node agent-runtime.mjs（一次 runtime 调用一个隔离进程）
+                  └─ Pi SDK
+                       └─ loopback bridge 回调 Go 的 /model、/tool、/event
+
+部署模式：Go backend
+             └─ HTTP POST /v1/runs
+                  └─ yingce-agent 服务
+                       └─ node agent-runtime.mjs（每个请求一个子进程）
+                            └─ bridge 回调 Go 的 /model、/tool、/event
+```
+
+这意味着 `yingce-agent` 不是业务事实源，也不直接操作数据库；它主要负责 runtime 进程的并发限制、排队、启动、输出转发和回收。Go 仍然掌握权限、画布、任务、计费、审批和持久化。
 
 如果只想继续开发某一部分，可按下面的入口进入：
 
@@ -291,6 +310,40 @@ Node 的 `backend/agent-runtime/pi/agent-runtime.mjs` 负责：
 - 对工具返回的审批暂停信号调用 session abort，把“等待用户”与“运行失败”区分开。
 
 运行时启动时显式关闭 `noExtensions`、`noSkills`、`noPromptTemplates`、`noThemes` 和 `noContextFiles`，并设置 `projectTrusted=false`。因此它不会自动向上查找仓库中的 `.agents/skills`，也不会读取宿主机的 `~/.pi` 配置。平台 Skill 只能通过 Go 的 `skill_search` 和 `skill_read_file` 读取。
+
+#### 进程生命周期和部署模式
+
+当前 Node runtime 不是嵌入 Go 的库调用，而是独立的 Node 进程。`backend/internal/agent/runtime/runtime.go` 通过 `exec.CommandContext` 启动 `node agent-runtime.mjs`，把本轮请求通过 stdin 传入，并读取 stdout 的 NDJSON 事件。每次 runtime 调用使用隔离的临时目录和有限环境变量；运行结束后进程和临时目录都会回收。
+
+具体分两种模式：
+
+| 模式 | Go 后端做什么 | Node/Pi 进程由谁启动 | 关系 |
+| --- | --- | --- | --- |
+| 本地开发，未设置 `YINGCE_AGENT_URL` | 创建 loopback bridge，直接调用内嵌 runtime runner | Go 后端进程通过 `exec.CommandContext` 启动 | Go 与 Node 在同一台机器，但权限、文件和数据库仍通过 bridge 隔离 |
+| 部署，设置 `YINGCE_AGENT_URL` | 创建 bridge，向 `yingce-agent/v1/runs` 发 HTTP 请求 | 独立 `yingce-agent/server.mjs` 为每个请求启动 Node 子进程 | Go 不再启动本地 Node，也不会在远程失败时回退；业务事实仍在 Go |
+
+独立 `yingce-agent` 主要负责并发上限、排队、子进程启动、stdout 转发和回收。它不直接访问画布数据库，不负责权限和计费，也不直接执行画布工具。Go 仍是 `/model`、`/tool`、`/event` bridge 的服务端和最终授权者。
+
+因此回答“Go 后端会不会启动一个进程运行 Agent”时，应写成：**本地模式会；生产远程 runtime 模式不会，生产由独立 `yingce-agent` 服务启动 Node/Pi 子进程。** 这不是两个同时运行的 fallback 路径，配置了远程 endpoint 后必须保持单一路径，避免同一轮执行两次。
+
+#### 并发压力和容量含义
+
+这套隔离方式确实意味着：当同时有多个活动 Agent runtime 请求时，会同时存在多个 Node 子进程。当前实现有两层硬上限：
+
+- 本地嵌入模式由 `CANVAS_AGENT_MAX_PROCESSES` 控制，默认 30，最大 64；达到上限后 Go 侧排队，等待进程释放或请求取消。
+- 独立 `yingce-agent` 由 `MAX_CONCURRENT_SESSIONS` 控制，默认 30，最大 64；它在真正 `spawn()` Node 子进程前排队，活动数达到上限时不会继续 fork。
+
+每个 Node 子进程默认使用 `--max-old-space-size=512`（可通过 `YINGCE_AGENT_NODE_MEMORY_MB` 或独立服务的 `NODE_MAX_OLD_SPACE_SIZE` 调整，代码允许 128 到 8192 MB）。这只是 V8 old-space 上限，不等于进程实际 RSS，也不是系统已经预留的内存；Node native 内存、临时 JSON/session、网络缓冲、模型响应和 Go bridge 仍要额外计入。作为容量警示，默认配置下 30 个进程的 V8 old-space 上限数量级约为 `30 × 512 MB = 15 GB`；这不是实测占用，也不能拿来替代压测，但足以说明不能按单进程 Agent 估算服务器。
+
+并发升高时，压力会同时出现在：
+
+1. Node 子进程的堆、临时目录和 JSONL 会话；
+2. Go bridge 的 HTTP listener、请求体解码、事件序列化和上下文检查点；
+3. Go 侧 Agent task、数据库读写、审批/事件记录和运行恢复扫描；
+4. 上游模型连接、模型响应等待时间和 token/计费任务；
+5. 独立 runtime 服务的 stdout 转发、长 HTTP 连接和排队延迟。
+
+因此，并发上限只是防止无限制创建进程的保护栏，不代表 30 个并发会话在任何机器规格上都安全。生产部署应以真实模型、上下文大小、响应时长和失败重试测量每个活动 session 的 CPU、RSS、Go 堆、数据库连接、队列等待时间和上游请求数，再决定 `MAX_CONCURRENT_SESSIONS`、Node memory limit、任务超时和实例水平扩展策略。
 
 ### 5.2 `/model` bridge
 
@@ -729,7 +782,8 @@ go test ./internal/agent/...
 - 画布写入：backend/internal/app/cloud_agent_runtime_tools.go、backend/internal/app/cloud_agent_tools_canvas.go、backend/internal/app/cloud_agent_mutation.go
 - 媒体任务：backend/internal/app/cloud_agent_media.go、backend/internal/app/cloud_agent_runtime_media.go、backend/internal/app/task_creation.go
 - Skill：backend/internal/app/cloud_agent_tools_skills.go、backend/internal/skills/、web/src/services/skill-runtime.ts
-- Node runtime：backend/agent-runtime/pi/agent-runtime.mjs；独立服务：yingce-agent/server.mjs
+- Pi 运行时依赖和进程启动：`backend/agent-runtime/pi/package.json`、`backend/agent-runtime/pi/agent-runtime.mjs`、`backend/internal/agent/runtime/runtime.go`
+- 独立 runtime 服务：`yingce-agent/server.mjs`、`backend/internal/agent/yingceagent/client.go`
 
 研究或修改时遵守：
 - 先区分当前 cloudAgentTools 合同和未必接入主链路的 CanvasToolRegistry；
