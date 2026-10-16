@@ -2,7 +2,7 @@
 title: 影策 SKILL 与关键 Prompt 资产盘点
 status: draft
 scope: inventory
-updated: 2026-10-13
+updated: 2026-10-16
 ---
 
 # 影策 SKILL 与关键 Prompt 资产盘点
@@ -30,6 +30,8 @@ updated: 2026-10-13
 | 前端内置 Prompt 预设与辅助词库 | 多组常量/工厂函数 | `web/src/lib/prompts/`、`web/src/lib/canvas/` | 影响用户输入和提交给模型的 Prompt |
 
 “内置了 Skill”不等于“每次请求自动使用全部 Skill”。用户需要先加入技能库，当前入口再按选择或 `@` 提及加载；当前前端 Skill Runtime 每轮最多选择 4 个技能，总链接上下文预算为 32,000 字符。
+
+关于“某个 Skill 是否适用于某个功能”的运行边界，请同时阅读[技能广场与 Skill 运行机制调研](skills-usage-and-runtime-research.md)：当前系统有用户归属、加入状态、版本、上下文预算和真实工具能力限制，但没有按入口、媒体类型、模型或业务操作建立统一的结构化适用范围。`Tag`、技能正文中的适用说明和场景预设主要用于发现和引导，不能当成后端兼容性闸门。
 
 ## 1. 资产类型和盘点边界
 

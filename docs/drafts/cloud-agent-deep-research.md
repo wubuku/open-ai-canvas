@@ -4,6 +4,8 @@
 
 > **阅读关系与术语。** 本文是跨模块研究草稿：[架构总览](../content/docs/overview/architecture.mdx)说明稳定的系统边界，[画布开发导航](../content/docs/canvas/canvas-development.mdx)说明画布代码入口，[代码地图](../content/docs/backend/code-map.mdx)负责从功能定位代码，[HTTP API](../content/docs/backend/http-api.mdx)负责协议细节；本文补充它们之间的执行链、证据和待验证边界。下文中的 **Pi runtime** 指运行在 Node.js 进程中的 Pi SDK 会话执行器；**bridge** 指 Go 控制面与 Node runtime 之间的受控请求通道；**SSE**（Server-Sent Events，服务器向浏览器单向推送事件）指 Agent 前端的观察和回放通道；**Skill** 指产品内版本化的工作流参考材料，和项目协作者使用的 `.agents/skills` 不是同一条加载路径。
 
+如果只关心浏览器端 Agent UI 是否采用第三方框架、哪些部分是项目自研，请配合阅读[影策 Agent UI 框架与自研实现深度调研](agent-ui-framework-and-implementation-research.md)；本文重点放在跨前端、Go 控制面和 Pi runtime 的完整执行链。
+
 ## TL;DR
 
 当前的 Agent 是一个由浏览器、Go 控制面、任务系统和 Pi Node runtime 组成的持久化执行系统。它不是“前端把聊天消息发给一个模型 API”这么简单，也不是一个拥有服务器文件系统权限的通用 Coding Agent。

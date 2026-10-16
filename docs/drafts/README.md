@@ -28,6 +28,7 @@
 - [用火山方舟（Ark）密钥 Seed 模型数据](seed-volcengine-ark-models.md)：从外部 `api-server/.env` 导入环境变量 → 用 seed 脚本灌入 Seedance 2.0 视频 / 即梦 5.0 Lite 图片 / Grok 文本模型的可重放步骤（`scripts/dev-seed-models/seed.ark.yaml`），并说明不 seed 时在 Web UI（系统渠道 `/admin/channels` / 个人渠道）手动新增模型的对照入口。
 - [云端 Agent 深度调研报告](cloud-agent-deep-research.md)：Agent 能力矩阵、前端面板、Go 控制面、Pi bridge、Skill 生命周期、画布读写、媒体审批、持久化恢复、排障和开发者导读。
 - [Agent 能力与技术实现全景调研](agent-capabilities-and-architecture-research.md)：对照画布云端 Agent 与助手消息内的创作交互，梳理产品能力、不同执行合同、持久化/审批边界和架构取舍。
+- [影策 Agent UI 框架与自研实现深度调研](agent-ui-framework-and-implementation-research.md)：核对 assistant-ui、CopilotKit、Ant Design X、Streamdown 等依赖边界，梳理自研 Agent 面板、SSE、审批、画布同步、会话恢复和 Vue/Java 迁移含义。
 - [技能广场与 Skill 运行机制调研](skills-usage-and-runtime-research.md)：解释 `/skills` 中产品技能的用途、加入和选用方式、云端 Agent 与普通创作入口的加载差异，以及技能文本和实际工具能力的边界。
 - [SKILL 与关键 Prompt 资产盘点](skill-asset-inventory.md)：按仓库锚点盘点产品内置 Skill、Skill 支撑卡片、仓库协作 Skill、后端策略/模板和前端镜头 Prompt 资产；不替代运行机制报告。
 - [画布系统深度调研报告](canvas-deep-research.md)：面向准备自建 AI 视频创作画布的开发者，讲七层状态模型、数据模型、三方合并、生成回写、资源完整性、渲染性能与实施清单。
