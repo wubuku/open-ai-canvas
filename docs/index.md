@@ -8,7 +8,7 @@
 - [画布开发导航](content/docs/canvas/canvas-development.mdx)：从节点模型、状态与同步到生成回写、Agent、插件和排障入口。
 - [功能清单](content/docs/overview/features.mdx)：按产品能力查找功能现状和相关专题。
 - [代码功能地图](content/docs/backend/code-map.mdx)：从功能入口定位页面、API、handler、app 和协作模块。
-- [本地开发](content/docs/backend/local-development.mdx)：本地启动、数据目录和相关开发约束。
+- [本地开发](content/docs/backend/local-development.mdx)：本地启动、数据目录和相关开发约束；一键脚本 `scripts/dev.sh`、模型 seed 与数据重置的完整循环见 [草稿区指引](drafts/local-dev-quickstart.md) 和 `scripts/dev-seed-models/README.md`。
 - [HTTP API](content/docs/backend/http-api.mdx)：响应信封、任务、SSE、模型和 Agent 协议边界。
 - [云端 Agent 深度调研报告](drafts/cloud-agent-deep-research.md)：跨前端、Go 控制面、Pi runtime、Skill、画布工具、媒体任务和恢复机制的深度导航；未完成真实端到端验收的内容已明确标注。
 - [Agent 能力与技术实现全景调研](drafts/agent-capabilities-and-architecture-research.md)：区分服务端画布 Agent 与浏览器创作交互两套运行合同，概览能力、工具、执行、并发和未验证边界。

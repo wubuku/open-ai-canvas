@@ -5,6 +5,18 @@ description: 在宿主机启动影策前后端开发服务
 
 # 本地开发
 
+## 一键启动（macOS / Linux）
+
+在仓库根目录执行：
+
+```bash
+./scripts/dev.sh
+```
+
+脚本会检查 `go` / `bun` / `npm`，端口空闲（默认后端 `28080` / 前端 `28300`，可用 `--backend-port` / `--frontend-port` 或环境变量覆盖）时按需安装依赖、编译启动前后端并做健康检查；端口被占时默认报错退出，加 `--force=kill` 先杀占用进程。启动后访问 [http://localhost:28300](http://localhost:28300)，`Ctrl+C` 同停前后端。
+
+本地 dev 的模型渠道/逻辑模型可以用 seed 脚本批量注入，测试数据清空重来见 `scripts/dev-seed-models/README.md`（脚本内文档）与 `docs/drafts/local-dev-quickstart.md`（草稿区指引）。
+
 ## Compose 公网资源地址
 
 `docker-compose.yml`、`docker-compose.dev.yml`、`docker-compose.local.yml`、`docker-compose.server.yml` 和 `docker-compose.deploy.yml` 均将 `.env` 中的 `CANVAS_PUBLIC_BASE_URL` 传入后端。使用本地文件存储且上游模型需要读取参考素材时，将它设为上游能访问的 HTTPS 站点根地址（例如 `https://canvas.example.com`，不要附加 `/api`）；存储设置中的公网访问地址优先于该环境变量。

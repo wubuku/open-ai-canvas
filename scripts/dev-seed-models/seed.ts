@@ -8,6 +8,8 @@
  * 运行（需要 bun，Node 22+ 亦可）：
  *   bun scripts/dev-seed-models/seed.ts [seed.json | seed.yaml]
  * 未指定文件时读取 scripts/dev-seed-models/seed.local.json（或 seed.local.yaml）。
+ * 清单可写裸文件名（如 seed.quick.yaml）：依次按当前 CWD / 仓库根 / 脚本目录查找，
+ * 从任何目录运行都能命中仓库内置清单。
  *
  * 清单支持 JSON 与 YAML 两种格式（按扩展名区分），并支持引用环境变量：
  *   apiKey: ${OPENAI_API_KEY}            —— 敏感密钥只放环境变量，绝不写进清单。
@@ -428,6 +430,24 @@ function expandEnv(value: unknown): unknown {
   return value;
 }
 
+/**
+ * 解析清单路径为可读的绝对/仓库相对路径，消除「文档写裸文件名、bun 按 CWD 找不到」的坑：
+ * 相对路径依次按 1) 当前 CWD 2) 仓库根 3) 脚本所在目录 查找，命中第一个存在的文件；
+ * 三处都没有时返回 CWD 下的原值，让 loadConfig 报出贴近用户输入的 ENOENT。
+ */
+async function resolveManifestPath(input: string): Promise<string> {
+  if (input.startsWith("/") || input.startsWith("http")) return input;
+  const candidates = [
+    input,
+    `${import.meta.dir}/../../${input}`,
+    `${import.meta.dir}/${input}`,
+  ];
+  for (const candidate of candidates) {
+    if (await Bun.file(candidate).exists()) return candidate;
+  }
+  return input;
+}
+
 /** 读取并解析清单（按扩展名选 JSON / YAML），随后展开环境变量引用。 */
 async function loadConfig(path: string): Promise<SeedConfig> {
   let raw: string;
@@ -735,13 +755,14 @@ async function main() {
   let configPath = args.find((a) => !a.startsWith("--"));
   if (!configPath) {
     // 缺省先看 seed.local.json，没有再看 seed.local.yaml（二者都被 .gitignore 忽略）。
-    configPath = "scripts/dev-seed-models/seed.local.json";
+    // 按脚本目录定位，与当前 CWD 无关。
+    configPath = `${import.meta.dir}/seed.local.json`;
     if (!(await Bun.file(configPath).exists())) {
-      const alt = "scripts/dev-seed-models/seed.local.yaml";
+      const alt = `${import.meta.dir}/seed.local.yaml`;
       if (await Bun.file(alt).exists()) configPath = alt;
     }
   }
-  const config: SeedConfig = await loadConfig(configPath);
+  const config: SeedConfig = await loadConfig(await resolveManifestPath(configPath));
 
   // 清单静态校验。
   for (const channel of config.channels) {

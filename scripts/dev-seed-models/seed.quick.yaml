@@ -7,10 +7,13 @@
 #
 # 用法：
 #   export OPENAI_API_KEY=sk-...          # 先注入密钥
+#   ./scripts/dev.sh                      # 先起前后端（后端 :28080）
 #   NO_PROXY=127.0.0.1,localhost bun scripts/dev-seed-models/seed.ts seed.quick.yaml
+#   # （清单路径写裸文件名即可，脚本自动按 CWD/仓库根/脚本目录查找）
 #   # 若用 YAML 报缺依赖：cd scripts/dev-seed-models && bun install
 
-backendBaseUrl: http://localhost:8080/api
+# dev.sh 起的后端在 :28080；手动 go run 在 :8080。二选一，或删掉本行用脚本默认 8080。
+backendBaseUrl: ${CANVAS_BACKEND_BASE_URL:-http://127.0.0.1:28080/api}
 
 admin:
   username: admin

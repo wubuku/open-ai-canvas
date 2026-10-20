@@ -2,7 +2,7 @@
 title: 本地前后端构建与快速启动指引
 status: draft
 scope: guide
-updated: 2026-10-10
+updated: 2026-10-20
 ---
 
 # 本地前后端构建与快速启动指引
@@ -25,6 +25,9 @@ updated: 2026-10-10
 # 3. 注入模型渠道/模型/价格（密钥走环境变量，见 scripts/dev-seed-models/README.md）
 export OPENAI_API_KEY=sk-...
 NO_PROXY=127.0.0.1,localhost bun scripts/dev-seed-models/seed.ts seed.quick.yaml
+# （清单路径可写裸文件名，脚本按 CWD/仓库根/脚本目录查找；seed.quick.yaml 的
+#  backendBaseUrl 缺省指向 dev.sh 的 :28080，手动 go run :8080 时改清单或
+#  export CANVAS_BACKEND_BASE_URL=http://127.0.0.1:8080/api）
 ```
 
 三者的关系与「留档」要点：
@@ -32,8 +35,8 @@ NO_PROXY=127.0.0.1,localhost bun scripts/dev-seed-models/seed.ts seed.quick.yaml
 | 脚本 | 作用 | 幂等/安全 | 说明 |
 | --- | --- | --- | --- |
 | `scripts/dev-reset.sh` | 删除 `.local/project-workbench-debug/open_ai_canvas.db(+wal/shm)`，回到空库 | 后端仍运行时**拒绝删除**（`lsof` 探活，防写坏数据）；`--yes` 跳过交互确认；保留 `.settings-key`/插件/技能包 | 只删数据库文件，**不动数据库内容**、不误伤开发者配置 |
-| `scripts/dev.sh` | 编译并启动前后端，健康检查就绪后打印地址 | 内置不常用默认端口；端口占用即报错退出（`--force=kill` 先杀）、按需装依赖，`Ctrl+C` 递归清理进程 | 详见下方「零」节 |
-| `scripts/dev-seed-models/seed.ts` | 按清单批量注入渠道+渠道模型+逻辑模型+价格 | 渠道按名复用、模型按 `modelKey` 去重、逻辑模型 `code` 已存在则跳过，可反复跑 | JSON/YAML 清单，密钥用 `${VAR}` 引用环境变量；详见 `scripts/dev-seed-models/README.md` |
+| `scripts/dev.sh` | 编译并启动前后端，健康检查就绪后打印地址与下一步指引 | 内置不常用默认端口；端口占用即报错退出（`--force=kill` 先杀）、按需装依赖，`Ctrl+C` 递归清理进程；等待中哪侧进程退出就贴哪侧日志 | 详见下方「零」节 |
+| `scripts/dev-seed-models/seed.ts` | 按清单批量注入渠道+渠道模型+逻辑模型+价格（可选存储/方舟素材库） | 渠道按名复用、模型按 `modelKey` 去重、逻辑模型 `code` 已存在则跳过，可反复跑 | JSON/YAML 清单，密钥用 `${VAR}` 引用环境变量；清单路径可写裸文件名（按 CWD/仓库根/脚本目录查找）；详见 `scripts/dev-seed-models/README.md` |
 
 所以「开发 → 测脏了 → 重来」的标准循环就是：`dev.sh` 起服务 → 注册账号测试 → 想清空时 `Ctrl+C` 停后端 → `dev-reset.sh --yes` → 重新 `dev.sh` + `seed.ts`。
 
@@ -169,5 +172,7 @@ export NO_PROXY=127.0.0.1,localhost
 - `./scripts/dev.sh` 端口规则（2026-10-10）：默认端口后端 `28080` / 前端 `28300`；占用时默认报错退出（默认端口与环境变量覆盖均验证）、`--force=kill` 先杀占用进程再启动、`--backend-port`/`--frontend-port` 覆盖生效；前后端健康检查通过，`Ctrl+C` 后进程与端口均干净释放。
 
 - 完整闭环已实测（2026-10-10）：`dev-reset.sh --yes` 清空 → `dev.sh` 起服务（默认 28080/28300，前后端就绪）→ `seed.ts` 灌入 3 渠道 5 前台逻辑模型（Seedance 2.0 视频 + 即梦 5.0 Lite 图片 + Grok 4.5/4.6/4.7 文本，真实密钥）→ 停止后端口均释放。详见 `seed-volcengine-ark-models.md`「验证记录」。
+
+- 整改回归（2026-10-20）：`dev.sh --help` 正常、未知参数报错且实测 `exit 1`；端口占用（第三方进程监听 28080）报错退出（输出核对 `die` 提示，未做管道外 exit 码复测）；真实启动前后端健康检查通过、`Ctrl+C` 干净释放；`seed.ts` 裸路径清单（`seed.quick.yaml`）此前从仓库根运行 ENOENT，修复后按 CWD/仓库根/脚本目录查找命中（仓库根与外部目录两种 CWD 均实测），停在缺 `OPENAI_API_KEY` 守卫、零落库；`--list-protocols`、空渠道冒烟（登录 admin 成功、0 渠道）均实测通过。`dev.sh` 就绪后新增「下一步」指引（注册账号 → seed → reset 循环）。
 
 未做实：任务生成、SSE、生成计费等业务级运行验收（生成任务需真实模型密钥，见 `seed-volcengine-ark-models.md` 关于真实密钥那一段）；登录与模型 seed 的落库、幂等已通过上述闭环验证。

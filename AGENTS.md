@@ -12,7 +12,7 @@
 | --- | --- | --- | --- |
 | `web/` | Vite、React 19、TypeScript、React Router、Ant Design、Tailwind、Zustand、TanStack Query | `web/src/application.tsx`、`web/src/router.tsx` | 工作区 UI、画布交互、浏览器缓存、API 调用和模型协议适配 |
 | `backend/` | Go 1.25、Gin、GORM、SQLite/PostgreSQL、Redis 协调 | `backend/cmd/server/main.go` | 登录、权限、业务 API、任务队列、资源、模型中转和后台管理 |
-| `docs/` | Next.js、Fumadocs、MDX | `docs/content/docs/` | 面向用户和开发者的专题文档；构建配置见 `docs/source.config.ts` |
+| `docs/` | Markdown、MDX、设计记录和研究草稿 | `docs/index.md`、`docs/content/docs/` | 面向用户、开发者和 Agent 的事实、设计和验证记录 |
 
 根目录的 `Dockerfile` 构建前端静态镜像；`nginx.conf` 托管 SPA 并代理后端。`docker-compose.dev.yml` 是源码热更新开发编排，`docker-compose.local.yml` 是本地构建运行，`docker-compose.deploy.yml` 是 PostgreSQL + Redis 部署编排。
 
@@ -20,9 +20,9 @@
 
 ### Agent 本地开发
 
-详细说明请参考 [docs/AGENT_LOCAL_DEVELOPMENT.md](docs/AGENT_LOCAL_DEVELOPMENT.md)。
+macOS / Linux 一键启动（推荐）：`./scripts/dev.sh`（依赖缺才装、固定默认端口、健康检查、`Ctrl+C` 同停前后端）。Windows 用 `scripts/start-local.ps1`。完整 dev 工作循环（启动 → seed 模型 → 清空重来）见 `scripts/dev-seed-models/README.md` 与 `docs/drafts/local-dev-quickstart.md`。
 
-**快速启动**：
+**手动分步启动**：
 
 ```bash
 # 1. 安装 Agent runtime 依赖

@@ -2222,6 +2222,14 @@ PR #507 核心能力已按主分支实现保留，并补齐小视口尺寸约束
 - [ ] 在一台依赖已安装和一台全新工作区分别运行 `.\scripts\start-local.ps1`。
 - [ ] 验证端口被占用时脚本会安全退出，且不会关闭已有进程或使用正式开发数据目录。
 
+## macOS / Linux 一键 dev 工具链
+
+- [x] `./scripts/dev.sh` 默认端口启动前后端、健康检查通过、`Ctrl+C` 干净释放（2026-10-20 复验）。
+- [x] `seed.ts` 裸路径清单查找、缺密钥守卫、`--list-protocols` 实测通过（2026-10-20 复验）。
+- [ ] 全新工作区（无 `node_modules`、无 `.local/`）从零运行 `./scripts/dev.sh` 的完整路径。
+- [ ] `--force=kill` 杀掉非本脚本启动的占用进程后再启动（当前仅脚本自身复验）。
+- [ ] `dev-reset.sh --yes` → `dev.sh` → `seed.ts` 闭环在 PostgreSQL 模式下的行为（当前仅 SQLite 验证）。
+
 ## 画布生成结果资源恢复
 
 - [x] `web` 前端 TypeScript 检查与生产构建通过。

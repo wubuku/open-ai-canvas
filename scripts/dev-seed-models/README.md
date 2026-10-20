@@ -3,14 +3,17 @@
 向本地后端批量注入渠道 + 渠道模型 + 前台逻辑模型，免去在 Web UI 里逐条手工填写。
 
 > 只面向本地 / 可信开发环境。清单文件可含真实上游地址和价格，但**密钥应通过环境变量注入，不要写进清单**（`seed.local.json` / `seed.local.yaml` 已被 `.gitignore` 忽略）。
+>
+> 本脚本与 `scripts/dev.sh`（一键启动前后端）、`scripts/dev-reset.sh`（清空测试残留）构成完整 dev 工作循环，总览见 `docs/drafts/local-dev-quickstart.md`。
 
 ## 快速上手（本地 dev 最快的路径）
 
 本地 dev 的「计费」无关紧要，最短只要三件事：**注入密钥 → 写最小清单 → 跑一次**。
 
 ```bash
-# 1. 先确保后端已启动（后端默认监听 :8080）
-cd backend && CANVAS_BACKEND_DATA_DIR=../.local/project-workbench-debug go run ./cmd/server
+# 1. 先确保后端已启动（推荐 ./scripts/dev.sh 一键启动，默认后端 :28080；
+#    手动 go run 则默认 :8080，见下方「清单格式」的 backendBaseUrl 说明）
+./scripts/dev.sh
 
 # 2. 密钥放环境变量，写一个最小清单（可复制 seed.quick.yaml 改模型名）
 export OPENAI_API_KEY=sk-...
@@ -19,6 +22,8 @@ export OPENAI_API_KEY=sk-...
 cd scripts/dev-seed-models && bun install && cd ../..
 bun scripts/dev-seed-models/seed.ts seed.quick.yaml
 ```
+
+> 清单路径可写裸文件名（如 `seed.quick.yaml`）：脚本会依次按当前目录、仓库根、脚本目录查找，从任何目录运行都能找到仓库内置清单。
 
 最小清单长这样（`seed.quick.yaml` 的节选）：
 
@@ -66,7 +71,7 @@ NO_PROXY=127.0.0.1,localhost bun scripts/dev-seed-models/seed.ts my-seed.yaml
 
 参考 `seed.example.json`（JSON、完整字段）、`seed.quick.yaml`（YAML、最小字段）和 `seed.ark.yaml`（火山方舟 Seedance/Seedream/Doubao，密钥引用外部 `.env` 的 `${VAR}`）。字段如下：
 
-- `backendBaseUrl`：后端 API 根地址，缺省 `http://localhost:8080/api`（脚本内置默认，对应手动 `go run`）。`seed.ark.yaml` 显式写 `http://127.0.0.1:28080/api`，对应 `./scripts/dev.sh` 的内置后端端口 28080。
+- `backendBaseUrl`：后端 API 根地址。脚本内置缺省 `http://localhost:8080/api`（对应手动 `go run`）；`./scripts/dev.sh` 的内置后端端口是 28080，所以 `seed.quick.yaml` 写 `${CANVAS_BACKEND_BASE_URL:-http://127.0.0.1:28080/api}`（手动 8080 时 `export CANVAS_BACKEND_BASE_URL=http://127.0.0.1:8080/api` 覆盖即可），`seed.ark.yaml` 显式写 `http://127.0.0.1:28080/api`。
 - `admin`：用于登录 / 注册的管理员账号。若账不存在，脚本会注册（**库中尚无用户时，首个注册用户自动成为管理员**）；已存在则直接登录。
 - `channels[]`：每个渠道对应一个上游接入：
   - `name`、`baseUrl`、`apiKey`（或 `secretKey`）、可选 `headers`。

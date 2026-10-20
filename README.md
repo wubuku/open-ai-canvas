@@ -109,6 +109,12 @@ bun run dev
 
 打开 <http://localhost:3000>。首次使用时注册管理员账号，并在设置中配置模型渠道。前端默认将 `/api` 代理到 `http://127.0.0.1:8080`；如需修改代理目标，可设置 `VITE_API_PROXY_TARGET`。
 
+macOS / Linux 可用一键脚本替代上面两个终端（默认后端 `28080` / 前端 `28300`，`Ctrl+C` 同停）：
+
+```bash
+./scripts/dev.sh
+```
+
 Windows PowerShell 用户可在仓库根目录执行：
 
 ```powershell

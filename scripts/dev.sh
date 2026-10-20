@@ -216,12 +216,17 @@ wait_http() {
             log "${label} 就绪 ✅"
             return 0
         fi
-        # 服务已退出则立刻报错，不再空等。
-        kill -0 "$BACKEND_PID" 2>/dev/null || kill -0 "$WEB_PID" 2>/dev/null || {
-            warn "${label} 启动失败，日志见 ${logfile}："
-            tail -n 20 "$logfile" >&2 || true
+        # 服务已退出则立刻报错，不再空等。退出的是哪一侧就贴哪一侧的日志，避免误导。
+        if ! kill -0 "$BACKEND_PID" 2>/dev/null; then
+            warn "${label} 等待中后端进程已退出，后端日志 ${BACKEND_LOG}："
+            tail -n 20 "$BACKEND_LOG" >&2 || true
             return 1
-        }
+        fi
+        if ! kill -0 "$WEB_PID" 2>/dev/null; then
+            warn "${label} 等待中前端进程已退出，前端日志 ${WEB_LOG}："
+            tail -n 20 "$WEB_LOG" >&2 || true
+            return 1
+        fi
         sleep 1
     done
     warn "${label} 未在 3 分钟内就绪，日志见 ${logfile}："
@@ -237,6 +242,12 @@ log "影策本地 dev 环境已就绪："
 log "  前端  http://localhost:${FRONTEND_PORT}"
 log "  后端  http://127.0.0.1:${BACKEND_PORT}"
 log "按 Ctrl+C 同时停止前后端。"
+log "下一步："
+log "  · 浏览器打开前端地址注册账号（首个注册用户自动成为管理员）。"
+log "  · 需要模型配置时跑 seed（幂等可重复，清单与写法见 scripts/dev-seed-models/README.md）："
+log "      export OPENAI_API_KEY=sk-...   # 或其它渠道密钥"
+log "      NO_PROXY=127.0.0.1,localhost bun scripts/dev-seed-models/seed.ts seed.quick.yaml"
+log "  · 测试数据测脏了想重来：Ctrl+C 停止后 ./scripts/dev-reset.sh --yes，再回到本脚本。"
 
 # 保持前台运行，任一服务退出则收尾退出。
 while kill -0 "$BACKEND_PID" 2>/dev/null; do
